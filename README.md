@@ -74,9 +74,10 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
    ```
 
 5. **Run on your preferred platform**
-   - **iOS**: `npm run ios` or press `i` in the terminal
+   - **Expo Go**: Download [Expo Go](https://expo.dev/go) app on your mobile device and scan the QR code in the terminal. Make sure to select `SDK 53` as the SDK version.
+   - **iOS**: `pnpm run ios` or press `i` in the terminal
    - **Android**: `pnpm run android` or press `a` in the terminal
-
+   
 ---
 
 #### Optional: Set Up Local Supabase Development

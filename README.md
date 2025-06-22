@@ -38,6 +38,12 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
 - **Auto Rename Tag**
 - **Bracket Pair Colorizer**
 
+### Resources
+- [Expo Documentation](https://docs.expo.dev/)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Supabase Local Development Documentation](https://supabase.com/docs/guides/local-development)
+- [Nativewind Documentation](https://www.nativewind.dev/)
+
 ### Installation & Setting Up Dev Environment
 
 1. **Clone the repository**
@@ -95,11 +101,21 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
    supabase start
    ```
 
-4. **Access local services**
+   You will see a message like this in the terminal:
 
-   - **Studio**: <http://localhost:54323>
-   - **API**: <http://localhost:54321>
-   - **Auth**: <http://localhost:54321/auth/v1>
+   ```sh
+   Started supabase local development setup.
+
+         API URL: http://localhost:54321
+          DB URL: postgresql://postgres:postgres@localhost:54322/postgres
+      Studio URL: http://localhost:54323
+    Inbucket URL: http://localhost:54324
+        anon key: eyJh......
+   service_role key: eyJh......
+   ```
+
+   The `API URL` and `anon key` are the environment variables you need to configure in the next step.
+
 
 5. **Update your `.env.local` for local development**
 
@@ -107,6 +123,14 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
    EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
    ```
+   
+6. **Access local services**
+
+   - **Studio**: <http://localhost:54323>
+   - **API**: <http://localhost:54321>
+   - **Auth**: <http://localhost:54321/auth/v1>
+
+
 
 > Make sure to revert your .env.local file if switching back to the hosted Supabase project.
 

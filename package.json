@@ -9,7 +9,8 @@
     "prebuild": "expo prebuild",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "gen:types": "supabase gen types typescript --local > types/database.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
@@ -44,8 +45,15 @@
     "eslint-config-prettier": "^10.1.2",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.5.14",
+    "supabase": "^2.26.9",
     "tailwindcss": "^3.4.0",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "supabase",
+      "unrs-resolver"
+    ]
+  }
 }

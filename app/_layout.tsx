@@ -1,13 +1,14 @@
 import "~/global.css";
 import { AppStateStatus, Platform } from "react-native";
+import * as Network from "expo-network";
 import { Stack } from "expo-router";
 import {
   QueryClient,
   QueryClientProvider,
   focusManager,
+  onlineManager,
 } from "@tanstack/react-query";
 import { useAppState } from "~/hooks/useAppState";
-import { useOnlineManager } from "~/hooks/useOnlineManager";
 
 function onAppStateChange(status: AppStateStatus) {
   // React Query already supports in web browser refetch on window focus by default
@@ -16,15 +17,22 @@ function onAppStateChange(status: AppStateStatus) {
   }
 }
 
-export default function Layout() {
-  // react-query refetch on network reconnect
-  useOnlineManager();
+// react-query refetch on network reconnect
+onlineManager.setEventListener((setOnline) => {
+  const eventSubscription = Network.addNetworkStateListener((state) => {
+    setOnline(!!state.isConnected);
+  });
+  return eventSubscription.remove;
+});
 
+const queryClient = new QueryClient();
+
+export default function Layout() {
   // react-query refetch on app focus
   useAppState(onAppStateChange);
 
   return (
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }} />
     </QueryClientProvider>
   );

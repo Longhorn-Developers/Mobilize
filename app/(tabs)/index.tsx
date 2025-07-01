@@ -10,12 +10,15 @@ export default function Home() {
   );
 
   useEffect(() => {
-    console.log("Fetched avoidance areas:", avoidanceAreas);
+    console.log(
+      "Fetched avoidance areas:",
+      avoidanceAreas?.map((area) => area.name),
+    );
   }, [avoidanceAreas]);
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ title: "Home", headerShown: false }} />
       <MapView
         style={{ flex: 1 }}
         initialRegion={{

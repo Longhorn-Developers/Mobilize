@@ -55,8 +55,6 @@ export function ReportModal({
 }: ReportModeDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = steps.length;
-
-  const canGoNext = currentStep < totalSteps - 1;
   const canGoPrevious = currentStep > 0;
   const isLastStep = currentStep === totalSteps - 1;
 

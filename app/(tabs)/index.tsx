@@ -99,17 +99,19 @@ export default function Home() {
       />
 
       {/* Report Mode Dialog */}
-      <ReportModal
-        className="absolute left-12 right-12 top-20"
-        isVisible={isReportMode}
-        aaPoints={aaPoints}
-        onSubmit={() => {
-          console.log("Submitting avoidance area points:", aaPoints);
-          setAAPoints([]);
-          setIsReportMode(false);
-        }}
-        onClearPoints={() => setAAPoints([])}
-      />
+      {isReportMode && (
+        <ReportModal
+          className="absolute left-12 right-12 top-20"
+          isVisible={isReportMode}
+          aaPoints={aaPoints}
+          onSubmit={() => {
+            console.log("Submitting avoidance area points:", aaPoints);
+            setAAPoints([]);
+            setIsReportMode(false);
+          }}
+          onClearPoints={() => setAAPoints([])}
+        />
+      )}
     </>
   );
 }

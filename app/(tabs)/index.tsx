@@ -36,6 +36,7 @@ export default function Home() {
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
       <MapView
+        showsMyLocationButton
         style={{ flex: 1 }}
         onPress={handleMapPress}
         initialRegion={{
@@ -84,8 +85,11 @@ export default function Home() {
       {/* Bottom right button to enter report mode */}
       <Button
         className="absolute bottom-4 right-4"
-        title={isReportMode ? "Exit Report Mode" : "Report Area"}
-        onPress={() => setIsReportMode(!isReportMode)}
+        title={isReportMode ? "Exit Report" : "Report"}
+        onPress={() => {
+          setAAPoints([]);
+          setIsReportMode(!isReportMode);
+        }}
       />
 
       {/* Report Mode Dialog */}
@@ -93,14 +97,9 @@ export default function Home() {
         className="absolute left-12 right-12 top-20"
         isVisible={isReportMode}
         aaPoints={aaPoints}
-        onCancel={() => {
-          setIsReportMode(false);
-          setAAPoints([]);
-        }}
         onSubmit={() => {
-          console.log("Submitting report with points:", aaPoints);
-          setIsReportMode(false);
           setAAPoints([]);
+          setIsReportMode(false);
         }}
         onClearPoints={() => setAAPoints([])}
       />

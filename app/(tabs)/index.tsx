@@ -104,6 +104,7 @@ export default function Home() {
         isVisible={isReportMode}
         aaPoints={aaPoints}
         onSubmit={() => {
+          console.log("Submitting avoidance area points:", aaPoints);
           setAAPoints([]);
           setIsReportMode(false);
         }}

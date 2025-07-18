@@ -5,7 +5,8 @@ import { Database } from '~/types/database';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+//FOR TESTING, USE NGROK EXPOSED URL. FOR PRODUCTION SWITCH BACK TO SUPABASE URL
+export const supabase = createClient<Database>("https://6557c18cd149.ngrok-free.app", supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

@@ -6,7 +6,6 @@ interface ReportModeDialogProps {
   className?: string;
   isVisible: boolean;
   aaPoints: LatLng[];
-  onCancel: () => void;
   onSubmit: () => void;
   onClearPoints: () => void;
 }
@@ -15,7 +14,6 @@ export function ReportModal({
   className,
   isVisible,
   aaPoints,
-  onCancel,
   onSubmit,
   onClearPoints,
 }: ReportModeDialogProps) {

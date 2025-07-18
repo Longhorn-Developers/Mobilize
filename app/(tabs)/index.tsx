@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { useState } from "react";
+import { View } from "react-native";
 import MapView, {
   Polygon,
   Marker,
@@ -81,6 +82,11 @@ export default function Home() {
           />
         ))}
       </MapView>
+
+      {/* Report mode overlay tint */}
+      {isReportMode && (
+        <View className="bg-ut-blue/15 pointer-events-none absolute bottom-0 left-0 right-0 top-0" />
+      )}
 
       {/* Bottom right button to enter report mode */}
       <Button

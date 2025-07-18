@@ -32,9 +32,9 @@ export const Button = forwardRef<View, ButtonProps>(
 Button.displayName = "Button";
 
 const styles = {
-  button: "items-center rounded-lg shadow-md p-4",
+  button: "items-center rounded-md shadow-md py-2 px-4",
   primaryButton: "bg-ut-burntorange",
-  disabledButton: "bg-theme-majorgridline",
+  disabledButton: "bg-ut-black/20",
   buttonText: "text-lg font-semibold text-center",
   primaryButtonText: "text-white",
   disabledButtonText: "text-black",

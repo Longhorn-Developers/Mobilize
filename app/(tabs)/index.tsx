@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import MapView, {
   Polygon,
   Marker,
@@ -83,14 +83,7 @@ export default function Home() {
         ))}
       </MapView>
 
-      {/* Bottom right button to enter report mode */}
-      <Button
-        className="absolute bottom-4 right-4"
-        title={"Report"}
-        onPress={() => setIsReportMode(true)}
-      />
-
-      {isReportMode && (
+      {isReportMode ? (
         <>
           {/* Report mode overlay tint */}
           <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
@@ -98,8 +91,6 @@ export default function Home() {
           <ReportModal
             className="absolute left-10 right-10 top-20"
             isVisible={isReportMode}
-            aaPoints={aaPoints}
-            onClearPoints={() => setAAPoints([])}
             onSubmit={() => {
               console.log("Submitting avoidance area points:", aaPoints);
               setAAPoints([]);
@@ -110,7 +101,31 @@ export default function Home() {
               setIsReportMode(false);
             }}
           />
+          {aaPoints.length > 0 ? (
+            // Bottom right button for (undo|clear)
+            <View className="absolute bottom-4 right-4 mx-auto flex-row items-center justify-center rounded-full bg-white px-4 py-1">
+              <TouchableOpacity
+                onPress={() => setAAPoints((prev) => prev.slice(0, -1))}
+              >
+                <Text>Undo</Text>
+              </TouchableOpacity>
+
+              {/* Vertical separator line */}
+              <View className="mx-3 h-6 w-[2px] bg-ut-gray" />
+
+              <TouchableOpacity onPress={() => setAAPoints([])}>
+                <Text>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </>
+      ) : (
+        // Bottom right button to enter report mode
+        <Button
+          className="absolute bottom-4 right-4"
+          title={"Report"}
+          onPress={() => setIsReportMode(true)}
+        />
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, ReactNode } from "react";
 import {
   Text,
   TouchableOpacity,
@@ -7,12 +7,13 @@ import {
 } from "react-native";
 
 type ButtonProps = {
-  title: string;
+  title?: string;
+  children?: ReactNode;
   variant?: "primary" | "disabled" | "ghost";
 } & TouchableOpacityProps;
 
 export const Button = forwardRef<View, ButtonProps>(
-  ({ title, variant = "primary", ...touchableProps }, ref) => {
+  ({ title, children, variant = "primary", ...touchableProps }, ref) => {
     const getButtonStyle = () => {
       switch (variant) {
         case "disabled":
@@ -41,11 +42,11 @@ export const Button = forwardRef<View, ButtonProps>(
         {...touchableProps}
         className={`${styles.button} ${getButtonStyle()} ${touchableProps.className}`}
       >
-        <Text
-          className={`${styles.buttonText} ${getTextStyle()}`}
-        >
-          {title}
-        </Text>
+        {children || (
+          <Text className={`${styles.buttonText} ${getTextStyle()}`}>
+            {title}
+          </Text>
+        )}
       </TouchableOpacity>
     );
   },
@@ -57,7 +58,7 @@ const styles = {
   button: "items-center rounded-md shadow-md py-2 px-4",
   primaryButton: "bg-ut-burntorange",
   disabledButton: "bg-ut-black/20",
-  ghostButton: "bg-transparent border border-ut-burntorange",
+  ghostButton: "bg-transparent",
   buttonText: "text-lg font-semibold text-center",
   primaryButtonText: "text-white",
   disabledButtonText: "text-black",

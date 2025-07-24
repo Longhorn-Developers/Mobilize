@@ -12,7 +12,7 @@ const steps: Step[] = [
   {
     content: (
       <Text className="font-semibold">
-        Please indicate the problem area by marking five points on the map.
+        Please indicate the Avoidance Area (AA) by marking points on the map
       </Text>
     ),
   },
@@ -99,13 +99,16 @@ export function ReportModal({
         ))}
       </View>
 
-      {/* Step indicator text */}
-      <Text className="text-gray-600">
-        Step {currentStep + 1} of {totalSteps}
-      </Text>
+      {/* Steps */}
+      <View>
+        {/* Step indicator text */}
+        <Text className="mb-2 text-gray-600">
+          Step {currentStep + 1} of {totalSteps}
+        </Text>
 
-      {/* Step content */}
-      <View>{steps[currentStep]?.content}</View>
+        {/* Step content */}
+        <View>{steps[currentStep]?.content}</View>
+      </View>
 
       {/* Navigation buttons */}
       <View className="flex-row justify-between gap-2">

@@ -1,5 +1,5 @@
 import colors from "~/types/colors";
-import { WarningIcon } from "phosphor-react-native";
+import { WarningIcon, XIcon } from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
 import { type LatLng } from "react-native-maps";
@@ -46,6 +46,7 @@ interface ReportModeDialogProps {
   aaPoints: LatLng[];
   onClearPoints: () => void;
   onSubmit: () => void;
+  onExit: () => void;
 }
 
 export function ReportModal({
@@ -54,6 +55,7 @@ export function ReportModal({
   aaPoints,
   onClearPoints,
   onSubmit,
+  onExit,
 }: ReportModeDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = steps.length;
@@ -65,9 +67,16 @@ export function ReportModal({
   return (
     <>
       {/* Main Modal */}
-      <View
-        className={`rounded-lg border border-gray-200 bg-white p-4 shadow-lg ${className} gap-4`}
-      >
+      <View className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}>
+        {/* Exit Button */}
+        <Button
+          variant="ghost"
+          title=""
+          className="absolute right-[0.25] top-1"
+          onPress={onExit}
+        >
+          <XIcon size={28} color={colors.ut.gray} />
+        </Button>
         {/* Heading Container */}
         <View className="flex-row items-center gap-4">
           {/* Icon Container */}
@@ -78,7 +87,7 @@ export function ReportModal({
           {/* Heading and subheading */}
           <View>
             <Text className="text-4xl font-bold">Avoidance Area</Text>
-            <Text className="text-xl font-semibold">
+            <Text className="text-xl font-medium">
               Report a temporary blockage
             </Text>
           </View>

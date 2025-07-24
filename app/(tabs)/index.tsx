@@ -83,34 +83,34 @@ export default function Home() {
         ))}
       </MapView>
 
-      {/* Report mode overlay tint */}
-      {isReportMode && (
-        <View className="bg-ut-blue/15 pointer-events-none absolute bottom-0 left-0 right-0 top-0" />
-      )}
-
       {/* Bottom right button to enter report mode */}
       <Button
         className="absolute bottom-4 right-4"
-        title={isReportMode ? "Exit Report" : "Report"}
-        onPress={() => {
-          setAAPoints([]);
-          setIsReportMode(!isReportMode);
-        }}
+        title={"Report"}
+        onPress={() => setIsReportMode(true)}
       />
 
-      {/* Report Mode Dialog */}
       {isReportMode && (
-        <ReportModal
-          className="absolute left-12 right-12 top-20"
-          isVisible={isReportMode}
-          aaPoints={aaPoints}
-          onSubmit={() => {
-            console.log("Submitting avoidance area points:", aaPoints);
-            setAAPoints([]);
-            setIsReportMode(false);
-          }}
-          onClearPoints={() => setAAPoints([])}
-        />
+        <>
+          {/* Report mode overlay tint */}
+          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
+          {/* Report Mode Dialog */}
+          <ReportModal
+            className="absolute left-10 right-10 top-20"
+            isVisible={isReportMode}
+            aaPoints={aaPoints}
+            onClearPoints={() => setAAPoints([])}
+            onSubmit={() => {
+              console.log("Submitting avoidance area points:", aaPoints);
+              setAAPoints([]);
+              setIsReportMode(false);
+            }}
+            onExit={() => {
+              setAAPoints([]);
+              setIsReportMode(false);
+            }}
+          />
+        </>
       )}
     </>
   );

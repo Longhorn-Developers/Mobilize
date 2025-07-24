@@ -11,7 +11,6 @@ import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { Button } from "~/components/Button";
 import { ReportModal } from "~/components/ReportModal";
-import { ActionButtonGroup } from "~/components/ActionButtonGroup";
 
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
@@ -91,6 +90,9 @@ export default function Home() {
           {/* Report Mode Dialog */}
           <ReportModal
             className="absolute left-10 right-10 top-20"
+            aaPoints={aaPoints}
+            onUndoAAPoints={() => setAAPoints((prev) => prev.slice(0, -1))}
+            onClearAAPoints={() => setAAPoints([])}
             isVisible={isReportMode}
             onSubmit={() => {
               console.log("Submitting avoidance area points:", aaPoints);
@@ -102,18 +104,6 @@ export default function Home() {
               setIsReportMode(false);
             }}
           />
-          {aaPoints.length > 0 ? (
-            <ActionButtonGroup
-              actions={[
-                {
-                  label: "Undo",
-                  onPress: () => setAAPoints((prev) => prev.slice(0, -1)),
-                },
-                { label: "Clear", onPress: () => setAAPoints([]) },
-              ]}
-              className="absolute bottom-4 right-4"
-            />
-          ) : null}
         </>
       ) : (
         // Bottom right button to enter report mode

@@ -3,6 +3,8 @@ import { WarningIcon, XIcon } from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
 import { ReactNode, useState } from "react";
+import { type LatLng } from "react-native-maps";
+import { ActionButtonGroup } from "./ActionButtonGroup";
 
 interface Step {
   content: ReactNode;
@@ -41,6 +43,9 @@ const steps: Step[] = [
 
 interface ReportModeDialogProps {
   className?: string;
+  aaPoints: LatLng[];
+  onClearAAPoints: () => void;
+  onUndoAAPoints: () => void;
   isVisible: boolean;
   onSubmit: () => void;
   onExit: () => void;
@@ -48,6 +53,9 @@ interface ReportModeDialogProps {
 
 export function ReportModal({
   className,
+  aaPoints,
+  onClearAAPoints,
+  onUndoAAPoints,
   isVisible,
   onSubmit,
   onExit,
@@ -60,78 +68,89 @@ export function ReportModal({
   if (!isVisible) return null;
 
   return (
-    // Main Modal
-    <View className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}>
-      {/* Exit Button */}
-      <Button
-        variant="ghost"
-        title=""
-        className="absolute right-[0.25] top-1"
-        onPress={onExit}
-      >
-        <XIcon size={28} color={colors.ut.gray} />
-      </Button>
-      {/* Heading Container */}
-      <View className="flex-row items-center gap-4">
-        {/* Icon Container */}
-        <View className="rounded-lg bg-theme-red/20 p-3">
-          <WarningIcon size={24} color={colors.theme.red} />
-        </View>
-
-        {/* Heading and subheading */}
-        <View>
-          <Text className="text-4xl font-bold">Avoidance Area</Text>
-          <Text className="text-xl font-medium">
-            Report a temporary blockage
-          </Text>
-        </View>
-      </View>
-
-      {/* Progress Indicator */}
-      <View className="flex-row gap-2">
-        {Array.from({ length: totalSteps }, (_, index) => (
-          <View
-            key={index}
-            className={`h-2 flex-1 rounded-full ${
-              index <= currentStep ? "bg-ut-burntorange" : "bg-ut-black/20"
-            }`}
-          />
-        ))}
-      </View>
-
-      {/* Steps */}
-      <View>
-        {/* Step indicator text */}
-        <Text className="mb-2 text-gray-600">
-          Step {currentStep + 1} of {totalSteps}
-        </Text>
-
-        {/* Step content */}
-        <View>{steps[currentStep]?.content}</View>
-      </View>
-
-      {/* Navigation buttons */}
-      <View className="flex-row justify-between gap-2">
-        {canGoPrevious && currentStep > 0 && (
-          <Button
-            title="Previous"
-            variant="disabled"
-            onPress={() => setCurrentStep(currentStep - 1)}
-          />
-        )}
-
+    <>
+      {/* Main Modal */}
+      <View className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}>
+        {/* Exit Button */}
         <Button
-          title={isLastStep ? "Submit" : "Next"}
-          variant={"primary"}
-          onPress={() => {
-            if (isLastStep) {
-              onSubmit();
-            } else {
-              setCurrentStep(currentStep + 1);
-            }
-          }}
-        />
+          variant="ghost"
+          title=""
+          className="absolute right-[0.25] top-1"
+          onPress={onExit}
+        >
+          <XIcon size={28} color={colors.ut.gray} />
+        </Button>
+        {/* Heading Container */}
+        <View className="flex-row items-center gap-4">
+          {/* Icon Container */}
+          <View className="rounded-lg bg-theme-red/20 p-3">
+            <WarningIcon size={24} color={colors.theme.red} />
+          </View>
+
+          {/* Heading and subheading */}
+          <View>
+            <Text className="text-4xl font-bold">Avoidance Area</Text>
+            <Text className="text-xl font-medium">
+              Report a temporary blockage
+            </Text>
+          </View>
+        </View>
+
+        {/* Progress Indicator */}
+        <View className="flex-row gap-2">
+          {Array.from({ length: totalSteps }, (_, index) => (
+            <View
+              key={index}
+              className={`h-2 flex-1 rounded-full ${
+                index <= currentStep ? "bg-ut-burntorange" : "bg-ut-black/20"
+              }`}
+            />
+          ))}
+        </View>
+
+        {/* Steps */}
+        <View>
+          {/* Step indicator text */}
+          <Text className="mb-2 text-gray-600">
+            Step {currentStep + 1} of {totalSteps}
+          </Text>
+
+          {/* Step content */}
+          <View>{steps[currentStep]?.content}</View>
+        </View>
+
+        {/* Navigation buttons */}
+        <View className="flex-row justify-between gap-2">
+          {canGoPrevious && currentStep > 0 && (
+            <Button
+              title="Previous"
+              variant="disabled"
+              onPress={() => setCurrentStep(currentStep - 1)}
+            />
+          )}
+
+          <Button
+            title={isLastStep ? "Submit" : "Next"}
+            variant={"primary"}
+            onPress={() => {
+              if (isLastStep) {
+                onSubmit();
+              } else {
+                setCurrentStep(currentStep + 1);
+              }
+            }}
+          />
+        </View>
       </View>
-    </View>
+      {aaPoints.length > 0 ? (
+        <ActionButtonGroup
+          actions={[
+            { label: "Undo", onPress: onUndoAAPoints },
+            { label: "Clear", onPress: onClearAAPoints },
+          ]}
+          className="absolute bottom-4 right-4"
+        />
+      ) : null}
+    </>
   );
 }

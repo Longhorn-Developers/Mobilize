@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View } from "react-native";
 import MapView, {
   Polygon,
   Marker,
@@ -11,6 +11,7 @@ import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { Button } from "~/components/Button";
 import { ReportModal } from "~/components/ReportModal";
+import { ActionButtonGroup } from "~/components/ActionButtonGroup";
 
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
@@ -102,21 +103,16 @@ export default function Home() {
             }}
           />
           {aaPoints.length > 0 ? (
-            // Bottom right button for (undo|clear)
-            <View className="absolute bottom-4 right-4 mx-auto flex-row items-center justify-center rounded-full bg-white px-4 py-1">
-              <TouchableOpacity
-                onPress={() => setAAPoints((prev) => prev.slice(0, -1))}
-              >
-                <Text>Undo</Text>
-              </TouchableOpacity>
-
-              {/* Vertical separator line */}
-              <View className="mx-3 h-6 w-[2px] bg-ut-gray" />
-
-              <TouchableOpacity onPress={() => setAAPoints([])}>
-                <Text>Clear</Text>
-              </TouchableOpacity>
-            </View>
+            <ActionButtonGroup
+              actions={[
+                {
+                  label: "Undo",
+                  onPress: () => setAAPoints((prev) => prev.slice(0, -1)),
+                },
+                { label: "Clear", onPress: () => setAAPoints([]) },
+              ]}
+              className="absolute bottom-4 right-4"
+            />
           ) : null}
         </>
       ) : (

@@ -1,3 +1,5 @@
+import colors from "~/types/colors";
+import { WarningIcon } from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
 import { type LatLng } from "react-native-maps";
@@ -64,16 +66,26 @@ export function ReportModal({
     <>
       {/* Main Modal */}
       <View
-        className={`rounded-lg border border-gray-200 bg-white p-4 shadow-lg ${className}`}
+        className={`rounded-lg border border-gray-200 bg-white p-4 shadow-lg ${className} gap-4`}
       >
-        {/* Heading and subheading */}
-        <Text className="mb-2 text-4xl font-bold">Avoidance Area</Text>
-        <Text className="mb-4 text-xl font-semibold">
-          Report a temporary blockage
-        </Text>
+        {/* Heading Container */}
+        <View className="flex-row items-center gap-4">
+          {/* Icon Container */}
+          <View className="rounded-lg bg-theme-red/20 p-3">
+            <WarningIcon size={24} color={colors.theme.red} />
+          </View>
+
+          {/* Heading and subheading */}
+          <View>
+            <Text className="text-4xl font-bold">Avoidance Area</Text>
+            <Text className="text-xl font-semibold">
+              Report a temporary blockage
+            </Text>
+          </View>
+        </View>
 
         {/* Progress Indicator */}
-        <View className="mb-4 flex-row gap-2">
+        <View className="flex-row gap-2">
           {Array.from({ length: totalSteps }, (_, index) => (
             <View
               key={index}
@@ -85,12 +97,12 @@ export function ReportModal({
         </View>
 
         {/* Step indicator text */}
-        <Text className="mb-4 text-gray-600">
+        <Text className="text-gray-600">
           Step {currentStep + 1} of {totalSteps}
         </Text>
 
         {/* Step content */}
-        <View className="mb-4">{steps[currentStep]?.content}</View>
+        <View>{steps[currentStep]?.content}</View>
 
         {/* Navigation buttons */}
         <View className="flex-row justify-between gap-2">

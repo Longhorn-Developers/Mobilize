@@ -2,52 +2,39 @@ import colors from "~/types/colors";
 import { WarningIcon, XIcon } from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { type LatLng } from "react-native-maps";
 import { ActionButtonGroup } from "./ActionButtonGroup";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-interface Step {
-  content: ReactNode;
-}
+const reportFormSchema = z.object({
+  aaPoints: z
+    .array(
+      z.object({
+        latitude: z.number(),
+        longitude: z.number(),
+      }),
+    )
+    .min(
+      3,
+      "The selected area does not have enough points. Please place down at least 3 markers to continue.",
+    ),
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(500, "Description must not exceed 500 characters"),
+});
 
-const steps: Step[] = [
-  {
-    content: (
-      <Text className="font-semibold">
-        Please indicate the Avoidance Area (AA) by marking points on the map
-      </Text>
-    ),
-  },
-  {
-    content: (
-      <View>
-        <Text className="font-semibold">
-          Describe the blockage. What&apos;s the issue?
-        </Text>
-        <TextInput
-          multiline={true}
-          numberOfLines={4}
-          textAlignVertical="top"
-          className="mt-2 rounded border border-gray-300 px-4 py-3"
-          placeholder="Please describe any issues encountered in the blockage's surroundings..."
-        />
-      </View>
-    ),
-  },
-  {
-    content: (
-      <Text className="font-semibold">Review and submit your report.</Text>
-    ),
-  },
-];
+type ReportFormData = z.infer<typeof reportFormSchema>;
 
 interface ReportModeDialogProps {
   className?: string;
   aaPoints: LatLng[];
   onClearAAPoints: () => void;
   onUndoAAPoints: () => void;
-  isVisible: boolean;
-  onSubmit: () => void;
+  onSubmit: (data: ReportFormData & { aaPoints: LatLng[] }) => void;
   onExit: () => void;
 }
 
@@ -56,16 +43,106 @@ export function ReportModal({
   aaPoints,
   onClearAAPoints,
   onUndoAAPoints,
-  isVisible,
   onSubmit,
   onExit,
 }: ReportModeDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = steps.length;
-  const canGoPrevious = currentStep > 0;
-  const isLastStep = currentStep === totalSteps - 1;
 
-  if (!isVisible) return null;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+    setValue,
+    trigger,
+  } = useForm<ReportFormData>({ resolver: zodResolver(reportFormSchema), mode: "onSubmit" });
+  // Sync aaPoints with form whenever they change
+  useEffect(() => {
+    setValue("aaPoints", aaPoints);
+  }, [aaPoints, setValue]);
+
+  const handleFormSubmit = (data: ReportFormData) => {
+    // Include the aaPoints in the form data
+    const formDataWithPoints = {
+      ...data,
+      aaPoints,
+    };
+    onSubmit(formDataWithPoints);
+    onExit();
+  };
+
+  // Define steps with form integration
+  const steps: ReactNode[] = [
+    // Step 1: Mark Avoidance Area Points
+    <View key={1}>
+      <Text className="font-semibold">
+        Please indicate the Avoidance Area (AA) by marking points on the map
+      </Text>
+      {errors.aaPoints && (
+        <Text className="mt-2 text-sm text-red-500">
+          {errors.aaPoints.message}
+        </Text>
+      )}
+    </View>,
+    // Step 2: Describe the blockage
+    <View key={2}>
+      <Text className="font-semibold">
+        Describe the blockage. What&apos;s the issue?
+      </Text>
+      <Controller
+        control={control}
+        name="description"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <>
+            <TextInput
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+              className={`mt-2 rounded border px-4 py-3 ${
+                errors.description ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Please describe any issues encountered in the blockage's surroundings..."
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              maxLength={500}
+            />
+            <View className="mt-1 flex-row justify-between">
+              <View>
+                {errors.description && (
+                  <Text className="text-sm text-red-500">
+                    {errors.description.message}
+                  </Text>
+                )}
+              </View>
+              <Text className="text-sm text-gray-500">
+                {value ? value.length : 0}/500
+              </Text>
+            </View>
+          </>
+        )}
+      />
+    </View>,
+    // Step 3: Review and submit
+    <View key={3}>
+      <Text className="mb-4 font-semibold">Review and submit your report.</Text>
+    </View>,
+  ];
+
+
+  // Map step index to validation state objects
+  const getStepError = () => {
+    switch (currentStep) {
+      case 0: // Step 1: Avoidance Area Points
+        trigger("aaPoints");
+        return errors.aaPoints;
+      case 1: // Step 2: Description
+        trigger("description");
+        return errors.description;
+      case 2: // Step 3: Review
+        trigger();
+        return errors.root;
+    }
+  };
 
   return (
     <>
@@ -98,7 +175,7 @@ export function ReportModal({
 
         {/* Progress Indicator */}
         <View className="flex-row gap-2">
-          {Array.from({ length: totalSteps }, (_, index) => (
+          {Array.from({ length: steps.length }, (_, index) => (
             <View
               key={index}
               className={`h-2 flex-1 rounded-full ${
@@ -112,36 +189,46 @@ export function ReportModal({
         <View>
           {/* Step indicator text */}
           <Text className="mb-2 text-gray-600">
-            Step {currentStep + 1} of {totalSteps}
+            Step {currentStep + 1} of {steps.length}
           </Text>
 
           {/* Step content */}
-          <View>{steps[currentStep]?.content}</View>
+          {steps[currentStep]}
         </View>
 
         {/* Navigation buttons */}
         <View className="flex-row justify-between gap-2">
-          {canGoPrevious && currentStep > 0 && (
+          {/* Previous Button */}
+          {currentStep > 0 && (
             <Button
               title="Previous"
-              variant="disabled"
               onPress={() => setCurrentStep(currentStep - 1)}
             />
           )}
 
+          {/* Next Button */}
           <Button
-            title={isLastStep ? "Submit" : "Next"}
-            variant={"primary"}
+            title={currentStep === steps.length - 1 ? "Submit" : "Next"}
+            variant={getStepError() ? "disabled" : "primary"}
             onPress={() => {
-              if (isLastStep) {
-                onSubmit();
+              if (!getStepError()) {
+                if (currentStep === steps.length - 1) {
+                  // Last step submit
+                  handleSubmit(handleFormSubmit)();
+                } else {
+                  // Go to next
+                  setCurrentStep(currentStep + 1);
+                }
               } else {
-                setCurrentStep(currentStep + 1);
+                // if there is an error, show a pop up
+                console.error(getStepError()?.message || "Unknown error");
               }
             }}
           />
         </View>
       </View>
+
+      {/* (Undo|Clear) button */}
       {aaPoints.length > 0 ? (
         <ActionButtonGroup
           actions={[

@@ -4,8 +4,8 @@ import MapView, { Polygon } from "react-native-maps";
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { View, Text, TextInput, Modal, Button, StyleSheet } from 'react-native';
-import AddAAPopup from "~/components/AddAAPopup";
 
+//POC
 
 interface AAInfoPopupProps {
   visible: boolean;

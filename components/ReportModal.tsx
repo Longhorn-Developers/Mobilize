@@ -1,5 +1,5 @@
 import colors from "~/types/colors";
-import { WarningIcon, XIcon } from "phosphor-react-native";
+import { PlusCircleIcon, WarningIcon, XIcon } from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
 import { ReactNode, useState, useEffect } from "react";
@@ -211,8 +211,8 @@ export function ReportModal({
         </View>
       </View>
 
-      {/* (Undo|Clear) button */}
       {aaPoints.length > 0 ? (
+        // (Undo|Clear) button
         <ActionButtonGroup
           actions={[
             { label: "Undo", onPress: onUndoAAPoints },
@@ -220,7 +220,22 @@ export function ReportModal({
           ]}
           className="absolute bottom-4 right-4"
         />
-      ) : null}
+      ) : (
+        // Interaction hint
+        <View className="absolute left-[18%] top-[60%] items-center">
+          {/* Crosshair */}
+          <PlusCircleIcon size={48} color={colors.theme.red} />
+          {/* Arrow */}
+
+          {/* Dialog */}
+          <View className="w-80 items-center rounded-lg bg-white p-4">
+            <Text className="text-ut-gray">
+              Drag to navigate to the relevant points.
+            </Text>
+            <Text className="text-ut-gray">Click to mark the area.</Text>
+          </View>
+        </View>
+      )}
     </>
   );
 }

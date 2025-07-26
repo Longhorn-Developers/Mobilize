@@ -51,22 +51,20 @@ export function ReportModal({
   const {
     control,
     handleSubmit,
-    formState: { errors, isValid },
+    formState: { errors },
     setValue,
     trigger,
-  } = useForm<ReportFormData>({ resolver: zodResolver(reportFormSchema), mode: "onSubmit" });
+  } = useForm<ReportFormData>({
+    resolver: zodResolver(reportFormSchema),
+  });
+
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
   }, [aaPoints, setValue]);
 
   const handleFormSubmit = (data: ReportFormData) => {
-    // Include the aaPoints in the form data
-    const formDataWithPoints = {
-      ...data,
-      aaPoints,
-    };
-    onSubmit(formDataWithPoints);
+    onSubmit(data);
     onExit();
   };
 
@@ -128,19 +126,14 @@ export function ReportModal({
     </View>,
   ];
 
-
-  // Map step index to validation state objects
-  const getStepError = () => {
+  const validateCurrentStep = async () => {
     switch (currentStep) {
-      case 0: // Step 1: Avoidance Area Points
-        trigger("aaPoints");
-        return errors.aaPoints;
-      case 1: // Step 2: Description
-        trigger("description");
-        return errors.description;
-      case 2: // Step 3: Review
-        trigger();
-        return errors.root;
+      case 0:
+        return await trigger("aaPoints");
+      case 1:
+        return await trigger("description");
+      default:
+        return await trigger();
     }
   };
 
@@ -157,6 +150,7 @@ export function ReportModal({
         >
           <XIcon size={28} color={colors.ut.gray} />
         </Button>
+
         {/* Heading Container */}
         <View className="flex-row items-center gap-4">
           {/* Icon Container */}
@@ -197,21 +191,13 @@ export function ReportModal({
         </View>
 
         {/* Navigation buttons */}
-        <View className="flex-row justify-between gap-2">
-          {/* Previous Button */}
-          {currentStep > 0 && (
-            <Button
-              title="Previous"
-              onPress={() => setCurrentStep(currentStep - 1)}
-            />
-          )}
-
+        <View>
           {/* Next Button */}
           <Button
             title={currentStep === steps.length - 1 ? "Submit" : "Next"}
-            variant={getStepError() ? "disabled" : "primary"}
-            onPress={() => {
-              if (!getStepError()) {
+            onPress={async () => {
+              const valid = await validateCurrentStep();
+              if (valid) {
                 if (currentStep === steps.length - 1) {
                   // Last step submit
                   handleSubmit(handleFormSubmit)();
@@ -219,9 +205,6 @@ export function ReportModal({
                   // Go to next
                   setCurrentStep(currentStep + 1);
                 }
-              } else {
-                // if there is an error, show a pop up
-                console.error(getStepError()?.message || "Unknown error");
               }
             }}
           />

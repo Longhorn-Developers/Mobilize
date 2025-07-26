@@ -93,7 +93,6 @@ export default function Home() {
             aaPoints={aaPoints}
             onUndoAAPoints={() => setAAPoints((prev) => prev.slice(0, -1))}
             onClearAAPoints={() => setAAPoints([])}
-            isVisible={isReportMode}
             onSubmit={() => {
               console.log("Submitting avoidance area points:", aaPoints);
               setAAPoints([]);

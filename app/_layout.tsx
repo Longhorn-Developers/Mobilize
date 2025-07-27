@@ -1,5 +1,6 @@
 import "~/global.css";
 import { AppStateStatus, Platform } from "react-native";
+import Toast from "react-native-toast-message";
 import * as Network from "expo-network";
 import { Stack } from "expo-router";
 import {
@@ -34,6 +35,7 @@ export default function Layout() {
   return (
     <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }} />
+      <Toast />
     </QueryClientProvider>
   );
 }

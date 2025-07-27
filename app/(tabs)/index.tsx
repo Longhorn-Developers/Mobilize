@@ -48,7 +48,7 @@ export default function Home() {
           longitudeDelta: 0.01,
         }}
       >
-        {/* Show avoidance area polygons */}
+        {/* Show fetched avoidance area polygons */}
         {avoidanceAreas &&
           avoidanceAreas.map((area) => (
             <Polygon
@@ -67,7 +67,18 @@ export default function Home() {
 
         {/* Individual Points */}
         {aaPoints.map((point, index) => (
-          <Marker key={index} coordinate={point} />
+          <Marker
+            draggable
+            key={index}
+            coordinate={point}
+            onDrag={(e) => {
+              const newPoints = [...aaPoints];
+              newPoints[index] = e.nativeEvent.coordinate;
+              setAAPoints(newPoints);
+            }}
+          >
+            <View className="h-3 w-3 rounded-full bg-red-700" />
+          </Marker>
         ))}
 
         {/* aaPoint area polygon */}

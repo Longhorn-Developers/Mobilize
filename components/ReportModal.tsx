@@ -242,19 +242,29 @@ export function ReportModal({
         />
       ) : (
         // Interaction hint
-        <View className="absolute left-[18%] top-[60%] items-center">
-          {/* Crosshair */}
-          <PlusCircleIcon size={48} color={colors.theme.red} />
-          {/* Arrow */}
-
-          {/* Dialog */}
-          <View className="w-80 items-center rounded-lg bg-white p-4">
-            <Text className="text-ut-gray">
-              Drag to navigate to the relevant points.
-            </Text>
-            <Text className="text-ut-gray">Click to mark the area.</Text>
+        <>
+          {/* Center Marker Overlay */}
+          <View className="pointer-events absolute bottom-0 left-0 right-0 top-[20%] items-center justify-center">
+            {/* The marker itself */}
+            <PlusCircleIcon size={48} color={colors.theme.red} />
           </View>
-        </View>
+
+          {/* Tooltip Overlay */}
+          <View
+            className="pointer-events-none absolute left-0 right-0 top-3/4 items-center"
+            style={{ marginTop: 40 }}
+          >
+            {/* Arrow */}
+            <View className="absolute top-[-8] h-4 w-4 rotate-45 transform bg-white" />
+            {/* Tooltip Box */}
+            <View className="rounded-lg bg-white px-8 py-3">
+              <Text className="text-center text-sm text-ut-gray">
+                Drag to navigate to the relevant points.{"\n"}
+                Click to mark the area.
+              </Text>
+            </View>
+          </View>
+        </>
       )}
     </>
   );

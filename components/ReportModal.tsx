@@ -1,5 +1,10 @@
 import colors from "~/types/colors";
-import { PlusCircleIcon, WarningIcon, XIcon } from "phosphor-react-native";
+import {
+  CameraPlusIcon,
+  PlusCircleIcon,
+  WarningIcon,
+  XIcon,
+} from "phosphor-react-native";
 import { View, Text, TextInput } from "react-native";
 import { Button } from "./Button";
 import { ReactNode, useState, useEffect } from "react";
@@ -25,6 +30,7 @@ const reportFormSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters")
     .max(500, "Description must not exceed 500 characters"),
+  images: z.array(z.string()).optional(),
 });
 
 type ReportFormData = z.infer<typeof reportFormSchema>;
@@ -72,7 +78,7 @@ export function ReportModal({
   const steps: ReactNode[] = [
     // Step 1: Mark Avoidance Area Points
     <View key={1}>
-      <Text className="font-semibold">
+      <Text className="font-medium">
         Please indicate the Avoidance Area (AA) by marking points on the map
       </Text>
       {errors.aaPoints && (
@@ -83,9 +89,10 @@ export function ReportModal({
     </View>,
     // Step 2: Describe the blockage
     <View key={2}>
-      <Text className="font-semibold">
+      <Text className="font-medium">
         Describe the blockage. What&apos;s the issue?
       </Text>
+      {/* Description body input */}
       <Controller
         control={control}
         name="description"
@@ -104,7 +111,7 @@ export function ReportModal({
               value={value}
               maxLength={500}
             />
-            <View className="mt-1 flex-row justify-between">
+            <View className="mb-2 mt-1 flex-row justify-between">
               <View>
                 {errors.description && (
                   <Text className="text-sm text-red-500">
@@ -119,10 +126,23 @@ export function ReportModal({
           </>
         )}
       />
+      {/* Add Photo Input */}
+      <Controller
+        control={control}
+        name="images"
+        render={({ field: { onBlur } }) => (
+          <Button
+            variant="gray"
+            onBlur={onBlur}
+            title="Add Photo"
+            icon={<CameraPlusIcon size={20} />}
+          />
+        )}
+      />
     </View>,
     // Step 3: Review and submit
     <View key={3}>
-      <Text className="mb-4 font-semibold">Review and submit your report.</Text>
+      <Text className="font-medium">Review the details of your report.</Text>
     </View>,
   ];
 

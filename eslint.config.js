@@ -1,17 +1,17 @@
 /* eslint-env node */
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
-const pluginQuery = require('@tanstack/eslint-plugin-query');
+const { defineConfig } = require("eslint/config");
+const expoConfig = require("eslint-config-expo/flat");
+const pluginQuery = require("@tanstack/eslint-plugin-query");
 
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: ["dist/*"],
   },
   {
     rules: {
-      'react/display-name': 'off',
+      "react/display-name": "off",
     },
   },
-  pluginQuery.configs['flat/recommended']
+  pluginQuery.configs["flat/recommended"],
 ]);

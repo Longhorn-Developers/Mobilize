@@ -73,6 +73,12 @@ const ReportModal = ({
 
   const handleFormSubmit = (data: ReportFormData) => {
     onSubmit(data);
+    Toast.show({
+      type: "success",
+      topOffset: 100,
+      text2:
+        "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+    });
     onExit();
   };
 
@@ -105,6 +111,7 @@ const ReportModal = ({
         type: "error",
         text2: state.error.message || "Please fill out the required fields.",
         position: "bottom",
+        bottomOffset: 100,
       });
     }
   };

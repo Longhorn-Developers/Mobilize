@@ -22,15 +22,10 @@ export default function Home() {
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {
-    if (
-      !isReportMode ||
-      !event.nativeEvent.coordinate ||
-      aaPoints.includes(event.nativeEvent.coordinate)
-    )
-      return;
+    if (!isReportMode) return;
 
-    event.persist();
-    setAAPoints((prev) => [...(prev || []), event.nativeEvent.coordinate]);
+    const { coordinate } = event.nativeEvent;
+    setAAPoints((prev) => [...prev, coordinate]);
   };
 
   return (
@@ -70,17 +65,18 @@ export default function Home() {
             />
           ))}
 
-        {/* Show selected avoidance area coordinate points */}
-        {aaPoints.map((point) => (
-          <Marker
-            key={`${point.latitude}-${point.longitude}`}
-            coordinate={{
-              latitude: point.latitude,
-              longitude: point.longitude,
-            }}
-            pinColor="red"
-          />
+        {/* Individual Points */}
+        {aaPoints.map((point, index) => (
+          <Marker key={index} coordinate={point} />
         ))}
+
+        {/* aaPoint area polygon */}
+        <Polygon
+          coordinates={aaPoints}
+          fillColor="rgba(255, 0, 0, 0.25)"
+          strokeColor="red"
+          strokeWidth={2}
+        />
       </MapView>
 
       {isReportMode ? (
@@ -93,10 +89,8 @@ export default function Home() {
             aaPoints={aaPoints}
             onUndoAAPoints={() => setAAPoints((prev) => prev.slice(0, -1))}
             onClearAAPoints={() => setAAPoints([])}
-            onSubmit={() => {
-              console.log("Submitting avoidance area points:", aaPoints);
-              setAAPoints([]);
-              setIsReportMode(false);
+            onSubmit={(data) => {
+              console.log("Submitting report:", data);
             }}
             onExit={() => {
               setAAPoints([]);

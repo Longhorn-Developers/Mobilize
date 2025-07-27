@@ -13,6 +13,7 @@ import { ActionButtonGroup } from "./ActionButtonGroup";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z, ZodType } from "zod";
+import Toast from "react-native-toast-message";
 
 const reportFormSchema = z.object({
   aaPoints: z
@@ -40,26 +41,27 @@ interface ReportModeDialogProps {
   aaPoints: LatLng[];
   onClearAAPoints: () => void;
   onUndoAAPoints: () => void;
-  onSubmit: (data: ReportFormData & { aaPoints: LatLng[] }) => void;
+  onSubmit: (data: ReportFormData) => void;
   onExit: () => void;
 }
 
-export function ReportModal({
+const ReportModal = ({
   className,
   aaPoints,
   onClearAAPoints,
   onUndoAAPoints,
   onSubmit,
   onExit,
-}: ReportModeDialogProps) {
+}: ReportModeDialogProps) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    getFieldState,
     setValue,
     trigger,
+    formState: { errors },
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
   });
@@ -74,6 +76,39 @@ export function ReportModal({
     onExit();
   };
 
+  // Maps the current step to the specific zod validation
+  const getCurrentStepState = async () => {
+    switch (currentStep) {
+      case 0:
+        await trigger("aaPoints");
+        return getFieldState("aaPoints");
+      case 1:
+        await trigger(["description", "images"], { shouldFocus: true });
+        return getFieldState("description");
+      default:
+        return getFieldState("aaPoints");
+    }
+  };
+
+  const handleNext = async () => {
+    const state = await getCurrentStepState();
+    if (!state.error) {
+      if (currentStep === steps.length - 1) {
+        // Last step submit
+        handleSubmit(handleFormSubmit)();
+      } else {
+        // Go to next
+        setCurrentStep(currentStep + 1);
+      }
+    } else {
+      Toast.show({
+        type: "error",
+        text2: state.error.message || "Please fill out the required fields.",
+        position: "bottom",
+      });
+    }
+  };
+
   // Each step of the report process
   const steps: ReactNode[] = [
     // Step 1: Mark Avoidance Area Points
@@ -81,11 +116,6 @@ export function ReportModal({
       <Text className="font-medium">
         Please indicate the Avoidance Area (AA) by marking points on the map
       </Text>
-      {errors.aaPoints && (
-        <Text className="mt-2 text-sm text-red-500">
-          {errors.aaPoints.message}
-        </Text>
-      )}
     </View>,
 
     // Step 2: Describe the blockage
@@ -148,18 +178,6 @@ export function ReportModal({
     </View>,
   ];
 
-  // Maps the current step to the specific zod validation
-  const validateCurrentStep = async () => {
-    switch (currentStep) {
-      case 0:
-        return await trigger("aaPoints");
-      case 1:
-        return await trigger("description");
-      default:
-        return await trigger();
-    }
-  };
-
   return (
     <>
       {/* Main Modal */}
@@ -215,18 +233,7 @@ export function ReportModal({
         {/* Next/Submit Button */}
         <Button
           title={currentStep === steps.length - 1 ? "Submit" : "Next"}
-          onPress={async () => {
-            const valid = await validateCurrentStep();
-            if (valid) {
-              if (currentStep === steps.length - 1) {
-                // Last step submit
-                handleSubmit(handleFormSubmit)();
-              } else {
-                // Go to next
-                setCurrentStep(currentStep + 1);
-              }
-            }
-          }}
+          onPress={handleNext}
         />
       </View>
 
@@ -267,4 +274,6 @@ export function ReportModal({
       )}
     </>
   );
-}
+};
+
+export default ReportModal;

@@ -10,7 +10,7 @@ import MapView, {
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { Button } from "~/components/Button";
-import { ReportModal } from "~/components/ReportModal";
+import ReportModal from "~/components/ReportModal";
 
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);

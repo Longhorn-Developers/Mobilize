@@ -12,7 +12,7 @@ import { type LatLng } from "react-native-maps";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { z, ZodType } from "zod";
 
 const reportFormSchema = z.object({
   aaPoints: z
@@ -20,7 +20,7 @@ const reportFormSchema = z.object({
       z.object({
         latitude: z.number(),
         longitude: z.number(),
-      }),
+      }) satisfies ZodType<LatLng>,
     )
     .min(
       3,
@@ -74,7 +74,7 @@ export function ReportModal({
     onExit();
   };
 
-  // Define steps with form integration
+  // Each step of the report process
   const steps: ReactNode[] = [
     // Step 1: Mark Avoidance Area Points
     <View key={1}>
@@ -87,6 +87,7 @@ export function ReportModal({
         </Text>
       )}
     </View>,
+
     // Step 2: Describe the blockage
     <View key={2}>
       <Text className="font-medium">
@@ -135,17 +136,19 @@ export function ReportModal({
             variant="gray"
             onBlur={onBlur}
             title="Add Photo"
-            icon={<CameraPlusIcon size={20} />}
+            icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
           />
         )}
       />
     </View>,
+
     // Step 3: Review and submit
     <View key={3}>
       <Text className="font-medium">Review the details of your report.</Text>
     </View>,
   ];
 
+  // Maps the current step to the specific zod validation
   const validateCurrentStep = async () => {
     switch (currentStep) {
       case 0:
@@ -165,11 +168,10 @@ export function ReportModal({
         <Button
           variant="ghost"
           title=""
-          className="absolute right-[0.25] top-1"
+          className="absolute right-0 top-1"
           onPress={onExit}
-        >
-          <XIcon size={28} color={colors.ut.gray} />
-        </Button>
+          icon={<XIcon size={28} color={colors.ut.gray} />}
+        />
 
         {/* Heading Container */}
         <View className="flex-row items-center gap-4">
@@ -210,25 +212,22 @@ export function ReportModal({
           {steps[currentStep]}
         </View>
 
-        {/* Navigation buttons */}
-        <View>
-          {/* Next Button */}
-          <Button
-            title={currentStep === steps.length - 1 ? "Submit" : "Next"}
-            onPress={async () => {
-              const valid = await validateCurrentStep();
-              if (valid) {
-                if (currentStep === steps.length - 1) {
-                  // Last step submit
-                  handleSubmit(handleFormSubmit)();
-                } else {
-                  // Go to next
-                  setCurrentStep(currentStep + 1);
-                }
+        {/* Next/Submit Button */}
+        <Button
+          title={currentStep === steps.length - 1 ? "Submit" : "Next"}
+          onPress={async () => {
+            const valid = await validateCurrentStep();
+            if (valid) {
+              if (currentStep === steps.length - 1) {
+                // Last step submit
+                handleSubmit(handleFormSubmit)();
+              } else {
+                // Go to next
+                setCurrentStep(currentStep + 1);
               }
-            }}
-          />
-        </View>
+            }
+          }}
+        />
       </View>
 
       {aaPoints.length > 0 ? (

@@ -47,7 +47,7 @@ export const Button = forwardRef<View, ButtonProps>(
         {...touchableProps}
         className={`${styles.button} ${getButtonStyle()} ${touchableProps.className}`}
       >
-        {icon && <View className="mr-2">{icon}</View>}
+        {icon}
         {children || (
           <Text className={`${styles.buttonText} ${getTextStyle()}`}>
             {title}

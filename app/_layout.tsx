@@ -1,5 +1,6 @@
 import "~/global.css";
 import { AppStateStatus, Platform, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import Toast, {
   ErrorToast,
   SuccessToast,
@@ -98,6 +99,7 @@ export default function Layout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }} />
       <Toast config={toastConfig} />
     </QueryClientProvider>

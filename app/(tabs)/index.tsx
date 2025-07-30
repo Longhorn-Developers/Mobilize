@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { View } from "react-native";
 import MapView, {
   Polygon,
@@ -11,10 +11,13 @@ import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
+import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
 
   const { data: avoidanceAreas } = useQuery(
     supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
@@ -22,10 +25,18 @@ export default function Home() {
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {
-    if (!isReportMode) return;
+    if (isReportMode) {
+      const { coordinate } = event.nativeEvent;
+      setAAPoints((prev) => [...prev, coordinate]);
+    } else {
+      bottomSheetRef.current?.close();
+    }
+  };
 
-    const { coordinate } = event.nativeEvent;
-    setAAPoints((prev) => [...prev, coordinate]);
+  // Handle avoidance area click
+  const handleAvoidanceAreaPress = (area: any) => {
+    if (isReportMode) return;
+    bottomSheetRef.current?.present();
   };
 
   return (
@@ -61,7 +72,8 @@ export default function Home() {
               }
               strokeColor="rgba(255, 0, 0, 0.5)"
               fillColor="rgba(255, 0, 0, 0.25)"
-              strokeWidth={2}
+              tappable={!isReportMode}
+              onPress={() => handleAvoidanceAreaPress(area)}
             />
           ))}
 
@@ -117,6 +129,9 @@ export default function Home() {
           onPress={() => setIsReportMode(true)}
         />
       )}
+
+      {/* Avoidance Area Bottom Sheet */}
+      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
     </>
   );
 }

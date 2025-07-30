@@ -1,18 +1,17 @@
-import { forwardRef, useMemo } from "react";
+import { ForwardedRef } from "react";
 import { Text, View } from "react-native";
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import colors from "~/types/colors";
 import { WarningIcon } from "phosphor-react-native";
 
-const AvoidanceAreaBottomSheet = forwardRef<BottomSheetModal>(({}, ref) => {
-  // Variables
-  const snapPoints = useMemo(() => ["25%", "50%", "90%"], []);
+interface AvoidanceAreaBottomSheetProps {
+  ref: ForwardedRef<BottomSheetModal>;
+}
 
+const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
   return (
     <BottomSheetModal
-      enablePanDownToClose
       ref={ref}
-      snapPoints={snapPoints}
       handleIndicatorStyle={{
         backgroundColor: colors.theme.majorgridline,
         width: 80,
@@ -40,6 +39,6 @@ const AvoidanceAreaBottomSheet = forwardRef<BottomSheetModal>(({}, ref) => {
       </BottomSheetScrollView>
     </BottomSheetModal>
   );
-});
+};
 
 export default AvoidanceAreaBottomSheet;

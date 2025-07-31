@@ -261,48 +261,56 @@ const ReportModal = ({
         {/* Next/Submit Button */}
         <Button
           title={currentStep === steps.length - 1 ? "Submit" : "Next"}
+          variant={aaPoints.length >= 3 ? "primary" : "disabled"}
           onPress={handleNext}
         />
       </View>
 
       {aaPoints.length > 0 ? (
         // (Undo|Clear) button
-        <ActionButtonGroup
-          actions={[
-            {
-              label: "Undo",
-              onPress: () => setAAPoints(aaPoints.slice(0, -1)),
-            },
-            { label: "Clear", onPress: () => setAAPoints([]) },
-          ]}
-          className="absolute bottom-4 right-4"
-        />
+        currentStep === 0 && (
+          <ActionButtonGroup
+            actions={[
+              {
+                label: "Undo",
+                onPress: () => setAAPoints(aaPoints.slice(0, -1)),
+              },
+              { label: "Clear", onPress: () => setAAPoints([]) },
+            ]}
+            className="absolute bottom-4 right-4"
+          />
+        )
       ) : (
-        // Interaction hint
-        <>
-          {/* Center Marker Overlay */}
-          <View className="pointer-events absolute bottom-0 left-0 right-0 top-[20%] items-center justify-center">
-            {/* The marker itself */}
-            <PlusCircleIcon size={48} color={colors.theme.red} />
-          </View>
-
-          {/* Tooltip Overlay */}
-          <View
-            className="pointer-events-none absolute left-0 right-0 top-3/4 items-center"
-            style={{ marginTop: 40 }}
-          >
-            {/* Arrow */}
-            <View className="absolute top-[-8] h-4 w-4 rotate-45 transform bg-white" />
-            {/* Tooltip Box */}
-            <View className="rounded-lg bg-white px-8 py-3">
-              <Text className="text-center text-sm text-ut-gray">
-                Drag to navigate to the relevant points.{"\n"}
-                Click to mark the area.
-              </Text>
-            </View>
-          </View>
-        </>
+        <PointInteractionHint />
       )}
+    </>
+  );
+};
+
+const PointInteractionHint = () => {
+  return (
+    <>
+      {/* Center Marker Overlay */}
+      <View className="pointer-events absolute bottom-0 left-0 right-0 top-[20%] items-center justify-center">
+        {/* The marker itself */}
+        <PlusCircleIcon size={48} color={colors.theme.red} />
+      </View>
+
+      {/* Tooltip Overlay */}
+      <View
+        className="pointer-events-none absolute left-0 right-0 top-3/4 items-center"
+        style={{ marginTop: 40 }}
+      >
+        {/* Arrow */}
+        <View className="absolute top-[-8] h-4 w-4 rotate-45 transform bg-white" />
+        {/* Tooltip Box */}
+        <View className="rounded-lg bg-white px-8 py-3">
+          <Text className="text-center text-sm text-ut-gray">
+            Drag to navigate to the relevant points.{"\n"}
+            Click to mark the area.
+          </Text>
+        </View>
+      </View>
     </>
   );
 };

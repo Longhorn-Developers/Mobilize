@@ -15,14 +15,34 @@ import ReportModal from "~/components/ReportModal";
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+  const [reportStep, setReportStep] = useState(0);
 
-  const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
-  );
+  // const { data: avoidanceAreas } = useQuery(
+  //   supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
+  // );
+
+  const avoidanceAreas = [
+    {
+      id: "08735f06-10ce-4a71-a693-5c6a367967af",
+      name: "Downtown Austin",
+      boundary: {
+        coordinates: [
+          [
+            [-97.7333, 30.2672],
+            [-97.7338, 30.2672],
+            [-97.7338, 30.268],
+            [-97.7333, 30.268],
+            [-97.7333, 30.2672],
+          ],
+        ],
+        type: "Polygon",
+      },
+    },
+  ];
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {
-    if (!isReportMode) return;
+    if (!isReportMode || reportStep === 1) return;
 
     const { coordinate } = event.nativeEvent;
     setAAPoints((prev) => [...prev, coordinate]);
@@ -98,13 +118,13 @@ export default function Home() {
           <ReportModal
             className="absolute left-10 right-10 top-20"
             aaPoints={aaPoints}
-            onUndoAAPoints={() => setAAPoints((prev) => prev.slice(0, -1))}
-            onClearAAPoints={() => setAAPoints([])}
+            currentStep={reportStep}
+            setAAPoints={(points) => setAAPoints(points)}
+            setCurrentStep={(index) => setReportStep(index)}
             onSubmit={(data) => {
               console.log("Submitting report:", data);
             }}
             onExit={() => {
-              setAAPoints([]);
               setIsReportMode(false);
             }}
           />

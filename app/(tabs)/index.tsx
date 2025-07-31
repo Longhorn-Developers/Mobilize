@@ -19,9 +19,28 @@ export default function Home() {
   const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
-  const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
-  );
+  // const { data: avoidanceAreas } = useQuery(
+  // supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
+  // );
+
+  const avoidanceAreas = [
+    {
+      id: "08735f06-10ce-4a71-a693-5c6a367967af",
+      name: "Downtown Austin",
+      boundary: {
+        coordinates: [
+          [
+            [-97.7333, 30.2672],
+            [-97.7338, 30.2672],
+            [-97.7338, 30.268],
+            [-97.7333, 30.268],
+            [-97.7333, 30.2672],
+          ],
+        ],
+        type: "Polygon",
+      },
+    },
+  ];
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {

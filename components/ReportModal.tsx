@@ -5,7 +5,15 @@ import {
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ViewStyle,
+} from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "./Button";
 import { ReactNode, useEffect } from "react";
 import { type LatLng } from "react-native-maps";
@@ -38,6 +46,7 @@ type ReportFormData = z.infer<typeof reportFormSchema>;
 
 interface ReportModeDialogProps {
   className?: string;
+  style?: ViewStyle;
   aaPoints: LatLng[];
   currentStep: number;
   setAAPoints: (points: LatLng[]) => void;
@@ -48,6 +57,7 @@ interface ReportModeDialogProps {
 
 const ReportModal = ({
   className,
+  style,
   aaPoints,
   setAAPoints,
   currentStep,
@@ -68,6 +78,9 @@ const ReportModal = ({
     resolver: zodResolver(reportFormSchema),
   });
 
+  const bottomTabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
+
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
@@ -84,7 +97,7 @@ const ReportModal = ({
     onSubmit(data);
     Toast.show({
       type: "success",
-      topOffset: 100,
+      topOffset: insets.top + 35,
       text2:
         "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
     });
@@ -120,7 +133,7 @@ const ReportModal = ({
         type: "error",
         text2: state.error.message || "Please fill out the required fields.",
         position: "bottom",
-        bottomOffset: 100,
+        bottomOffset: bottomTabBarHeight + 10,
       });
     }
   };
@@ -206,7 +219,10 @@ const ReportModal = ({
   return (
     <>
       {/* Main Modal */}
-      <View className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}>
+      <View
+        className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}
+        style={style}
+      >
         {/* Exit Button */}
         <Button
           variant="ghost"

@@ -5,9 +5,9 @@ import {
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
-import { View, Text, TextInput } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { Button } from "./Button";
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { type LatLng } from "react-native-maps";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { useForm, Controller } from "react-hook-form";
@@ -39,8 +39,9 @@ type ReportFormData = z.infer<typeof reportFormSchema>;
 interface ReportModeDialogProps {
   className?: string;
   aaPoints: LatLng[];
-  onClearAAPoints: () => void;
-  onUndoAAPoints: () => void;
+  currentStep: number;
+  setAAPoints: (points: LatLng[]) => void;
+  setCurrentStep: (index: number) => void;
   onSubmit: (data: ReportFormData) => void;
   onExit: () => void;
 }
@@ -48,19 +49,20 @@ interface ReportModeDialogProps {
 const ReportModal = ({
   className,
   aaPoints,
-  onClearAAPoints,
-  onUndoAAPoints,
+  setAAPoints,
+  currentStep,
+  setCurrentStep,
   onSubmit,
   onExit,
 }: ReportModeDialogProps) => {
-  const [currentStep, setCurrentStep] = useState(0);
-
   const {
     control,
     handleSubmit,
     getFieldState,
     setValue,
     trigger,
+    getValues,
+    reset: resetForm,
     formState: { errors },
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
@@ -71,15 +73,22 @@ const ReportModal = ({
     setValue("aaPoints", aaPoints);
   }, [aaPoints, setValue]);
 
+  const handleClose = () => {
+    setCurrentStep(0);
+    setAAPoints([]);
+    resetForm();
+    onExit();
+  };
+
   const handleFormSubmit = (data: ReportFormData) => {
     onSubmit(data);
     Toast.show({
       type: "success",
       topOffset: 100,
       text2:
-        "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
     });
-    onExit();
+    handleClose();
   };
 
   // Maps the current step to the specific zod validation
@@ -182,6 +191,15 @@ const ReportModal = ({
     // Step 3: Review and submit
     <View key={3}>
       <Text className="font-medium">Review the details of your report.</Text>
+      <TextInput
+        multiline={true}
+        numberOfLines={4}
+        textAlignVertical="top"
+        className={`mt-2 rounded border border-gray-300 px-4 py-3`}
+        placeholder="Please describe any issues encountered in the blockage's surroundings..."
+        value={getValues("description")}
+        maxLength={500}
+      />
     </View>,
   ];
 
@@ -194,7 +212,7 @@ const ReportModal = ({
           variant="ghost"
           title=""
           className="absolute right-0 top-1"
-          onPress={onExit}
+          onPress={handleClose}
           icon={<XIcon size={28} color={colors.ut.gray} />}
         />
 
@@ -207,8 +225,8 @@ const ReportModal = ({
 
           {/* Heading and subheading */}
           <View>
-            <Text className="text-4xl font-bold">Avoidance Area</Text>
-            <Text className="text-xl font-medium">
+            <Text className="text-2xl font-bold">Avoidance Area</Text>
+            <Text className="text-sm font-medium">
               Report a temporary blockage
             </Text>
           </View>
@@ -217,8 +235,11 @@ const ReportModal = ({
         {/* Progress Indicator */}
         <View className="flex-row gap-2">
           {Array.from({ length: steps.length }, (_, index) => (
-            <View
+            <TouchableOpacity
               key={index}
+              onPress={
+                index <= currentStep ? () => setCurrentStep(index) : undefined
+              }
               className={`h-2 flex-1 rounded-full ${
                 index <= currentStep ? "bg-ut-burntorange" : "bg-ut-black/20"
               }`}
@@ -248,8 +269,11 @@ const ReportModal = ({
         // (Undo|Clear) button
         <ActionButtonGroup
           actions={[
-            { label: "Undo", onPress: onUndoAAPoints },
-            { label: "Clear", onPress: onClearAAPoints },
+            {
+              label: "Undo",
+              onPress: () => setAAPoints(aaPoints.slice(0, -1)),
+            },
+            { label: "Clear", onPress: () => setAAPoints([]) },
           ]}
           className="absolute bottom-4 right-4"
         />

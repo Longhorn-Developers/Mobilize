@@ -16,20 +16,20 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "./Button";
 import { ReactNode, useEffect } from "react";
-import { type LatLng } from "react-native-maps";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z, ZodType } from "zod";
 import Toast from "react-native-toast-message";
+import { Coordinates } from "expo-maps";
 
 const reportFormSchema = z.object({
   aaPoints: z
     .array(
       z.object({
-        latitude: z.number(),
-        longitude: z.number(),
-      }) satisfies ZodType<LatLng>,
+        latitude: z.number().optional(),
+        longitude: z.number().optional(),
+      }) satisfies ZodType<Coordinates>,
     )
     .min(
       3,
@@ -47,9 +47,9 @@ type ReportFormData = z.infer<typeof reportFormSchema>;
 interface ReportModeDialogProps {
   className?: string;
   style?: ViewStyle;
-  aaPoints: LatLng[];
+  aaPoints: Coordinates[];
   currentStep: number;
-  setAAPoints: (points: LatLng[]) => void;
+  setAAPoints: (points: Coordinates[]) => void;
   setCurrentStep: (index: number) => void;
   onSubmit: (data: ReportFormData) => void;
   onExit: () => void;

@@ -1,23 +1,19 @@
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import MapView, {
-  Polygon,
-  Marker,
-  type LatLng,
-  type MapPressEvent,
-} from "react-native-maps";
-import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
-import { supabase } from "~/utils/supabase";
+import { AppleMaps, Coordinates } from "expo-maps";
+import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
+import { supabase } from "~/utils/supabase";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
 
   const [isReportMode, setIsReportMode] = useState(false);
-  const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+  const [aaPoints, setAAPoints] = useState<Coordinates[]>([]);
   const [reportStep, setReportStep] = useState(0);
 
   // const { data: avoidanceAreas } = useQuery(
@@ -43,74 +39,56 @@ export default function Home() {
     },
   ];
 
+  const polygons = [
+    // Avoidance areas from the database
+    ...avoidanceAreas.map<AppleMapsPolygon>((area) => ({
+      coordinates: area.boundary.coordinates[0].map((coord) => ({
+        latitude: coord[1],
+        longitude: coord[0],
+      })),
+      color: "rgba(255, 0, 0, 0.25)",
+      lineColor: "rgba(255, 0, 0, 0.5)",
+      lineWidth: 0.1,
+    })),
+    // User selected aaPoints to report
+    {
+      coordinates: aaPoints,
+      color: "rgba(255, 0, 0, 0.25)",
+      lineColor: "red",
+      lineWidth: 2,
+    },
+  ] satisfies AppleMapsPolygon[];
+
   // Add pressed coordinates to marked points
-  const handleMapPress = (event: MapPressEvent) => {
+  const handleMapPress = (event: any) => {
     if (!isReportMode || reportStep !== 0) return;
 
-    const { coordinate } = event.nativeEvent;
-    setAAPoints((prev) => [...prev, coordinate]);
+    setAAPoints((prev) => [...prev, event]);
   };
 
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
-      <MapView
+      <AppleMaps.View
         style={{ flex: 1 }}
-        onPress={handleMapPress}
-        initialRegion={{
-          // Default coordinates for UT Tower
-          // longitude: -97.73921,
-          // latitude: 30.28565,
+        onMapClick={handleMapPress}
+        polygons={polygons}
+        markers={aaPoints.map((point) => ({
+          coordinates: point,
+        }))}
+        cameraPosition={{
+          coordinates: {
+            // Default coordinates for UT Tower
+            // longitude: -97.73921,
+            // latitude: 30.28565,
 
-          // Coordinates for testing seed avoidance area
-          longitude: -97.7333,
-          latitude: 30.2672,
-
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+            // Testing camera position for test avoidance area
+            longitude: -97.7333,
+            latitude: 30.2672,
+          },
+          zoom: 16,
         }}
-      >
-        {/* Show fetched avoidance area polygons */}
-        {avoidanceAreas &&
-          avoidanceAreas.map((area) => (
-            <Polygon
-              key={area.id}
-              coordinates={
-                area.boundary?.coordinates[0].map(([longitude, latitude]) => ({
-                  latitude,
-                  longitude,
-                })) || []
-              }
-              strokeColor="rgba(255, 0, 0, 0.5)"
-              fillColor="rgba(255, 0, 0, 0.25)"
-              strokeWidth={2}
-            />
-          ))}
-
-        {/* Individual Points */}
-        {aaPoints.map((point, index) => (
-          <Marker
-            draggable
-            key={index}
-            coordinate={point}
-            onDrag={(e) => {
-              const newPoints = [...aaPoints];
-              newPoints[index] = e.nativeEvent.coordinate;
-              setAAPoints(newPoints);
-            }}
-          >
-            <View className="h-3 w-3 rounded-full bg-red-700" />
-          </Marker>
-        ))}
-
-        {/* aaPoint area polygon */}
-        <Polygon
-          coordinates={aaPoints}
-          fillColor="rgba(255, 0, 0, 0.25)"
-          strokeColor="red"
-          strokeWidth={2}
-        />
-      </MapView>
+      />
 
       {isReportMode ? (
         <>

@@ -9,7 +9,7 @@
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser"],
+    "plugins": ["expo-router", "expo-web-browser", "expo-maps"],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
@@ -31,7 +31,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.astrol.mobilize"
     }
   }
 }

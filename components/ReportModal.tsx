@@ -76,6 +76,10 @@ const ReportModal = ({
     formState: { errors },
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
+    defaultValues: {
+      aaPoints: [],
+      description: "",
+    },
   });
 
   const bottomTabBarHeight = useBottomTabBarHeight();
@@ -158,20 +162,25 @@ const ReportModal = ({
         name="description"
         render={({ field: { onChange, onBlur, value } }) => (
           <>
-            <TextInput
-              multiline={true}
-              numberOfLines={4}
-              textAlignVertical="top"
-              className={`mt-2 rounded border px-4 py-3 ${
-                errors.description ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Please describe any issues encountered in the blockage's surroundings..."
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              maxLength={500}
-            />
-            <View className="mb-2 mt-1 flex-row justify-between">
+            <View>
+              <TextInput
+                multiline={true}
+                numberOfLines={4}
+                textAlignVertical="top"
+                className={`mt-2 rounded-xl border px-4 pb-16 pt-3 ${
+                  errors.description ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="Please describe any issues encountered in the blockage's surroundings..."
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+                maxLength={500}
+              />
+              <Text className="absolute bottom-2 right-3 text-xs text-gray-500">
+                {value ? value.length : 0}/500
+              </Text>
+            </View>
+            <View className="mb-2 mt-1">
               <View>
                 {errors.description && (
                   <Text className="text-sm text-red-500">
@@ -179,9 +188,6 @@ const ReportModal = ({
                   </Text>
                 )}
               </View>
-              <Text className="text-sm text-gray-500">
-                {value ? value.length : 0}/500
-              </Text>
             </View>
           </>
         )}
@@ -203,15 +209,15 @@ const ReportModal = ({
 
     // Step 3: Review and submit
     <View key={3}>
-      <Text className="font-medium">Review the details of your report.</Text>
+      <Text className="font-medium">Review the details of your report</Text>
       <TextInput
         multiline={true}
         numberOfLines={4}
-        textAlignVertical="top"
-        className={`mt-2 rounded border border-gray-300 px-4 py-3`}
+        className={`mt-2 rounded-lg border border-gray-300 px-4 py-3`}
         placeholder="Please describe any issues encountered in the blockage's surroundings..."
         value={getValues("description")}
         maxLength={500}
+        editable={false}
       />
     </View>,
   ];

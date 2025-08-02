@@ -45,7 +45,7 @@ export default function Home() {
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {
-    if (!isReportMode || reportStep === 1) return;
+    if (!isReportMode || reportStep !== 0) return;
 
     const { coordinate } = event.nativeEvent;
     setAAPoints((prev) => [...prev, coordinate]);

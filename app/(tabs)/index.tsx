@@ -16,6 +16,12 @@ import { useInsertMutation } from '@supabase-cache-helpers/postgrest-react-query
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 
+import { lineIntersect } from "@turf/line-intersect";
+import { feature, lineString } from '@turf/helpers';
+
+import * as turf from '@turf/turf';
+import { LineString } from "geojson";
+
 export const useInsertAvoidanceAreaRPC = () => {
   const queryClient = useQueryClient();
 
@@ -61,9 +67,14 @@ export const insertAvoidanceAreaDetailsRPC = () => {
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+  
+  const [aaLines, setAALines] = useState([]);
   const { mutateAsync: insertAA, isPending, error } = useInsertAvoidanceAreaRPC();
   const { mutateAsync: insertAADetails} = insertAvoidanceAreaDetailsRPC();
   const [description, setDescription] = useState("");
+
+
+  const [intersectionPoints, setIntersectionPoints] = useState<LatLng[]>([]);
   
 
   const { data: avoidanceAreas } = useQuery(
@@ -73,6 +84,16 @@ export default function Home() {
 
   const addAvoidanceZone = async (name: string, description: string, coordinates: LatLng[]) => {
       try {
+        //first check if enough points have been added
+        if (aaPoints.length < 3){
+          console.log("Error: Not enough points have been added. Add at least 3");
+          return;
+        }
+        //final line validation before proceeding
+        const currentLine = turf.lineString([[aaPoints[0].longitude, aaPoints[0].latitude], [aaPoints[aaPoints.length-1].longitude, aaPoints[aaPoints.length-1].latitude]]);
+        console.log("Is valid?:", isValidLine(aaLines, currentLine));
+
+
         coordinates = [...coordinates, coordinates[0]]; // Autofill the border to the start
         //console.log("About to change coords to WKT: ", coordinates);
         const wkt = coordinatesToWKT(coordinates);
@@ -86,6 +107,8 @@ export default function Home() {
 
         console.log("Successfully added avoidance zone with ID:", detailed_insert_data);
         setAAPoints([]);
+        setIntersectionPoints([]);
+        setAALines([]);
         setIsReportMode(false);
         return detailed_insert_data;
       } catch (error: any) {
@@ -93,6 +116,8 @@ export default function Home() {
         if (error.details) console.error("Details:", error.details);
         if (error.hint) console.error("Hint:", error.hint);
         setAAPoints([]);
+        setIntersectionPoints([]);
+        setAALines([]);
         setIsReportMode(false);
         throw error;
       }
@@ -113,11 +138,78 @@ export default function Home() {
       return;
 
     event.persist();
-    //addCoordinate(event.nativeEvent.coordinate.latitude, event.nativeEvent.coordinate.longitude);
+
     setAAPoints((prev) => [...(prev || []), event.nativeEvent.coordinate]);
+    
+    //addCoordinate(event.nativeEvent.coordinate.latitude, event.nativeEvent.coordinate.longitude);
+    if (aaPoints.length > 0){
+      const lineCoords = [[event.nativeEvent.coordinate.longitude, event.nativeEvent.coordinate.latitude], [aaPoints[aaPoints.length-1].longitude, aaPoints[aaPoints.length-1].latitude]];
+      const currentLine = turf.lineString(lineCoords);
+
+      //perform checks with current line
+      //do what you will with the check (returns if the line is valid or not, and places a marker where it's invalid)
+      console.log("Is valid?:", isValidLine(aaLines, currentLine));
+      
+
+      
+      
+    }
+    
+    
+    
+    
     
     
   };
+
+  function isValidLine(lines: any[], current: LineString): boolean {
+    //const newLine = lines[lines.length-1];
+    let count = 0;
+    for (let i = 0; i < lines.length; i++){
+      console.log("Line to check:", lines[i]);
+      var comparisonLine = lines[i];
+      var intersects = turf.lineIntersect(current, comparisonLine);
+      if (intersects.features.length > 0){
+        console.log("aaPoints:",aaPoints);
+        intersects.features.forEach((feature, index) => {
+          const coords = feature.geometry.coordinates;
+          console.log(`Intersection #${index + 1}: [${coords[0]}, ${coords[1]}]`);
+          const temp_point: LatLng = {
+            latitude: coords[1],
+            longitude: coords[0]
+          };
+          console.log("Temp Point:", temp_point);
+          const exists = aaPoints.some(
+            p => p.latitude === temp_point.latitude && p.longitude === temp_point.longitude
+          );
+          if (exists === true){
+            console.log("ENDPOINT INTERSECTION");
+          }else{
+            setIntersectionPoints((prev) => [...(prev || []), temp_point]);
+            count++;
+          }
+          
+        });
+      }
+
+      
+      
+      
+    }
+
+    const updatedLines = [...aaLines, current];
+    setAALines(updatedLines);
+    console.log(updatedLines);
+
+    if (count > 0){
+      return false;
+    }else{
+      return true;
+    }
+    
+    
+
+  }
   function coordinatesToWKT(coordinates: LatLng[]): string {
     // Convert coordinates to "longitude latitude" format
     //coordinates = [[-98.7333, 30.2672], [-98.7338, 30.2672], [-98.7338, 30.268], [-98.7333, 30.268], [-98.7333, 30.2672]]; //just to test
@@ -276,6 +368,17 @@ export default function Home() {
               pinColor="red"
             />
           ))}
+          {intersectionPoints &&
+          intersectionPoints.map((point) => (
+            <Marker
+              key={`${point.latitude}-${point.longitude}`}
+              coordinate={{
+                latitude: point.latitude,
+                longitude: point.longitude,
+              }}
+              pinColor="green"
+            />
+          ))}
           
         </MapView>
       
@@ -291,6 +394,8 @@ export default function Home() {
         title={isReportMode ? "Exit Report" : "Report"}
         onPress={() => {
           setAAPoints([]);
+          setIntersectionPoints([]);
+          setAALines([]);
           setDescription("");
           setIsReportMode(!isReportMode);
         }}
@@ -310,7 +415,7 @@ export default function Home() {
             addAvoidanceZone("test", description, aaPoints);
             setIsReportMode(false);
           }}
-          onClearPoints={() => setAAPoints([])}
+          onClearPoints={() => {setAAPoints([]); setAALines([]); setIntersectionPoints([]);}}
         />
       )}
     </>

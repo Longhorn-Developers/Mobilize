@@ -87,6 +87,10 @@ export default function Home() {
         //first check if enough points have been added
         if (aaPoints.length < 3){
           console.log("Error: Not enough points have been added. Add at least 3");
+          setAAPoints([]);
+          setIntersectionPoints([]);
+          setAALines([]);
+          setIsReportMode(false);
           return;
         }
         //final line validation before proceeding

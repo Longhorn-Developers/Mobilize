@@ -115,6 +115,9 @@ export default function Home() {
         }}
       />
 
+      {/* Avoidance Area Bottom Sheet */}
+      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+
       {isReportMode ? (
         <>
           {/* Report mode overlay tint */}
@@ -145,9 +148,6 @@ export default function Home() {
           onPress={() => setIsReportMode(true)}
         />
       )}
-
-      {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
     </>
   );
 }

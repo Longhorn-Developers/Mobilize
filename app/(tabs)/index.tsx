@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { AppleMaps, Coordinates } from "expo-maps";
+import { useImage } from "expo-image";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "~/components/Button";
@@ -15,6 +16,14 @@ export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPoints, setAAPoints] = useState<Coordinates[]>([]);
   const [reportStep, setReportStep] = useState(0);
+
+  const pointImage = useImage(require("../../assets/point.svg"), {
+    maxWidth: 32,
+    maxHeight: 32,
+    onError(error) {
+      console.error(error);
+    },
+  });
 
   // const { data: avoidanceAreas } = useQuery(
   //   supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
@@ -73,8 +82,9 @@ export default function Home() {
         style={{ flex: 1 }}
         onMapClick={handleMapPress}
         polygons={polygons}
-        markers={aaPoints.map((point) => ({
+        annotations={aaPoints.map((point) => ({
           coordinates: point,
+          icon: pointImage ? pointImage : undefined,
         }))}
         cameraPosition={{
           coordinates: {

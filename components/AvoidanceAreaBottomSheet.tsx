@@ -1,6 +1,7 @@
 import { ForwardedRef } from "react";
 import { Text, View } from "react-native";
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import colors from "~/types/colors";
 import { WarningIcon } from "phosphor-react-native";
 
@@ -9,13 +10,18 @@ interface AvoidanceAreaBottomSheetProps {
 }
 
 const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
   return (
     <BottomSheetModal
       ref={ref}
+      enableDynamicSizing={false}
+      snapPoints={["50%", "80%"]}
       handleIndicatorStyle={{
         backgroundColor: colors.theme.majorgridline,
         width: 80,
       }}
+      bottomInset={bottomTabBarHeight}
     >
       <BottomSheetScrollView className="flex-1 px-8 py-4">
         {/* Heading Container */}

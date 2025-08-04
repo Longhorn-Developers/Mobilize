@@ -11,9 +11,13 @@ import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
+import * as turf from "@turf/turf";
+import Toast from "react-native-toast-message";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const bottomTabBarHeight = useBottomTabBarHeight();
 
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
@@ -33,11 +37,38 @@ export default function Home() {
     supabase.from("avoidance_areas_with_geojson").select("id,boundary"),
   );
 
-  const handleMapPress = (event: any) => {
+  // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
+  const isPointValid = (point: Coordinates) => {
+    if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
+
+    const polygon = turf.polygon([
+      [
+        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
+        [point.longitude || 0, point.latitude || 0],
+        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
+      ],
+    ]);
+    const kinks = turf.kinks(polygon);
+
+    // No kinks means the polygon is valid
+    return kinks.features.length === 0;
+  };
+
+  const handleMapPress = (event: Coordinates) => {
     if (isReportMode) {
       if (reportStep !== 0) return;
-      // Add pressed coordinates to marked points
-      setAAPointsReport((prev) => [...prev, event]);
+
+      if (isPointValid(event)) {
+        // Add pressed coordinates to marked points
+        setAAPointsReport((prev) => [...prev, event]);
+      } else {
+        Toast.show({
+          type: "error",
+          text2: "Invalid point! Please select a different point.",
+          position: "bottom",
+          bottomOffset: bottomTabBarHeight + 50,
+        });
+      }
     } else {
       bottomSheetRef.current?.close();
     }

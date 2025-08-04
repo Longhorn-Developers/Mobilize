@@ -14,13 +14,14 @@ const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
   return (
     <BottomSheetModal<AppleMapsPolygon>
       ref={ref}
+      bottomInset={bottomTabBarHeight}
+      backgroundStyle={{ borderRadius: 32 }}
       enableDynamicSizing={false}
       snapPoints={["50%", "80%"]}
       handleIndicatorStyle={{
         backgroundColor: colors.theme.majorgridline,
         width: 80,
       }}
-      bottomInset={bottomTabBarHeight}
     >
       {({ data }) => {
         if (!data || !data.id) return;

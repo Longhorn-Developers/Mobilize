@@ -137,7 +137,7 @@ const ReportModal = ({
         type: "error",
         text2: state.error.message || "Please fill out the required fields.",
         position: "bottom",
-        bottomOffset: bottomTabBarHeight + 10,
+        bottomOffset: bottomTabBarHeight + 50,
       });
     }
   };

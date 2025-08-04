@@ -15,20 +15,15 @@ export function ActionButtonGroup({
   className,
 }: ActionButtonGroupProps) {
   return (
-    <View
-      className={`mx-auto flex-row items-center justify-center rounded-full bg-white px-4 py-1 ${className || ""}`}
-    >
+    <View className={`flex-row items-center justify-center gap-1 ${className}`}>
       {actions.map((action, index) => (
-        <View key={action.label} className="flex-row items-center">
-          <TouchableOpacity onPress={action.onPress}>
-            <Text>{action.label}</Text>
-          </TouchableOpacity>
-
-          {/* Vertical separator line - only show if not the last item */}
-          {index < actions.length - 1 && (
-            <View className="mx-3 h-6 w-[2px] bg-ut-gray" />
-          )}
-        </View>
+        <TouchableOpacity
+          key={index}
+          onPress={action.onPress}
+          className={`rounded-full bg-white px-4 py-2`}
+        >
+          <Text>{action.label}</Text>
+        </TouchableOpacity>
       ))}
     </View>
   );

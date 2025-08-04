@@ -25,7 +25,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
         {/* Heading and subheading */}
         <View>
-          <Text className="text-4xl font-bold">{avoidanceArea?.name}</Text>
+          <Text className="text-3xl font-bold">{avoidanceArea?.name}</Text>
           <Text className="text-lg font-medium">Temporary Blockage</Text>
         </View>
       </View>

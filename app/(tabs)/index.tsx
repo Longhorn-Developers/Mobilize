@@ -152,7 +152,16 @@ export default function Home() {
 
       //perform checks with current line
       //do what you will with the check (returns if the line is valid or not, and places a marker where it's invalid)
-      console.log("Is valid?:", isValidLine(aaLines, currentLine));
+      let valid = isValidLine(aaLines, currentLine);
+      console.log("Is valid?:", valid);
+      if (!valid){
+        setAAPoints([]);
+        setIntersectionPoints([]);
+        setAALines([]);
+        return;
+      }
+
+      
       
 
       

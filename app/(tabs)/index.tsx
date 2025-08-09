@@ -14,6 +14,7 @@ import { supabase } from "~/utils/supabase";
 import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { insertAvoidanceArea } from "~/utils/queries";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -187,8 +188,9 @@ export default function Home() {
             currentStep={reportStep}
             setAAPoints={(points) => setAAPointsReport(points)}
             setCurrentStep={(index) => setReportStep(index)}
-            onSubmit={(data) => {
-              console.log("Submitting report:", data);
+            onSubmit={async (data) => {
+              const aaPoints = [...data.aaPoints, data.aaPoints[0]];
+              await insertAvoidanceArea(data.description, aaPoints);
             }}
             onExit={() => {
               setIsReportMode(false);

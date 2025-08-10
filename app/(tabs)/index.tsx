@@ -1,6 +1,5 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
-import { useImage } from "expo-image";
 import { AppleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
@@ -16,34 +15,18 @@ import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { insertAvoidanceArea } from "~/utils/queries";
 import { Enums, metadata_types } from "~/types/database";
+import useMapIcons from "~/hooks/useMapIcons";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const mapIcons = useMapIcons();
 
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
   const [reportStep, setReportStep] = useState(0);
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-
-  const pointIcon = useImage(require("~/assets/map_icons/point.svg"), {
-    maxWidth: 64,
-    maxHeight: 64,
-  });
-
-  const autoDoorIcon = useImage(require("~/assets/map_icons/auto_door.svg"), {
-    maxWidth: 64,
-    maxHeight: 64,
-  });
-
-  const manualDoorIcon = useImage(
-    require("~/assets/map_icons/manual_door.svg"),
-    {
-      maxWidth: 64,
-      maxHeight: 64,
-    },
-  );
 
   const { data: avoidanceAreas } = useQuery(
     supabase.from("avoidance_areas_with_geojson").select("id,boundary"),
@@ -119,7 +102,7 @@ export default function Home() {
   const getMapIcon = (poiType: Enums<"poi_type">, metadata: metadata_types) => {
     switch (poiType) {
       case "accessible_entrance":
-        return metadata.auto_opene ? autoDoorIcon : manualDoorIcon;
+        return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
       default:
         return undefined;
     }
@@ -172,7 +155,7 @@ export default function Home() {
           // User selected aaPoints to report
           ...aaPointsReport.map((point) => ({
             coordinates: point,
-            icon: pointIcon || undefined,
+            icon: mapIcons.point || undefined,
           })),
           // Points of Interest (POIs)
           ...(POIs || []).map((poi) => ({

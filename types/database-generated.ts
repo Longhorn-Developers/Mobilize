@@ -107,9 +107,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          latitude: number | null
           location: unknown
-          longitude: number | null
+          location_geojson: Json | null
           metadata: Json
           poi_type: Database["public"]["Enums"]["poi_type"]
           updated_at: string
@@ -117,9 +116,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          latitude?: number | null
           location: unknown
-          longitude?: number | null
+          location_geojson?: Json | null
           metadata: Json
           poi_type: Database["public"]["Enums"]["poi_type"]
           updated_at?: string
@@ -127,9 +125,8 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          latitude?: number | null
           location?: unknown
-          longitude?: number | null
+          location_geojson?: Json | null
           metadata?: Json
           poi_type?: Database["public"]["Enums"]["poi_type"]
           updated_at?: string

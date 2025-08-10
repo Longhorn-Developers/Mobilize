@@ -8,7 +8,8 @@
     "npm:@types/geojson@^7946.0.16": "7946.0.16",
     "npm:@types/node@*": "22.15.15",
     "npm:@xmldom/xmldom@~0.9.8": "0.9.8",
-    "npm:openai@^4.52.5": "4.104.0"
+    "npm:openai@^4.52.5": "4.104.0",
+    "npm:type-fest@^4.41.0": "4.41.0"
   },
   "jsr": {
     "@supabase/functions-js@2.4.5": {
@@ -279,6 +280,9 @@
     "tr46@0.0.3": {
       "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="
     },
+    "type-fest@4.41.0": {
+      "integrity": "sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA=="
+    },
     "undici-types@5.26.5": {
       "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="
     },
@@ -308,7 +312,8 @@
       "npm:@supabase/supabase-js@^2.54.0",
       "npm:@tmcw/togeojson@^7.1.2",
       "npm:@types/geojson@^7946.0.16",
-      "npm:@xmldom/xmldom@~0.9.8"
+      "npm:@xmldom/xmldom@~0.9.8",
+      "npm:type-fest@^4.41.0"
     ]
   }
 }

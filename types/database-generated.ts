@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json
-          query?: string
           operationName?: string
           variables?: Json
+          query?: string
+          extensions?: Json
         }
         Returns: Json
       }
@@ -100,6 +100,39 @@ export type Database = {
           name?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      pois: {
+        Row: {
+          created_at: string
+          id: string
+          latitude: number | null
+          location: unknown
+          longitude: number | null
+          metadata: Json
+          poi_type: Database["public"]["Enums"]["poi_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          location: unknown
+          longitude?: number | null
+          metadata: Json
+          poi_type: Database["public"]["Enums"]["poi_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          location?: unknown
+          longitude?: number | null
+          metadata?: Json
+          poi_type?: Database["public"]["Enums"]["poi_type"]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -218,7 +251,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      poi_type: "accessible_entrance"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -348,7 +381,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      poi_type: ["accessible_entrance"],
+    },
   },
 } as const
 

@@ -1,17 +1,32 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import {
   WarningIcon,
-  MapPinIcon, XIcon,
+  MapPinIcon,
+  XIcon,
   CaretUpIcon,
   CaretDownIcon,
   ArrowDownIcon,
   ArrowUpIcon,
-  PaperPlaneRightIcon
+  PaperPlaneRightIcon,
 } from "phosphor-react-native";
 import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
+
+// Comment form schema
+const commentSchema = z.object({
+  content: z
+    .string()
+    .min(1, "Comment cannot be empty")
+    .max(500, "Comment must be less than 500 characters")
+    .trim(),
+});
+
+type CommentFormData = z.infer<typeof commentSchema>;
 
 // Sample data
 const sampleAvoidanceArea = {
@@ -37,9 +52,20 @@ const sampleComments = [
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
-  const [newComment, setNewComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [comments, setComments] = useState(sampleComments);
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<CommentFormData>({
+    resolver: zodResolver(commentSchema),
+    defaultValues: {
+      content: "",
+    },
+  });
 
   const avoidanceArea = sampleAvoidanceArea;
 
@@ -62,18 +88,16 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     console.log(`Status updated: ${stillPresent}`);
   };
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const newCommentObj = {
-        id: String(comments.length + 1),
-        content: newComment.trim(),
-        created_at: new Date().toISOString(),
-        created_by: "current_user",
-        profiles: { username: "anonymous" },
-      };
-      setComments([newCommentObj, ...comments]);
-      setNewComment("");
-    }
+  const handleAddComment = (data: CommentFormData) => {
+    const newCommentObj = {
+      id: String(comments.length + 1),
+      content: data.content,
+      created_at: new Date().toISOString(),
+      created_by: "current_user",
+      profiles: { username: "anonymous" },
+    };
+    setComments([newCommentObj, ...comments]);
+    reset();
   };
 
   return (
@@ -204,29 +228,40 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
             ))}
 
             {/* Add Comment */}
-            <View className="flex-row items-center gap-2 rounded-3xl bg-gray-100 px-4 py-2">
-              <View className="h-8 w-8 rounded-full bg-gray-300" />
-              <TextInput
-                className="flex-1 pb-2 text-lg"
-                placeholder="Add comment"
-                value={newComment}
-                numberOfLines={4}
-                onChangeText={setNewComment}
-                multiline
-              />
-              <TouchableOpacity
-                onPress={handleAddComment}
-                disabled={!newComment.trim()}
-                className={`ml-2 ${newComment.trim() ? "opacity-100" : "opacity-50"}`}
-              >
-                <PaperPlaneRightIcon
-                  size={24}
-                  weight="fill"
-                  color={
-                    newComment.trim() ? colors.ut.burntorange : colors.ut.black
-                  }
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2 rounded-3xl bg-gray-100 px-4 py-2">
+                <View className="h-8 w-8 rounded-full bg-gray-300" />
+                <Controller
+                  control={control}
+                  name="content"
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      className="flex-1 pb-2 text-lg"
+                      placeholder="Add comment"
+                      value={value}
+                      numberOfLines={4}
+                      onChangeText={onChange}
+                      multiline
+                    />
+                  )}
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSubmit(handleAddComment)}
+                  disabled={!isValid}
+                  className={`ml-2 ${isValid ? "opacity-100" : "opacity-50"}`}
+                >
+                  <PaperPlaneRightIcon
+                    size={24}
+                    weight="fill"
+                    color={isValid ? colors.ut.burntorange : colors.ut.black}
+                  />
+                </TouchableOpacity>
+              </View>
+              {errors.content && (
+                <Text className="px-4 text-sm text-red-500">
+                  {errors.content.message}
+                </Text>
+              )}
             </View>
           </View>
         )}

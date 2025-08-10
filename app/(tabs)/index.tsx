@@ -34,6 +34,9 @@ export default function Home() {
 
   const { data: POIs } = useQuery(
     supabase.from("pois").select("id, poi_type, metadata, location_geojson"),
+    {
+      staleTime: 1000 * 60 * 60, // 1 hour
+    },
   );
 
   // Check if map pressed is among one of the POIs

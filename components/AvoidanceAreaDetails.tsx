@@ -1,13 +1,12 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import {
   WarningIcon,
-  MapPinIcon,
-  PaperPlaneTiltIcon,
-  XIcon,
+  MapPinIcon, XIcon,
   CaretUpIcon,
   CaretDownIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  PaperPlaneRightIcon
 } from "phosphor-react-native";
 import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import { useState } from "react";
@@ -60,7 +59,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const handleStatusUpdate = (stillPresent: boolean) => {
     setSelectedStatus(stillPresent);
     // In real app, this would update the database
-    console.log(`Status updated: ${stillPresent ? "active" : "resolved"}`);
+    console.log(`Status updated: ${stillPresent}`);
   };
 
   const handleAddComment = () => {
@@ -91,7 +90,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
         {/* Heading and subheading */}
         <View className="flex-1">
-          <Text className="text-3xl font-bold">Avoidance Area</Text>
+          <Text className="text-3xl font-bold">{avoidanceArea.name}</Text>
           <Text className="text-lg font-medium text-gray-600">
             Temporary Blockage
           </Text>
@@ -149,15 +148,15 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
               actions={[
                 {
                   label: "Yes",
-                  onPress: () => {},
-                  className: "py-1 px-3 bg-ut-burntorange/15",
-                  textClassName: "text-ut-burntorange",
+                  onPress: () => handleStatusUpdate(true),
+                  className: `py-1 px-3 ${selectedStatus ? "bg-ut-burntorange" : "bg-ut-burntorange/15"}`,
+                  textClassName: `${selectedStatus ? "text-white" : "text-ut-burntorange"}`,
                 },
                 {
                   label: "No",
-                  onPress: () => {},
-                  className: "py-1 px-3 bg-ut-burntorange/15",
-                  textClassName: "text-ut-burntorange",
+                  onPress: () => handleStatusUpdate(false),
+                  className: `py-1 px-3 ${selectedStatus === false ? "bg-ut-burntorange" : "bg-ut-burntorange/15"}`,
+                  textClassName: `${selectedStatus === false ? "text-white" : "text-ut-burntorange"}`,
                 },
               ]}
             />
@@ -220,7 +219,13 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
                 disabled={!newComment.trim()}
                 className={`ml-2 ${newComment.trim() ? "opacity-100" : "opacity-50"}`}
               >
-                <PaperPlaneTiltIcon size={24} />
+                <PaperPlaneRightIcon
+                  size={24}
+                  weight="fill"
+                  color={
+                    newComment.trim() ? colors.ut.burntorange : colors.ut.black
+                  }
+                />
               </TouchableOpacity>
             </View>
           </View>

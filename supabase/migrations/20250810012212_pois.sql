@@ -14,12 +14,11 @@ create table public.pois (
     poi_type poi_type not null,
     metadata jsonb not null,
     location geography not null,
-    longitude float generated always as (ST_X(location::geometry)) stored,
-    latitude float generated always as (ST_Y(location::geometry)) stored,
+    location_geojson jsonb generated always as (st_asgeojson(location::geometry)::jsonb) stored,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
-    unique(poi_type, location, metadata)
+    unique(poi_type, metadata, location)
 );
 create index pois_location_idx on public.pois using GIST(location);
 alter table public.pois enable row level security;
@@ -37,3 +36,7 @@ alter table public.pois add constraint valid_accessible_entrance_metadata check 
         "required": ["name", "bld_name", "floor", "auto_opene"]
     }', metadata)
 );
+
+create policy "Allow all users to select pois" on public.pois
+    for select
+    using (true);

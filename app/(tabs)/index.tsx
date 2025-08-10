@@ -15,6 +15,7 @@ import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { insertAvoidanceArea } from "~/utils/queries";
+import { Enums, metadata_types } from "~/types/database";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -26,47 +27,48 @@ export default function Home() {
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
-  const pointIcon = useImage(require("../../assets/point.svg"), {
+  const pointIcon = useImage(require("~/assets/map_icons/point.svg"), {
     maxWidth: 64,
     maxHeight: 64,
-    onError(error) {
-      console.error(error);
-    },
   });
 
-  const autoDoorIcon = useImage(require("../../assets/autodoor.svg"), {
+  const autoDoorIcon = useImage(require("~/assets/map_icons/auto_door.svg"), {
     maxWidth: 64,
     maxHeight: 64,
-    onError(error) {
-      console.error(error);
-    },
   });
+
+  const manualDoorIcon = useImage(
+    require("~/assets/map_icons/manual_door.svg"),
+    {
+      maxWidth: 64,
+      maxHeight: 64,
+    },
+  );
 
   const { data: avoidanceAreas } = useQuery(
     supabase.from("avoidance_areas_with_geojson").select("id,boundary"),
   );
 
-  const POIs = [
-    {
-      coordinates: [
-        {
-          latitude: 30.26523897879868,
-          longitude: -97.73236982430406,
-        },
-      ],
-    },
-  ];
+  const { data: POIs } = useQuery(
+    supabase.from("pois").select("id, poi_type, metadata, location_geojson"),
+  );
 
   // Check if map pressed is among one of the POIs
-  const handlePOIPress = (event: any) => {
+  const handlePOIPress = (event: Coordinates) => {
+    if (!POIs) return;
+
     const CLICK_TOLERANCE = 0.0001;
     const POIclicked = POIs.find((poi) => {
-      const latDiff = Math.abs(poi.coordinates[0].latitude - event.latitude);
-      const lonDiff = Math.abs(poi.coordinates[0].longitude - event.longitude);
-      return latDiff <= CLICK_TOLERANCE && lonDiff <= CLICK_TOLERANCE;
+      const lonDiff = Math.abs(
+        poi.location_geojson.coordinates[0] - (event.longitude ?? 0),
+      );
+      const latDiff = Math.abs(
+        poi.location_geojson.coordinates[1] - (event.latitude ?? 0),
+      );
+      return lonDiff <= CLICK_TOLERANCE && latDiff <= CLICK_TOLERANCE;
     });
     if (POIclicked) {
-      console.log("POI CLICKED");
+      console.log(`POI CLICKED: ${POIclicked.id}`);
     }
   };
 
@@ -114,6 +116,15 @@ export default function Home() {
     bottomSheetRef.current?.present(event);
   };
 
+  const getMapIcon = (poiType: Enums<"poi_type">, metadata: metadata_types) => {
+    switch (poiType) {
+      case "accessible_entrance":
+        return metadata.auto_opene ? autoDoorIcon : manualDoorIcon;
+      default:
+        return undefined;
+    }
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
@@ -124,7 +135,7 @@ export default function Home() {
       <AppleMaps.View
         style={{ flex: 1 }}
         onPolygonClick={handleAvoidanceAreaPress}
-        onMapClick={handleMapPress}
+        onMapClick={(event) => handleMapPress(event as Coordinates)}
         cameraPosition={{
           coordinates: {
             // Default coordinates for UT Tower
@@ -141,11 +152,10 @@ export default function Home() {
           // Avoidance areas from the database
           ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
             id: area.id || undefined,
-            coordinates:
-              area.boundary?.coordinates[0].map((coord) => ({
-                latitude: coord[1],
-                longitude: coord[0],
-              })) || [],
+            coordinates: area.boundary.coordinates[0].map((coord) => ({
+              longitude: coord[0],
+              latitude: coord[1],
+            })),
             color: "rgba(255, 0, 0, 0.25)",
             lineColor: "rgba(255, 0, 0, 0.5)",
             lineWidth: 0.1,
@@ -162,15 +172,16 @@ export default function Home() {
           // User selected aaPoints to report
           ...aaPointsReport.map((point) => ({
             coordinates: point,
-            icon: pointIcon ? pointIcon : undefined,
+            icon: pointIcon || undefined,
           })),
           // Points of Interest (POIs)
-          ...POIs.flatMap((poi) =>
-            poi.coordinates.map((coord) => ({
-              coordinates: coord,
-              icon: autoDoorIcon ? autoDoorIcon : undefined,
-            })),
-          ),
+          ...(POIs || []).map((poi) => ({
+            coordinates: {
+              longitude: poi.location_geojson.coordinates[0],
+              latitude: poi.location_geojson.coordinates[1],
+            } satisfies Coordinates,
+            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+          })),
         ]}
       />
 

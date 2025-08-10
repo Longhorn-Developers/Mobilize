@@ -1,21 +1,33 @@
 import { MergeDeep } from "type-fest";
+import { Polygon, Point } from "@types/geojson";
 import { Database as DatabaseGenerated } from "./database-generated";
 export { Json, Constants } from "./database-generated";
 
-// Extend database types with custom JSON type
-type BoundaryJSON = {
-  type: string;
-  coordinates: number[][][];
-};
+type accessible_entrance_metadata = {
+  name: string;
+  floor: number;
+  bld_name: string;
+  auto_opene: boolean;
+}
+
+export type metadata_types = accessible_entrance_metadata;
 
 export type Database = MergeDeep<
   DatabaseGenerated,
   {
     public: {
+      Tables: {
+        pois: {
+          Row: {
+            location_geojson: Point;
+            metadata: metadata_types;
+          }
+        }
+      }
       Views: {
         avoidance_areas_with_geojson: {
           Row: {
-            boundary: BoundaryJSON | null;
+            boundary: Polygon;
           };
         };
       };

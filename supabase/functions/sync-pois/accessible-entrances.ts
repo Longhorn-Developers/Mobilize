@@ -50,9 +50,9 @@ export async function sync_accessible_entrances(
 
   // insert the data into the 'pois' table
   if (poisData.length > 0) {
-    await supabase.from("pois").upsert(poisData).throwOnError();
-    console.log(`Upserted ${poisData.length} accessibility entrance POIs...`);
+    await supabase.from("pois").upsert(poisData, {onConflict: 'poi_type, location, metadata'}).throwOnError();
+    console.log(`Synced ${poisData.length} accessibility entrance POIs...`);
   } else {
-    console.log("No new POI data to upsert.");
+    console.log("No new accessibility entrance POI data to sync.");
   }
 }

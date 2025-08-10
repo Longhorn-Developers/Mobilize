@@ -13,3 +13,11 @@ SELECT vault.create_secret(
     'SUPABASE_ROLE_KEY', 
     'Role key to be used for calling internal edge functions'
 );
+
+-- Initial seed with POIs
+select 
+    net.http_post(
+        url:= (select decrypted_secret from vault.decrypted_secrets where name = 'SUPABASE_URL') || '/functions/v1/sync-pois',
+        headers:=jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'SUPABASE_ROLE_KEY')),
+        timeout_milliseconds:=5000
+    );

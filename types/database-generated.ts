@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          operationName?: string
-          variables?: Json
           query?: string
           extensions?: Json
+          variables?: Json
+          operationName?: string
         }
         Returns: Json
       }
@@ -67,18 +67,12 @@ export type Database = {
             referencedRelation: "avoidance_areas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "avoidance_area_reports_avoidance_area_id_fkey"
-            columns: ["avoidance_area_id"]
-            isOneToOne: false
-            referencedRelation: "avoidance_areas_with_geojson"
-            referencedColumns: ["id"]
-          },
         ]
       }
       avoidance_areas: {
         Row: {
           boundary: unknown
+          boundary_geojson: Json | null
           created_at: string
           id: string
           name: string | null
@@ -87,6 +81,7 @@ export type Database = {
         }
         Insert: {
           boundary: unknown
+          boundary_geojson?: Json | null
           created_at?: string
           id?: string
           name?: string | null
@@ -95,6 +90,7 @@ export type Database = {
         }
         Update: {
           boundary?: unknown
+          boundary_geojson?: Json | null
           created_at?: string
           id?: string
           name?: string | null
@@ -216,30 +212,7 @@ export type Database = {
       }
     }
     Views: {
-      avoidance_areas_with_geojson: {
-        Row: {
-          boundary: Json | null
-          created_at: string | null
-          id: string | null
-          name: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          boundary?: never
-          created_at?: string | null
-          id?: string | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          boundary?: never
-          created_at?: string | null
-          id?: string | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       insert_avoidance_area: {
@@ -247,7 +220,7 @@ export type Database = {
         Returns: string
       }
       json_matches_schema: {
-        Args: { instance: Json; schema: Json }
+        Args: { schema: Json; instance: Json }
         Returns: boolean
       }
       jsonb_matches_schema: {

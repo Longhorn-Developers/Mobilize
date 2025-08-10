@@ -3,7 +3,7 @@ import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { AppleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
@@ -16,6 +16,19 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { insertAvoidanceArea } from "~/utils/queries";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
+
+const initialCameraPosition = {
+  coordinates: {
+    // Default coordinates for UT Tower
+    // longitude: -97.73921,
+    // latitude: 30.28565,
+
+    // Testing camera position for test avoidance area
+    longitude: -97.7333,
+    latitude: 30.2672,
+  },
+  zoom: 16,
+};
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -39,6 +52,35 @@ export default function Home() {
     },
   );
 
+  const getMapIcon = useCallback(
+    (poiType: Enums<"poi_type">, metadata: metadata_types) => {
+      switch (poiType) {
+        case "accessible_entrance":
+          return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
+        default:
+          return undefined;
+      }
+    },
+    [mapIcons],
+  );
+
+  // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
+  const isPointValid = (point: Coordinates) => {
+    if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
+
+    const polygon = turf.polygon([
+      [
+        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
+        [point.longitude || 0, point.latitude || 0],
+        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
+      ],
+    ]);
+    const kinks = turf.kinks(polygon);
+
+    // No kinks means the polygon is valid
+    return kinks.features.length === 0;
+  };
+
   // Check if map pressed is among one of the POIs
   const handlePOIPress = (event: Coordinates) => {
     if (!POIs) return;
@@ -56,23 +98,6 @@ export default function Home() {
     if (POIclicked) {
       console.log(`POI CLICKED: ${POIclicked.id}`);
     }
-  };
-
-  // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
-  const isPointValid = (point: Coordinates) => {
-    if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
-
-    const polygon = turf.polygon([
-      [
-        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
-        [point.longitude || 0, point.latitude || 0],
-        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
-      ],
-    ]);
-    const kinks = turf.kinks(polygon);
-
-    // No kinks means the polygon is valid
-    return kinks.features.length === 0;
   };
 
   const handleMapPress = (event: Coordinates) => {
@@ -102,14 +127,48 @@ export default function Home() {
     bottomSheetRef.current?.present(event);
   };
 
-  const getMapIcon = (poiType: Enums<"poi_type">, metadata: metadata_types) => {
-    switch (poiType) {
-      case "accessible_entrance":
-        return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
-      default:
-        return undefined;
-    }
-  };
+  const polygons = useMemo(
+    () => [
+      // Avoidance areas from the database
+      ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
+        id: area.id || undefined,
+        coordinates: area.boundary.coordinates[0].map((coord) => ({
+          longitude: coord[0],
+          latitude: coord[1],
+        })),
+        color: "rgba(255, 0, 0, 0.25)",
+        lineColor: "rgba(255, 0, 0, 0.5)",
+        lineWidth: 0.1,
+      })),
+      // User selected aaPoints to report
+      {
+        coordinates: aaPointsReport,
+        color: "rgba(255, 0, 0, 0.25)",
+        lineColor: "red",
+        lineWidth: 2,
+      },
+    ],
+    [avoidanceAreas, aaPointsReport],
+  );
+
+  const annotations = useMemo(
+    () => [
+      // User selected aaPoints to report
+      ...aaPointsReport.map((point) => ({
+        coordinates: point,
+        icon: mapIcons.point || undefined,
+      })),
+      // Points of Interest (POIs)
+      ...(POIs || []).map((poi) => ({
+        coordinates: {
+          longitude: poi.location_geojson.coordinates[0],
+          latitude: poi.location_geojson.coordinates[1],
+        } satisfies Coordinates,
+        icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+      })),
+    ],
+    [POIs, aaPointsReport, mapIcons, getMapIcon],
+  );
 
   return (
     <>
@@ -122,53 +181,9 @@ export default function Home() {
         style={{ flex: 1 }}
         onPolygonClick={handleAvoidanceAreaPress}
         onMapClick={(event) => handleMapPress(event as Coordinates)}
-        cameraPosition={{
-          coordinates: {
-            // Default coordinates for UT Tower
-            // longitude: -97.73921,
-            // latitude: 30.28565,
-
-            // Testing camera position for test avoidance area
-            longitude: -97.7333,
-            latitude: 30.2672,
-          },
-          zoom: 16,
-        }}
-        polygons={[
-          // Avoidance areas from the database
-          ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
-            id: area.id || undefined,
-            coordinates: area.boundary.coordinates[0].map((coord) => ({
-              longitude: coord[0],
-              latitude: coord[1],
-            })),
-            color: "rgba(255, 0, 0, 0.25)",
-            lineColor: "rgba(255, 0, 0, 0.5)",
-            lineWidth: 0.1,
-          })),
-          // User selected aaPoints to report
-          {
-            coordinates: aaPointsReport,
-            color: "rgba(255, 0, 0, 0.25)",
-            lineColor: "red",
-            lineWidth: 2,
-          },
-        ]}
-        annotations={[
-          // User selected aaPoints to report
-          ...aaPointsReport.map((point) => ({
-            coordinates: point,
-            icon: mapIcons.point || undefined,
-          })),
-          // Points of Interest (POIs)
-          ...(POIs || []).map((poi) => ({
-            coordinates: {
-              longitude: poi.location_geojson.coordinates[0],
-              latitude: poi.location_geojson.coordinates[1],
-            } satisfies Coordinates,
-            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-          })),
-        ]}
+        cameraPosition={initialCameraPosition}
+        polygons={polygons}
+        annotations={annotations}
       />
 
       {isReportMode ? (

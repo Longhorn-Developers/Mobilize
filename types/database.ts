@@ -8,7 +8,7 @@ type accessible_entrance_metadata = {
   floor: number;
   bld_name: string;
   auto_opene: boolean;
-}
+};
 
 export type metadata_types = accessible_entrance_metadata;
 
@@ -21,13 +21,11 @@ export type Database = MergeDeep<
           Row: {
             location_geojson: Point;
             metadata: metadata_types;
-          }
-        }
-      }
-      Views: {
-        avoidance_areas_with_geojson: {
+          };
+        };
+        avoidance_areas: {
           Row: {
-            boundary: Polygon;
+            boundary_geojson: Polygon;
           };
         };
       };

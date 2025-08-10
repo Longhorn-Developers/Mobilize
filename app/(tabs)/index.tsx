@@ -1,5 +1,8 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
+import {
+  useInsertMutation,
+  useQuery,
+} from "@supabase-cache-helpers/postgrest-react-query";
 import { AppleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
@@ -13,7 +16,7 @@ import { supabase } from "~/utils/supabase";
 import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { insertAvoidanceArea } from "~/utils/queries";
+import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
 
@@ -42,7 +45,31 @@ export default function Home() {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
   const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas_with_geojson").select("id,boundary"),
+    supabase.from("avoidance_areas").select("id,boundary_geojson"),
+  );
+
+  const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
+    supabase.from("avoidance_areas"),
+    ["id"],
+    "",
+    {
+      onSuccess: () => {
+        Toast.show({
+          type: "success",
+          text2:
+            "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
+          topOffset: insets.top + 35,
+        });
+      },
+      onError: (error) => {
+        Toast.show({
+          type: "error",
+          text2: `Error reporting avoidance area: ${error.message}`,
+          position: "bottom",
+          bottomOffset: bottomTabBarHeight + 50,
+        });
+      },
+    },
   );
 
   const { data: POIs } = useQuery(
@@ -132,7 +159,7 @@ export default function Home() {
       // Avoidance areas from the database
       ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
         id: area.id || undefined,
-        coordinates: area.boundary.coordinates[0].map((coord) => ({
+        coordinates: area.boundary_geojson.coordinates[0].map((coord) => ({
           longitude: coord[0],
           latitude: coord[1],
         })),
@@ -158,16 +185,18 @@ export default function Home() {
         coordinates: point,
         icon: mapIcons.point || undefined,
       })),
-      // Points of Interest (POIs)
-      ...(POIs || []).map((poi) => ({
-        coordinates: {
-          longitude: poi.location_geojson.coordinates[0],
-          latitude: poi.location_geojson.coordinates[1],
-        } satisfies Coordinates,
-        icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-      })),
+      // POIs only show if not in report mode
+      ...(!isReportMode
+        ? (POIs || []).map((poi) => ({
+            coordinates: {
+              longitude: poi.location_geojson.coordinates[0],
+              latitude: poi.location_geojson.coordinates[1],
+            } satisfies Coordinates,
+            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+          }))
+        : []),
     ],
-    [POIs, aaPointsReport, mapIcons, getMapIcon],
+    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode],
   );
 
   return (
@@ -202,7 +231,12 @@ export default function Home() {
             setCurrentStep={(index) => setReportStep(index)}
             onSubmit={async (data) => {
               const aaPoints = [...data.aaPoints, data.aaPoints[0]];
-              await insertAvoidanceArea(data.description, aaPoints);
+              await insertAvoidanceArea([
+                {
+                  name: data.description,
+                  boundary: coordinatesToWKT(aaPoints),
+                },
+              ]);
             }}
             onExit={() => {
               setIsReportMode(false);

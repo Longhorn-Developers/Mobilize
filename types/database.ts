@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json
-          operationName?: string
           query?: string
           variables?: Json
+          extensions?: Json
+          operationName?: string
         }
         Returns: Json
       }
@@ -213,11 +213,13 @@ export type Database = {
     }
     Functions: {
       insert_aa_details: {
-        Args: { aa_description: string; aa_title: string; aa_id: string }
+        Args: { aa_id: string; aa_title: string; aa_description: string }
         Returns: string
       }
       insert_avoidance_area: {
-        Args: { p_wkt: string; p_name: string }
+        Args:
+          | { p_name: string; p_wkt: string; publisher_id: string }
+          | { p_wkt: string; p_name: string }
         Returns: string
       }
     }

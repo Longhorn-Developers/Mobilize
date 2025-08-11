@@ -14,10 +14,14 @@ import { Button } from "~/components/Button";
 import { ReportModal } from "~/components/ReportModal";
 import { useInsertMutation } from '@supabase-cache-helpers/postgrest-react-query'
 
+import UpdatePopup from "~/components/UpdateAA";
+
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { lineIntersect } from "@turf/line-intersect";
 import { feature, lineString } from '@turf/helpers';
+
+import { v4 as uuidv4 } from 'uuid';
 
 import * as turf from '@turf/turf';
 import { LineString } from "geojson";
@@ -26,10 +30,11 @@ export const useInsertAvoidanceAreaRPC = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({name, wkt}: {name:string, wkt:string}) => {
+    mutationFn: async ({name, wkt, publisher_id}: {name:string, wkt:string, publisher_id: string}) => {
       const {data, error} = await supabase.rpc('insert_avoidance_area', {
         p_name:name,
         p_wkt:wkt,
+        publisher_id: publisher_id
       });
       if (error) throw error;
       return data;
@@ -67,6 +72,9 @@ export const insertAvoidanceAreaDetailsRPC = () => {
 export default function Home() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+
+  const [showUpdatePopup, setShowUpdatePopup] = useState(false);
+  const [selectedAAID, setSelectedAAID] = useState('');
   
   const [aaLines, setAALines] = useState([]);
   const { mutateAsync: insertAA, isPending, error } = useInsertAvoidanceAreaRPC();
@@ -78,8 +86,12 @@ export default function Home() {
   
 
   const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
+    supabase.from("avoidance_areas").select("id,name,boundary,user_id"),
   );
+
+  //use this temporarily until we figure out how we want to deal with Auth
+  //9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+  const userID: string = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
   
 
   const addAvoidanceZone = async (name: string, description: string, coordinates: LatLng[]) => {
@@ -104,7 +116,7 @@ export default function Home() {
         //console.log("Finished changing coords to WKT: ", wkt);
 
         //const initial_insert_data = await handleAddAA(name, wkt);
-        const initial_insert_data = await insertAA({name, wkt});
+        const initial_insert_data = await insertAA({name, wkt, publisher_id: userID});
         const detailed_insert_data = await insertAADetails({name, description, id:initial_insert_data}) //initial insert_data acts as the AA ID passed to the new rpc function
 
         
@@ -138,9 +150,11 @@ export default function Home() {
           pt.longitude === event.nativeEvent.coordinate.longitude
       )
       
-    )
+    ){
+      //setShowUpdatePopup(false);
       return;
-
+    }
+    
     event.persist();
 
     setAAPoints((prev) => [...(prev || []), event.nativeEvent.coordinate]);
@@ -239,6 +253,26 @@ export default function Home() {
     coordinates: [number, number][][];
   }
 
+  const handlePolygonPress = async (polygonID:string) => {
+    console.log("Pressed polygon: ", polygonID);
+    const {data, error} = await supabase
+      .from("avoidance_areas")
+      .select('user_id')
+      .eq('id', polygonID)
+      .single()
+    if (error){
+      console.error("Error fetching data:", error)
+    } else {
+      console.log("Data returned:", data.user_id)
+      if (data.user_id === userID){
+        setShowUpdatePopup(true)
+      }
+    }
+
+    
+    
+    setSelectedAAID(polygonID)
+  }
   /*
   const MarkerLayer = ({ points }: { points: LatLng[] }) => (
     <>
@@ -354,6 +388,7 @@ export default function Home() {
               return (
                 <Polygon
                   key={area.id}
+                  onPress = {() => handlePolygonPress(area.id)}
                   coordinates={
                     boundary?.coordinates[0].map(([longitude, latitude]) => ({
                       latitude,
@@ -361,7 +396,7 @@ export default function Home() {
                     })) || []
                   }
                   strokeColor="rgba(255, 0, 0, 0.5)"
-                  fillColor="rgba(255, 0, 0, 0.25)"
+                  fillColor={area.user_id === userID ? "rgba(0, 255, 64, 0.69)": "rgba(255, 0, 0, 0.25)"}
                   strokeWidth={2}
                 />
               );
@@ -399,6 +434,12 @@ export default function Home() {
       {/* Report mode overlay tint */}
       {isReportMode && (
         <View className="bg-ut-blue/15 pointer-events-none absolute bottom-0 left-0 right-0 top-0" />
+      )}
+      {showUpdatePopup && (
+        <UpdatePopup
+          aa_id = {selectedAAID}
+          onClose={() => setShowUpdatePopup(false)}
+        />
       )}
 
       {/* Bottom right button to enter report mode */}

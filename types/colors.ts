@@ -1,4 +1,4 @@
-module.exports = {
+const colors = {
   ut: {
     burntorange: "#BF5700",
     black: "#333F48",
@@ -23,3 +23,5 @@ module.exports = {
     minorgridline: "#F3F4F6",
   },
 } as const satisfies Record<string, Record<string, string>>;
+
+export default colors;

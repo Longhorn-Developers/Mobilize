@@ -1,17 +1,19 @@
 import { Stack } from "expo-router";
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View } from "react-native";
-import MapView, {
-  Polygon,
-  Marker,
-  Region,
-  type LatLng,
-  type MapPressEvent,
-} from "react-native-maps";
+import { AppleMaps, Coordinates } from "expo-maps";
+import { useImage } from "expo-image";
+import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button } from "~/components/Button";
+import ReportModal from "~/components/ReportModal";
+import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
-import { Button } from "~/components/Button";
-import { ReportModal } from "~/components/ReportModal";
+import * as turf from "@turf/turf";
+import Toast from "react-native-toast-message";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useInsertMutation } from '@supabase-cache-helpers/postgrest-react-query'
 
 import UpdatePopup from "~/components/UpdateAA";
@@ -70,8 +72,11 @@ export const insertAvoidanceAreaDetailsRPC = () => {
 }
 
 export default function Home() {
+  const insets = useSafeAreaInsets();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
   const [isReportMode, setIsReportMode] = useState(false);
-  const [aaPoints, setAAPoints] = useState<LatLng[]>([]);
+  const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
 
   const [showUpdatePopup, setShowUpdatePopup] = useState(false);
   const [selectedAAID, setSelectedAAID] = useState('');
@@ -84,392 +89,131 @@ export default function Home() {
 
   const [intersectionPoints, setIntersectionPoints] = useState<LatLng[]>([]);
   
+  const [reportStep, setReportStep] = useState(0);
+
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
+
+  const pointImage = useImage(require("../../assets/point.svg"), {
+    maxWidth: 32,
+    maxHeight: 32,
+    onError(error) {
+      console.error(error);
+    },
+  });
 
   const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas").select("id,name,boundary,user_id"),
+    supabase.from("avoidance_areas_with_geojson").select("id,name,boundary"),
   );
 
-  //use this temporarily until we figure out how we want to deal with Auth
-  //9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
-  const userID: string = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
-  
+  // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
+  const isPointValid = (point: Coordinates) => {
+    if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
 
-  const addAvoidanceZone = async (name: string, description: string, coordinates: LatLng[]) => {
-      try {
-        //first check if enough points have been added
-        if (aaPoints.length < 3){
-          console.log("Error: Not enough points have been added. Add at least 3");
-          setAAPoints([]);
-          setIntersectionPoints([]);
-          setAALines([]);
-          setIsReportMode(false);
-          return;
-        }
-        //final line validation before proceeding
-        const currentLine = turf.lineString([[aaPoints[0].longitude, aaPoints[0].latitude], [aaPoints[aaPoints.length-1].longitude, aaPoints[aaPoints.length-1].latitude]]);
-        console.log("Is valid?:", isValidLine(aaLines, currentLine));
+    const polygon = turf.polygon([
+      [
+        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
+        [point.longitude || 0, point.latitude || 0],
+        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
+      ],
+    ]);
+    const kinks = turf.kinks(polygon);
 
-
-        coordinates = [...coordinates, coordinates[0]]; // Autofill the border to the start
-        //console.log("About to change coords to WKT: ", coordinates);
-        const wkt = coordinatesToWKT(coordinates);
-        //console.log("Finished changing coords to WKT: ", wkt);
-
-        //const initial_insert_data = await handleAddAA(name, wkt);
-        const initial_insert_data = await insertAA({name, wkt, publisher_id: userID});
-        const detailed_insert_data = await insertAADetails({name, description, id:initial_insert_data}) //initial insert_data acts as the AA ID passed to the new rpc function
-
-        
-
-        console.log("Successfully added avoidance zone with ID:", detailed_insert_data);
-        setAAPoints([]);
-        setIntersectionPoints([]);
-        setAALines([]);
-        setIsReportMode(false);
-        return detailed_insert_data;
-      } catch (error: any) {
-        console.error("Failed to add avoidance zone:", error);
-        if (error.details) console.error("Details:", error.details);
-        if (error.hint) console.error("Hint:", error.hint);
-        setAAPoints([]);
-        setIntersectionPoints([]);
-        setAALines([]);
-        setIsReportMode(false);
-        throw error;
-      }
-    };
+    // No kinks means the polygon is valid
+    return kinks.features.length === 0;
+  };
 
   // Add pressed coordinates to marked points
   const handleMapPress = (event: MapPressEvent) => {
     if (
       !isReportMode ||
       !event.nativeEvent.coordinate ||
-      aaPoints.some(
-        (pt) =>
-          pt.latitude === event.nativeEvent.coordinate.latitude &&
-          pt.longitude === event.nativeEvent.coordinate.longitude
-      )
-      
-    ){
-      //setShowUpdatePopup(false);
+      aaPoints.includes(event.nativeEvent.coordinate)
+    )
       return;
-    }
-    
+    if (isReportMode) {
+      if (reportStep !== 0) return;
     event.persist();
-
     setAAPoints((prev) => [...(prev || []), event.nativeEvent.coordinate]);
-    
-    //addCoordinate(event.nativeEvent.coordinate.latitude, event.nativeEvent.coordinate.longitude);
-    if (aaPoints.length > 0){
-      const lineCoords = [[event.nativeEvent.coordinate.longitude, event.nativeEvent.coordinate.latitude], [aaPoints[aaPoints.length-1].longitude, aaPoints[aaPoints.length-1].latitude]];
-      const currentLine = turf.lineString(lineCoords);
-
-      //perform checks with current line
-      //do what you will with the check (returns if the line is valid or not, and places a marker where it's invalid)
-      let valid = isValidLine(aaLines, currentLine);
-      console.log("Is valid?:", valid);
-      if (!valid){
-        setAAPoints([]);
-        setIntersectionPoints([]);
-        setAALines([]);
-        return;
-      }
-
-      
-      
-
-      
-      
-    }
-    
-    
-    
-    
-    
-    
   };
 
-  function isValidLine(lines: any[], current: LineString): boolean {
-    //const newLine = lines[lines.length-1];
-    let count = 0;
-    for (let i = 0; i < lines.length; i++){
-      console.log("Line to check:", lines[i]);
-      var comparisonLine = lines[i];
-      var intersects = turf.lineIntersect(current, comparisonLine);
-      if (intersects.features.length > 0){
-        console.log("aaPoints:",aaPoints);
-        intersects.features.forEach((feature, index) => {
-          const coords = feature.geometry.coordinates;
-          console.log(`Intersection #${index + 1}: [${coords[0]}, ${coords[1]}]`);
-          const temp_point: LatLng = {
-            latitude: coords[1],
-            longitude: coords[0]
-          };
-          console.log("Temp Point:", temp_point);
-          const exists = aaPoints.some(
-            p => p.latitude === temp_point.latitude && p.longitude === temp_point.longitude
-          );
-          if (exists === true){
-            console.log("ENDPOINT INTERSECTION");
-          }else{
-            setIntersectionPoints((prev) => [...(prev || []), temp_point]);
-            count++;
-          }
-          
-        });
-      }
-
-      
-      
-      
-    }
-
-    const updatedLines = [...aaLines, current];
-    setAALines(updatedLines);
-    console.log(updatedLines);
-
-    if (count > 0){
-      return false;
-    }else{
-      return true;
-    }
-    
-    
-
-  }
-  function coordinatesToWKT(coordinates: LatLng[]): string {
-    // Convert coordinates to "longitude latitude" format
-    //coordinates = [[-98.7333, 30.2672], [-98.7338, 30.2672], [-98.7338, 30.268], [-98.7333, 30.268], [-98.7333, 30.2672]]; //just to test
-    const points = coordinates
-      .map((coord) => `${coord.longitude} ${coord.latitude}`)
-      .join(", ");
-
-    // Wrap in POLYGON format
-    return `POLYGON((${points}))`;
-  }
-
-  interface GeoJsonPolygon {
-    type: 'Polygon';
-    coordinates: [number, number][][];
-  }
-
-  const handlePolygonPress = async (polygonID:string) => {
-    console.log("Pressed polygon: ", polygonID);
-    const {data, error} = await supabase
-      .from("avoidance_areas")
-      .select('user_id')
-      .eq('id', polygonID)
-      .single()
-    if (error){
-      console.error("Error fetching data:", error)
-    } else {
-      console.log("Data returned:", data.user_id)
-      if (data.user_id === userID){
-        setShowUpdatePopup(true)
-      }
-    }
-
-    
-    
-    setSelectedAAID(polygonID)
-  }
-  /*
-  const MarkerLayer = ({ points }: { points: LatLng[] }) => (
-    <>
-      {points.map((point, index) => (
-        <Marker
-          key={`${point.latitude}-${point.longitude}-${index}`}
-          coordinate={point}
-          pinColor="red"
-        />
-      ))}
-    </>
-  );
-
-  const addCoordinate = (latitude:number, longitude:number) => {
-    console.log("Adding coordinate:", latitude, longitude);
-    return (
-      <Marker
-        key={`${latitude}-${longitude}`}
-        coordinate={{
-          latitude: latitude,
-          longitude: longitude,
-        }}
-        pinColor="red"
-      />
-    );
-  }
-
-  const handleAddAA = async (name: string, wkt: string) => {
-    const { data, error } = await supabase.rpc('insert_avoidance_area', {
-      p_name: name,
-      p_wkt: wkt,
-    });
-
-    if (error) {
-      console.error('Insert failed:', error);
-      return;
-    }
-
-    console.log('Inserted AA with ID:', data);
-  };
-  */
-
-  
-
-  /*
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const channel = supabase
-      .channel('avoidance-areas-updates')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'avoidance_areas' },
-        (payload) => {
-          const { id, name, boundary } = payload.new;
-          console.log("Payload created:", id);
-          
-
-          queryClient.setQueryData(
-            ['avoidance_area_reports'], // must match the key used by useQuery
-            (oldData: any) => {
-              if (!oldData) return [{ id, name, boundary }];
-              return [...oldData, { id, name, boundary }];
-            }
-          );
-          console.log();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-  */
-
-  useEffect(()=> {
-    if (aaPoints.length > 0){
-      console.log("New point: ", aaPoints[aaPoints.length-1]);
-    }
-
-  }, [aaPoints]);
-
-  const defaultRegion: Region = {
-    longitude: -97.7333,
-    latitude: 30.2672,
-
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  };
-  const [region, setRegion] = useState<Region | null>(defaultRegion);
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
-      
-        <MapView
-          initialRegion={region!}
-          onRegionChangeComplete={(currentRegion) => {
-            setRegion(currentRegion);
-          }}
-          
-          key = {aaPoints.length}
-          showsMyLocationButton
-          style={{ flex: 1 }}
-          onPress={handleMapPress}
-          
-          
-            
-        >
-          {/* Show avoidance area polygons */}
-          {avoidanceAreas &&
-            avoidanceAreas.map((area) => {
-              const boundary = area.boundary as unknown as GeoJsonPolygon | undefined;
-              return (
-                <Polygon
-                  key={area.id}
-                  onPress = {() => handlePolygonPress(area.id)}
-                  coordinates={
-                    boundary?.coordinates[0].map(([longitude, latitude]) => ({
-                      latitude,
-                      longitude,
-                    })) || []
-                  }
-                  strokeColor="rgba(255, 0, 0, 0.5)"
-                  fillColor={area.user_id === userID ? "rgba(0, 255, 64, 0.69)": "rgba(255, 0, 0, 0.25)"}
-                  strokeWidth={2}
-                />
-              );
-            })}
 
-          {/* Show selected avoidance area coordinate points */}
-          
-          
-          {aaPoints &&
-          aaPoints.map((point) => (
-            <Marker
-              key={`${point.latitude}-${point.longitude}`}
-              coordinate={{
-                latitude: point.latitude,
-                longitude: point.longitude,
-              }}
-              pinColor="red"
-            />
-          ))}
-          {intersectionPoints &&
-          intersectionPoints.map((point) => (
-            <Marker
-              key={`${point.latitude}-${point.longitude}`}
-              coordinate={{
-                latitude: point.latitude,
-                longitude: point.longitude,
-              }}
-              pinColor="green"
-            />
-          ))}
-          
-        </MapView>
-      
+      {/* Avoidance Area Bottom Sheet */}
+      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
 
-      {/* Report mode overlay tint */}
-      {isReportMode && (
-        <View className="bg-ut-blue/15 pointer-events-none absolute bottom-0 left-0 right-0 top-0" />
-      )}
-      {showUpdatePopup && (
-        <UpdatePopup
-          aa_id = {selectedAAID}
-          onClose={() => setShowUpdatePopup(false)}
-        />
-      )}
+      <AppleMaps.View
+        style={{ flex: 1 }}
+        onMapClick={handleMapPress}
+        onPolygonClick={handleAvoidanceAreaPress}
+        polygons={[
+          // Avoidance areas from the database
+          ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
+            id: area.id || undefined,
+            coordinates:
+              area.boundary?.coordinates[0].map((coord) => ({
+                latitude: coord[1],
+                longitude: coord[0],
+              })) || [],
+            color: "rgba(255, 0, 0, 0.25)",
+            lineColor: "rgba(255, 0, 0, 0.5)",
+            lineWidth: 0.1,
+          })),
+          // User selected aaPoints to report
+          {
+            coordinates: aaPointsReport,
+            color: "rgba(255, 0, 0, 0.25)",
+            lineColor: "red",
+            lineWidth: 2,
+          },
+        ]}
+        annotations={aaPointsReport.map((point) => ({
+          coordinates: point,
+          icon: pointImage ? pointImage : undefined,
+        }))}
+        cameraPosition={{
+          coordinates: {
+            // Default coordinates for UT Tower
+            // longitude: -97.73921,
+            // latitude: 30.28565,
 
-      {/* Bottom right button to enter report mode */}
-      <Button
-        className="absolute bottom-4 right-4"
-        title={isReportMode ? "Exit Report" : "Report"}
-        onPress={() => {
-          setAAPoints([]);
-          setIntersectionPoints([]);
-          setAALines([]);
-          setDescription("");
-          setIsReportMode(!isReportMode);
+            // Testing camera position for test avoidance area
+            longitude: -97.7333,
+            latitude: 30.2672,
+          },
+          zoom: 16,
         }}
       />
 
-      {/* Report Mode Dialog */}
-      {isReportMode && (
-        <ReportModal
-          className="absolute left-12 right-12 top-20"
-          isVisible={isReportMode}
-          aaPoints={aaPoints}
-          description={description}
-          onDescriptionChange={setDescription}   // will update parent state
-          onSubmit={() => {
-            console.log("Submitting avoidance area points:", aaPoints);
-            console.log("Description:", description);
-            addAvoidanceZone("test", description, aaPoints);
-            setIsReportMode(false);
-          }}
-          onClearPoints={() => {setAAPoints([]); setAALines([]); setIntersectionPoints([]);}}
+      {isReportMode ? (
+        <>
+          {/* Report mode overlay tint */}
+          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
+          {/* Report Mode Dialog */}
+          <ReportModal
+            className={`absolute left-10 right-10`}
+            style={{
+              top: insets.top + 25,
+            }}
+            aaPoints={aaPointsReport}
+            currentStep={reportStep}
+            setAAPoints={(points) => setAAPointsReport(points)}
+            setCurrentStep={(index) => setReportStep(index)}
+            onSubmit={(data) => {
+              console.log("Submitting report:", data);
+            }}
+            onExit={() => {
+              setIsReportMode(false);
+            }}
+          />
+        </>
+      ) : (
+        // Bottom right button to enter report mode
+        <Button
+          className="absolute bottom-4 right-4"
+          title={"Report"}
+          onPress={() => setIsReportMode(true)}
         />
       )}
     </>

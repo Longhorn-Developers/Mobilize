@@ -18,9 +18,9 @@ export type Database = {
       graphql: {
         Args: {
           query?: string
+          operationName?: string
           extensions?: Json
           variables?: Json
-          operationName?: string
         }
         Returns: Json
       }
@@ -38,26 +38,26 @@ export type Database = {
         Row: {
           avoidance_area_id: string | null
           created_at: string
-          description: string | null
+          description: string
           id: string
-          title: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           avoidance_area_id?: string | null
           created_at?: string
-          description?: string | null
+          description: string
           id?: string
-          title: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           avoidance_area_id?: string | null
           created_at?: string
-          description?: string | null
+          description?: string
           id?: string
-          title?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -224,7 +224,7 @@ export type Database = {
         Returns: boolean
       }
       jsonb_matches_schema: {
-        Args: { schema: Json; instance: Json }
+        Args: { instance: Json; schema: Json }
         Returns: boolean
       }
       jsonschema_is_valid: {

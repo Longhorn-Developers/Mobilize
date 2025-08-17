@@ -16,7 +16,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
-import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
+import {
+  useInsertMutation,
+  useQuery,
+} from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 
 // Comment form schema
@@ -53,8 +56,22 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const { data: reports } = useQuery(
     supabase
       .from("avoidance_area_reports")
-      .select("id, title, description, updated_at")
+      .select("id, user_id, description, updated_at")
       .eq("avoidance_area_id", areaId),
+  );
+
+  const { mutateAsync: addReport } = useInsertMutation(
+    supabase.from("avoidance_area_reports"),
+    ["id"],
+    "",
+    {
+      onSuccess: () => {
+        console.log("Report added successfully");
+      },
+      onError: (error) => {
+        console.error("Error adding report:", error);
+      },
+    },
   );
 
   const {
@@ -89,14 +106,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   };
 
   const handleAddComment = (data: CommentFormData) => {
-    const newCommentObj = {
-      id: String(comments.length + 1),
-      content: data.content,
-      created_at: new Date().toISOString(),
-      created_by: "current_user",
-      profiles: { username: "anonymous" },
-    };
-    setComments([newCommentObj, ...comments]);
+    addReport([
+      {
+        // TODO: TEST USER_ID REMOVE ME
+        user_id: 'e7b691e1-a413-490b-9672-235a31e703b1',
+        avoidance_area_id: areaId,
+        description: data.content,
+      },
+    ]);
     reset();
   };
 

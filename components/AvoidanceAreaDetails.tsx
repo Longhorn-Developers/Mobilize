@@ -16,44 +16,46 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
+import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
+import { supabase } from "~/utils/supabase";
 
 // Comment form schema
 const commentSchema = z.object({
   content: z
     .string()
     .min(1, "Comment cannot be empty")
-    .max(500, "Comment must be less than 500 characters")
+    .max(280, "Comment must be less than 280 characters")
     .trim(),
 });
 
 type CommentFormData = z.infer<typeof commentSchema>;
 
-// Sample data
-const sampleAvoidanceArea = {
-  id: "1",
-  name: "Construction Blockage",
-  description: "Barricade placed on the path for temporary construction",
-  location: "W22nd St",
-  area_size: "4",
-  created_at: "2024-01-15T10:00:00Z",
-  created_by: "anonymous",
-  status: "active",
-};
-
-const sampleComments = [
-  {
-    id: "1",
-    content: "[User comment]",
-    created_at: "2024-01-15T14:00:00Z",
-    created_by: "user1",
-    profiles: { username: "anonymous" },
-  },
-];
-
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
-  const [comments, setComments] = useState(sampleComments);
+
+  const { data: avoidanceArea } = useQuery(
+    supabase
+      .from("avoidance_areas")
+      .select("user_id, name, created_at")
+      .eq("id", areaId)
+      .single(),
+    {
+      placeholderData: {
+        data: {
+          name: "Avoidance Area",
+          created_at: new Date().toISOString(),
+        },
+      },
+    },
+  );
+
+  const { data: reports } = useQuery(
+    supabase
+      .from("avoidance_area_reports")
+      .select("id, title, description, updated_at")
+      .eq("avoidance_area_id", areaId),
+  );
 
   const {
     control,
@@ -66,8 +68,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       content: "",
     },
   });
-
-  const avoidanceArea = sampleAvoidanceArea;
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -114,7 +114,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
         {/* Heading and subheading */}
         <View className="flex-1">
-          <Text className="text-3xl font-bold">{avoidanceArea.name}</Text>
+          <Text className="text-3xl font-bold">{avoidanceArea!.name}</Text>
           <Text className="text-lg font-medium text-gray-600">
             Temporary Blockage
           </Text>
@@ -124,11 +124,9 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       {/* Location */}
       <View className="flex-row items-center gap-2">
         <MapPinIcon size={20} />
-        <Text className="text-lg font-medium">{avoidanceArea.location}</Text>
+        <Text className="text-lg font-medium">NULL</Text>
         <Text className="text-3xl text-theme-majorgridline">•</Text>
-        <Text className="text-lg text-gray-500">
-          {avoidanceArea.area_size} sft
-        </Text>
+        <Text className="text-lg text-gray-500">NULL sft</Text>
       </View>
 
       {/* Avoidance Area Details */}
@@ -145,7 +143,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
             {/* Created At */}
             <Text className="text-lg text-gray-500">
-              {formatTimeAgo(avoidanceArea.created_at)}{" "}
+              {formatTimeAgo(avoidanceArea!.created_at)}{" "}
             </Text>
           </View>
 
@@ -157,9 +155,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         </View>
 
         {/* Description */}
-        <Text className="text-lg text-gray-800">
-          {avoidanceArea.description}
-        </Text>
+        <Text className="text-lg text-gray-800">NULL</Text>
 
         {/* Status Question */}
         <View className="flex-row items-center justify-between rounded-lg bg-ut-burntorange/20 px-4 py-2">
@@ -198,7 +194,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           className="flex-row items-center justify-between py-2"
         >
           <Text className="text-lg font-medium text-gray-600">
-            Comments ({comments.length})
+            Comments ({reports ? reports.length : 0})
           </Text>
           {commentsExpanded ? (
             <CaretUpIcon size={20} />
@@ -210,19 +206,19 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         {commentsExpanded && (
           <View className="gap-4 border-t border-gray-200 py-4">
             {/* Existing Comments */}
-            {comments.map((comment) => (
-              <View key={comment.id} className="flex-row gap-3">
+            {(reports || []).map((report) => (
+              <View key={report.id} className="flex-row gap-3">
                 <View className="h-8 w-8 rounded-full bg-gray-300" />
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="font-medium text-gray-700">
-                      @{comment.profiles?.username || "anonymous"}
+                      {/*@{report.profiles?.username || "anonymous"}*/}
                     </Text>
                     <Text className="text-sm text-gray-500">
-                      {formatTimeAgo(comment.created_at)}
+                      {formatTimeAgo(report.updated_at)}
                     </Text>
                   </View>
-                  <Text className="text-gray-800">{comment.content}</Text>
+                  <Text className="text-gray-800">{report.description}</Text>
                 </View>
               </View>
             ))}

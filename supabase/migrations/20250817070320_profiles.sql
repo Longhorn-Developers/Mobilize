@@ -36,6 +36,10 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- Add description to avoidance_areas
+ALTER TABLE public.avoidance_areas
+ADD COLUMN IF NOT EXISTS description text;
+
 -- 1. Drop the existing foreign key constraint on the avoidance_areas table
 ALTER TABLE public.avoidance_areas
 DROP CONSTRAINT IF EXISTS avoidance_areas_user_id_fkey;

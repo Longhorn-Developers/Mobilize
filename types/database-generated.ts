@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json
           operationName?: string
           variables?: Json
           query?: string
+          extensions?: Json
         }
         Returns: Json
       }
@@ -84,6 +84,7 @@ export type Database = {
           boundary: unknown
           boundary_geojson: Json | null
           created_at: string
+          description: string | null
           id: string
           name: string | null
           updated_at: string | null
@@ -93,6 +94,7 @@ export type Database = {
           boundary: unknown
           boundary_geojson?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           boundary?: unknown
           boundary_geojson?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
@@ -232,7 +235,7 @@ export type Database = {
         Returns: string
       }
       json_matches_schema: {
-        Args: { schema: Json; instance: Json }
+        Args: { instance: Json; schema: Json }
         Returns: boolean
       }
       jsonb_matches_schema: {

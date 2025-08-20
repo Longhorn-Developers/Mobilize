@@ -35,7 +35,7 @@ const commentSchema = z.object({
 type CommentFormData = z.infer<typeof commentSchema>;
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
 
@@ -47,6 +47,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         user_id,
         name,
         created_at,
+        description,
         profiles (
           display_name
         )
@@ -153,7 +154,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       {/* Location */}
       <View className="flex-row items-center gap-2">
         <MapPinIcon size={20} />
-        <Text className="text-lg font-medium">NULL</Text>
+        <Text className="text-lg font-medium">NULL Location</Text>
         <Text className="text-3xl text-theme-majorgridline">•</Text>
         <Text className="text-lg text-gray-500">NULL sft</Text>
       </View>
@@ -187,7 +188,15 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         </View>
 
         {/* Description */}
-        <Text className="text-lg text-gray-800">NULL</Text>
+        {avoidanceArea?.description ? (
+          <Text className="text-md text-gray-800">
+            {avoidanceArea.description}
+          </Text>
+        ) : (
+          <Text className="text-md italic text-gray-500">
+            No description provided
+          </Text>
+        )}
 
         {/* Status Question */}
         <View className="flex-row items-center justify-between rounded-lg bg-ut-burntorange/20 px-4 py-2">

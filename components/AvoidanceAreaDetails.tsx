@@ -10,7 +10,7 @@ import {
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
 import { View, Text, TouchableOpacity, TextInput } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,6 +22,10 @@ import {
 } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { useAuth } from "~/utils/AuthProvider";
+import * as turf from "@turf/turf";
+import { Polygon } from "@types/geojson";
+
+const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
 // Comment form schema
 const commentSchema = z.object({
@@ -38,6 +42,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
+  const [polygon, setPolygon] = useState<Polygon | null>(null);
 
   const { data: avoidanceArea } = useQuery(
     supabase
@@ -48,6 +53,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         name,
         created_at,
         description,
+        boundary_geojson,
         profiles (
           display_name
         )
@@ -56,6 +62,17 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       .eq("id", areaId)
       .single(),
   );
+
+  // Effect to convert boundary_geojson to Polygon
+  useEffect(() => {
+    if (avoidanceArea?.boundary_geojson) {
+      const coordinates = avoidanceArea.boundary_geojson.coordinates[0];
+      setPolygon({
+        type: "Polygon",
+        coordinates: [coordinates],
+      });
+    }
+  }, [avoidanceArea?.boundary_geojson]);
 
   const { data: reports } = useQuery(
     supabase
@@ -156,7 +173,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         <MapPinIcon size={20} />
         <Text className="text-lg font-medium">NULL Location</Text>
         <Text className="text-3xl text-theme-majorgridline">•</Text>
-        <Text className="text-lg text-gray-500">NULL sft</Text>
+        <Text className="text-lg text-gray-500">
+          {polygon &&
+            (turf.area(polygon) * sqftInMeters).toLocaleString(undefined, {
+              maximumFractionDigits: 0,
+              minimumFractionDigits: 0,
+            })}{" "}
+          sqft
+        </Text>
       </View>
 
       {/* Avoidance Area Details */}

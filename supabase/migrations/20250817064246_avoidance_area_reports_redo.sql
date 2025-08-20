@@ -1,8 +1,6 @@
-alter table public.avoidance_area_reports drop column title;
-alter table public.avoidance_area_reports drop column description;
-
 alter table public.avoidance_area_reports
-add column description text not null;
+alter column title drop not null;
+
 alter table public.avoidance_area_reports
 add column user_id uuid references auth.users (id) default auth.uid() not null;
 

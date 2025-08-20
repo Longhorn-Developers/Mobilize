@@ -19,8 +19,8 @@ export type Database = {
         Args: {
           query?: string
           operationName?: string
-          extensions?: Json
           variables?: Json
+          extensions?: Json
         }
         Returns: Json
       }
@@ -129,6 +129,27 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_common_locations: {
         Row: {
           created_at: string
@@ -183,33 +204,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          display_name: string | null
-          id: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -224,7 +218,7 @@ export type Database = {
         Returns: boolean
       }
       jsonb_matches_schema: {
-        Args: { instance: Json; schema: Json }
+        Args: { schema: Json; instance: Json }
         Returns: boolean
       }
       jsonschema_is_valid: {
@@ -232,7 +226,7 @@ export type Database = {
         Returns: boolean
       }
       jsonschema_validation_errors: {
-        Args: { instance: Json; schema: Json }
+        Args: { schema: Json; instance: Json }
         Returns: string[]
       }
     }

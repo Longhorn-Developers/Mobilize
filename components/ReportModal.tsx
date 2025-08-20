@@ -39,8 +39,8 @@ const reportFormSchema = z.object({
     ),
   name: z
     .string()
-    .min(5, "Title must be at least 5 characters")
-    .max(30, "Title must not exceed 30 characters"),
+    .min(5, "Name must be at least 5 characters")
+    .max(30, "Name must not exceed 30 characters"),
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
@@ -83,8 +83,9 @@ const ReportModal = ({
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
     defaultValues: {
-      aaPoints: [],
+      name: "",
       description: "",
+      aaPoints: [],
     },
   });
 
@@ -233,7 +234,7 @@ const ReportModal = ({
         <Button
           variant="ghost"
           title=""
-          className="absolute right-0 top-1"
+          className="absolute right-0 top-0"
           onPress={handleClose}
           icon={<XIcon size={28} color={colors.ut.gray} />}
         />

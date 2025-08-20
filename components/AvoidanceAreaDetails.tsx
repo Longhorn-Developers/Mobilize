@@ -9,7 +9,7 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,7 +55,8 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         description,
         boundary_geojson,
         profiles (
-          display_name
+          display_name,
+          avatar_url
         )
       `,
       )
@@ -190,11 +191,23 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           {/* User Profile Pic and Username */}
           <View className="flex-row items-center gap-2">
             {/* Profile Pic */}
-            <View className="h-6 w-6 rounded-full bg-gray-300" />
+            <View className="h-10 w-10 justify-center rounded-full bg-gray-300">
+              {avoidanceArea?.profiles?.avatar_url ? (
+                <Image
+                  source={{ uri: avoidanceArea.profiles.avatar_url }}
+                  className="h-full w-full rounded-full"
+                />
+              ) : (
+                <Text className="text-center text-gray-500">
+                  {avoidanceArea?.profiles?.display_name?.[0].toLocaleUpperCase() ||
+                    "A"}
+                </Text>
+              )}
+            </View>
 
             {/* Author Username */}
             <Text className="text-lg text-gray-600">
-              {avoidanceArea?.profiles?.display_name || "@anonymous"}
+              @{avoidanceArea?.profiles?.display_name || "anonymous"}
             </Text>
 
             {/* Created At */}

@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          query?: string
+          extensions?: Json
           operationName?: string
           variables?: Json
-          extensions?: Json
+          query?: string
         }
         Returns: Json
       }
@@ -38,26 +38,29 @@ export type Database = {
         Row: {
           avoidance_area_id: string | null
           created_at: string
-          description: string
+          description: string | null
           id: string
+          title: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           avoidance_area_id?: string | null
           created_at?: string
-          description: string
+          description?: string | null
           id?: string
+          title?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Update: {
           avoidance_area_id?: string | null
           created_at?: string
-          description?: string
+          description?: string | null
           id?: string
+          title?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -65,6 +68,13 @@ export type Database = {
             columns: ["avoidance_area_id"]
             isOneToOne: false
             referencedRelation: "avoidance_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avoidance_area_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -97,7 +107,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "avoidance_areas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pois: {
         Row: {
@@ -226,7 +244,7 @@ export type Database = {
         Returns: boolean
       }
       jsonschema_validation_errors: {
-        Args: { schema: Json; instance: Json }
+        Args: { instance: Json; schema: Json }
         Returns: string[]
       }
     }

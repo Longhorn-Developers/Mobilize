@@ -35,3 +35,31 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- 1. Drop the existing foreign key constraint on the avoidance_areas table
+ALTER TABLE public.avoidance_areas
+DROP CONSTRAINT IF EXISTS avoidance_areas_user_id_fkey;
+
+-- 2. Add a new foreign key constraint that points directly to the profiles table
+ALTER TABLE public.avoidance_areas
+ADD CONSTRAINT avoidance_areas_user_id_fkey
+FOREIGN KEY (user_id)
+REFERENCES public.profiles (id)
+ON UPDATE CASCADE
+ON DELETE SET NULL;
+
+-- 1. Drop the existing foreign key constraint on the avoidance_area_reports table
+ALTER TABLE public.avoidance_area_reports
+DROP CONSTRAINT IF EXISTS avoidance_area_reports_user_id_fkey;
+
+-- 2. Add a new foreign key constraint that points directly to the profiles table
+ALTER TABLE public.avoidance_area_reports
+ADD CONSTRAINT avoidance_area_reports_user_id_fkey
+FOREIGN KEY (user_id)
+REFERENCES public.profiles (id)
+ON UPDATE CASCADE
+ON DELETE SET NULL;
+
+-- allow user_id column to be null in avoidance_area_reports
+ALTER TABLE public.avoidance_area_reports
+ALTER COLUMN user_id DROP NOT NULL;

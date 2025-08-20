@@ -21,6 +21,7 @@ import {
   useQuery,
 } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
+import { useAuth } from "~/utils/AuthProvider";
 
 // Comment form schema
 const commentSchema = z.object({
@@ -34,29 +35,41 @@ const commentSchema = z.object({
 type CommentFormData = z.infer<typeof commentSchema>;
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
+  const { user, signOut } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
 
   const { data: avoidanceArea } = useQuery(
     supabase
       .from("avoidance_areas")
-      .select("user_id, name, created_at")
+      .select(
+        `
+        user_id,
+        name,
+        created_at,
+        profiles (
+          display_name
+        )
+      `,
+      )
       .eq("id", areaId)
       .single(),
-    {
-      placeholderData: {
-        data: {
-          name: "Avoidance Area",
-          created_at: new Date().toISOString(),
-        },
-      },
-    },
   );
 
   const { data: reports } = useQuery(
     supabase
       .from("avoidance_area_reports")
-      .select("id, user_id, description, updated_at")
+      .select(
+        `
+        id,
+        user_id,
+        description,
+        updated_at,
+        profiles (
+          display_name
+        )
+      `,
+      )
       .eq("avoidance_area_id", areaId),
   );
 
@@ -108,8 +121,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const handleAddComment = (data: CommentFormData) => {
     addReport([
       {
-        // TODO: TEST USER_ID REMOVE ME
-        user_id: 'e7b691e1-a413-490b-9672-235a31e703b1',
+        user_id: user?.id,
         avoidance_area_id: areaId,
         description: data.content,
       },
@@ -131,7 +143,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
         {/* Heading and subheading */}
         <View className="flex-1">
-          <Text className="text-3xl font-bold">{avoidanceArea!.name}</Text>
+          <Text className="text-3xl font-bold">{avoidanceArea?.name}</Text>
           <Text className="text-lg font-medium text-gray-600">
             Temporary Blockage
           </Text>
@@ -155,12 +167,15 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
             {/* Profile Pic */}
             <View className="h-6 w-6 rounded-full bg-gray-300" />
 
-            {/* Username */}
-            <Text className="text-lg text-gray-600">@anonymous</Text>
+            {/* Author Username */}
+            <Text className="text-lg text-gray-600">
+              {avoidanceArea?.profiles?.display_name || "@anonymous"}
+            </Text>
 
             {/* Created At */}
             <Text className="text-lg text-gray-500">
-              {formatTimeAgo(avoidanceArea!.created_at)}{" "}
+              {avoidanceArea?.created_at &&
+                formatTimeAgo(avoidanceArea?.created_at)}
             </Text>
           </View>
 
@@ -229,7 +244,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="font-medium text-gray-700">
-                      {/*@{report.profiles?.username || "anonymous"}*/}
+                      @{report.profiles?.display_name || "anonymous"}
                     </Text>
                     <Text className="text-sm text-gray-500">
                       {formatTimeAgo(report.updated_at)}

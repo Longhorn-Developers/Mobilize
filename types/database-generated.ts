@@ -17,9 +17,9 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          query?: string
-          extensions?: Json
           variables?: Json
+          extensions?: Json
+          query?: string
           operationName?: string
         }
         Returns: Json
@@ -40,24 +40,27 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
-          title: string
+          title: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           avoidance_area_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
-          title: string
+          title?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           avoidance_area_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
-          title?: string
+          title?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -67,6 +70,13 @@ export type Database = {
             referencedRelation: "avoidance_areas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "avoidance_area_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       avoidance_areas: {
@@ -74,6 +84,7 @@ export type Database = {
           boundary: unknown
           boundary_geojson: Json | null
           created_at: string
+          description: string | null
           id: string
           name: string | null
           updated_at: string | null
@@ -83,6 +94,7 @@ export type Database = {
           boundary: unknown
           boundary_geojson?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
@@ -92,12 +104,21 @@ export type Database = {
           boundary?: unknown
           boundary_geojson?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "avoidance_areas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pois: {
         Row: {
@@ -125,6 +146,27 @@ export type Database = {
           location_geojson?: Json | null
           metadata?: Json
           poi_type?: Database["public"]["Enums"]["poi_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id?: string
           updated_at?: string
         }
         Relationships: []
@@ -183,33 +225,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          display_name: string | null
-          id: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -224,7 +239,7 @@ export type Database = {
         Returns: boolean
       }
       jsonb_matches_schema: {
-        Args: { schema: Json; instance: Json }
+        Args: { instance: Json; schema: Json }
         Returns: boolean
       }
       jsonschema_is_valid: {

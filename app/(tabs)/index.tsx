@@ -235,6 +235,7 @@ export default function Home() {
                 {
                   name: data.description,
                   boundary: coordinatesToWKT(aaPoints),
+                  description: data.description,
                 },
               ]);
             }}

@@ -1,8 +1,6 @@
 import colors from "~/types/colors";
 import {
   CameraPlusIcon,
-  PencilIcon,
-  PencilSimpleLine,
   PencilSimpleLineIcon,
   PlusCircleIcon,
   WarningIcon,

@@ -13,5 +13,5 @@ module.exports = defineConfig([
       "react/display-name": "off",
     },
   },
-  pluginQuery.configs["flat/recommended"]
+  pluginQuery.configs["flat/recommended"],
 ]);

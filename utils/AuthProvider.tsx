@@ -1,7 +1,13 @@
 // providers/AuthProvider.tsx
-import { useState, useEffect, createContext, useContext, PropsWithChildren } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '~/utils/supabase';
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  PropsWithChildren,
+} from "react";
+import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "~/utils/supabase";
 
 type AuthProps = {
   user: User | null;
@@ -18,11 +24,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [initialized, setInitialized] = useState<boolean>(false);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session ? session.user : null);
-      setInitialized(true);
-    });
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session);
+        setUser(session ? session.user : null);
+        setInitialized(true);
+      },
+    );
 
     return () => {
       authListener.subscription.unsubscribe();

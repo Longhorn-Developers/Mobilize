@@ -13,7 +13,6 @@ import {
   ViewStyle,
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "./Button";
 import { ReactNode, useEffect } from "react";
 import { ActionButtonGroup } from "./ActionButtonGroup";
@@ -83,7 +82,6 @@ const ReportModal = ({
   });
 
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const insets = useSafeAreaInsets();
 
   // Sync aaPoints with form whenever they change
   useEffect(() => {
@@ -99,12 +97,6 @@ const ReportModal = ({
 
   const handleFormSubmit = (data: ReportFormData) => {
     onSubmit(data);
-    Toast.show({
-      type: "success",
-      topOffset: insets.top + 35,
-      text2:
-        "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
-    });
     handleClose();
   };
 

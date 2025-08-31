@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "android": "expo run:android",
-    "ios": "expo run:ios",
     "start": "expo start",
     "prebuild": "expo prebuild",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "web": "expo start --web",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
-    "web": "expo start --web",
+    "reset": "supabase db reset && supabase gen types typescript --local > types/database-generated.ts",
     "gen:types": "supabase gen types typescript --local > types/database-generated.ts"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "@supabase-cache-helpers/postgrest-react-query": "^1.13.5",
     "@supabase/supabase-js": "^2.53.0",
     "@turf/turf": "^7.2.0",
+    "@types/geojson": "^7946.0.16",
     "clsx": "^2.1.1",
     "expo": "~53.0.20",
     "expo-constants": "~17.1.7",

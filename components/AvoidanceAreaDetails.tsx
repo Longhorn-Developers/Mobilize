@@ -8,7 +8,7 @@ import { supabase } from "~/utils/supabase";
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const { data: avoidanceArea } = useQuery(
     supabase
-      .from("avoidance_areas_with_geojson")
+      .from("avoidance_areas")
       .select("name")
       .eq("id", areaId)
       .single(),

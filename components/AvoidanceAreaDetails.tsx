@@ -67,8 +67,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  const avoidanceArea = sampleAvoidanceArea;
-
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -99,6 +97,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     setComments([newCommentObj, ...comments]);
     reset();
   };
+
+  const { data: avoidanceArea } = useQuery(
+    supabase
+      .from("avoidance_areas")
+      .select("name")
+      .eq("id", areaId)
+      .single(),
+  );
 
   return (
     <BottomSheetScrollView

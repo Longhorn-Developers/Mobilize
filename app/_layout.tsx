@@ -29,12 +29,12 @@ function onAppStateChange(status: AppStateStatus) {
 }
 
 // react-query refetch on network reconnect
-// onlineManager.setEventListener((setOnline) => {
-//   const eventSubscription = Network.addNetworkStateListener((state) => {
-//     setOnline(!!state.isConnected);
-//   });
-//   return eventSubscription.remove;
-// });
+onlineManager.setEventListener((setOnline) => {
+  const eventSubscription = Network.addNetworkStateListener((state) => {
+    setOnline(!!state.isConnected);
+  });
+  return eventSubscription.remove;
+});
 
 const toastConfig = {
   /*

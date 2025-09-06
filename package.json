@@ -1,12 +1,12 @@
 {
-  "name": "mobilize",
+  "name": "MobilizeUT",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "prebuild": "expo prebuild",
     "ios": "expo run:ios",
-    "android": "expo run:android",
+    "android": "adb reverse tcp:54321 tcp:54321 && expo run:android",
     "web": "expo start --web",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",

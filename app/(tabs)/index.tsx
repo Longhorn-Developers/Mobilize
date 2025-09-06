@@ -3,11 +3,11 @@ import {
   useInsertMutation,
   useQuery,
 } from "@supabase-cache-helpers/postgrest-react-query";
-import { AppleMaps, Coordinates } from "expo-maps";
+import { AppleMaps, GoogleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
@@ -206,14 +206,27 @@ export default function Home() {
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
 
-      <AppleMaps.View
-        style={{ flex: 1 }}
-        onPolygonClick={handleAvoidanceAreaPress}
-        onMapClick={(event) => handleMapPress(event as Coordinates)}
-        cameraPosition={initialCameraPosition}
-        polygons={polygons}
-        annotations={annotations}
-      />
+      {Platform.OS === "ios" && (
+        <AppleMaps.View
+          style={{ flex: 1 }}
+          onPolygonClick={handleAvoidanceAreaPress}
+          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          cameraPosition={initialCameraPosition}
+          polygons={polygons}
+          annotations={annotations}
+        />
+      )}
+
+      {Platform.OS === "android" && (
+        <GoogleMaps.View
+          style={{ flex: 1 }}
+          onPolygonClick={handleAvoidanceAreaPress}
+          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
+          polygons={polygons}
+          annotations={annotations}
+        />
+      )}
 
       {isReportMode ? (
         <>

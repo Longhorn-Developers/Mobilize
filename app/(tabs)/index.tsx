@@ -224,7 +224,10 @@ export default function Home() {
           onMapClick={(event) => handleMapPress(event as Coordinates)}
           cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
           polygons={polygons}
-          annotations={annotations}
+          markers={annotations}
+          uiSettings={{
+            zoomControlsEnabled: false,
+          }}
         />
       )}
 

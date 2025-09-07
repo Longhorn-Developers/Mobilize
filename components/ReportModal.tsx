@@ -359,10 +359,6 @@ const PointInteractionHint = () => {
   return (
     <>
       {/* Center Marker Overlay */}
-      <View className="pointer-events absolute bottom-0 left-0 right-0 top-[20%] items-center justify-center">
-        {/* The marker itself */}
-        <PlusCircleIcon size={48} color={colors.theme.red} />
-      </View>
 
       {/* Tooltip Overlay */}
       <View

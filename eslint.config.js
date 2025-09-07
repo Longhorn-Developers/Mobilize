@@ -6,7 +6,7 @@ const pluginQuery = require("@tanstack/eslint-plugin-query");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    ignores: ["dist/*", "supabase/functions/**/*.ts"],
   },
   {
     rules: {

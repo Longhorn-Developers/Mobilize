@@ -1,6 +1,7 @@
 import colors from "~/types/colors";
 import {
   CameraPlusIcon,
+  PencilSimpleLineIcon,
   PlusCircleIcon,
   WarningIcon,
   XIcon,
@@ -13,7 +14,6 @@ import {
   ViewStyle,
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "./Button";
 import { ReactNode, useEffect } from "react";
 import { ActionButtonGroup } from "./ActionButtonGroup";
@@ -35,6 +35,10 @@ const reportFormSchema = z.object({
       3,
       "The selected area does not have enough points. Please place down at least 3 markers to continue.",
     ),
+  name: z
+    .string()
+    .min(5, "Name must be at least 5 characters")
+    .max(30, "Name must not exceed 30 characters"),
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
@@ -77,13 +81,13 @@ const ReportModal = ({
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
     defaultValues: {
-      aaPoints: [],
+      name: "",
       description: "",
+      aaPoints: [],
     },
   });
 
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const insets = useSafeAreaInsets();
 
   // Sync aaPoints with form whenever they change
   useEffect(() => {
@@ -99,12 +103,6 @@ const ReportModal = ({
 
   const handleFormSubmit = (data: ReportFormData) => {
     onSubmit(data);
-    Toast.show({
-      type: "success",
-      topOffset: insets.top + 35,
-      text2:
-        "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
-    });
     handleClose();
   };
 
@@ -115,7 +113,11 @@ const ReportModal = ({
         await trigger("aaPoints");
         return getFieldState("aaPoints");
       case 1:
-        await trigger(["description", "images"], { shouldFocus: true });
+        await trigger(["name", "description", "images"], {
+          shouldFocus: true,
+        });
+        const nameState = getFieldState("name");
+        if (nameState.error) return nameState;
         return getFieldState("description");
       default:
         return getFieldState("aaPoints");
@@ -153,9 +155,6 @@ const ReportModal = ({
 
     // Step 2: Describe the blockage
     <View key={2}>
-      <Text className="font-medium">
-        Describe the blockage. What&apos;s the issue?
-      </Text>
       {/* Description body input */}
       <Controller
         control={control}
@@ -232,7 +231,7 @@ const ReportModal = ({
         <Button
           variant="ghost"
           title=""
-          className="absolute right-0 top-1"
+          className="absolute right-0 top-0"
           onPress={handleClose}
           icon={<XIcon size={28} color={colors.ut.gray} />}
         />
@@ -245,11 +244,49 @@ const ReportModal = ({
           </View>
 
           {/* Heading and subheading */}
-          <View>
-            <Text className="text-2xl font-bold">Avoidance Area</Text>
+          <View className="flex-1">
+            {currentStep === 1 ? (
+              <Controller
+                control={control}
+                name="name"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <View
+                    className={`flex-row items-center justify-center border-b pb-1 ${
+                      errors.name ? "border-red-500" : "border-gray-300"
+                    }`}
+                  >
+                    <PencilSimpleLineIcon
+                      size={20}
+                      color={colors.ut.gray}
+                      style={{ width: 16, height: 16, margin: 4 }}
+                    />
+                    <TextInput
+                      placeholder="Name your report"
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      value={value}
+                      className="flex-1 text-2xl font-bold text-gray-400"
+                    />
+                  </View>
+                )}
+              />
+            ) : (
+              <Text className={`text-2xl font-bold`}>
+                {getValues("name") || "Avoidance Area"}
+              </Text>
+            )}
+
+            {/* Subheading */}
             <Text className="text-sm font-medium">
               Report a temporary blockage
             </Text>
+
+            {/* Name Errors */}
+            {errors.name && currentStep === 1 && (
+              <Text className="text-sm text-red-500">
+                {errors.name.message}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -279,12 +316,21 @@ const ReportModal = ({
           {steps[currentStep]}
         </View>
 
-        {/* Next/Submit Button */}
-        <Button
-          title={currentStep === steps.length - 1 ? "Submit" : "Next"}
-          variant={aaPoints.length >= 3 ? "primary" : "disabled"}
-          onPress={handleNext}
-        />
+        {/* Action Buttons */}
+        <View className="gap-2">
+          <Button
+            title={currentStep === steps.length - 1 ? "Submit" : "Next"}
+            variant={aaPoints.length >= 3 ? "primary" : "disabled"}
+            onPress={handleNext}
+          />
+          {currentStep > 0 && (
+            <Button
+              title="Back"
+              variant="gray"
+              onPress={() => setCurrentStep(currentStep - 1)}
+            />
+          )}
+        </View>
       </View>
 
       {aaPoints.length > 0 ? (

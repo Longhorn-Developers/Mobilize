@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "mobilize",
-    "slug": "mobilize",
+    "name": "MobilizeUT",
+    "slug": "mobilizeut",
     "version": "1.0.0",
-    "scheme": "mobilize",
+    "scheme": "mobilizeut",
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -25,14 +25,19 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.astrol.mobilize"
+      "bundleIdentifier": "com.astrol.mobilizeut"
     },
     "android": {
+      "config": {
+        "googleMaps" : {
+          "apiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.astrol.mobilize"
+      "package": "com.astrol.mobilizeut"
     }
   }
 }

@@ -16,6 +16,10 @@ export default function useMapIcons() {
       require("~/assets/map_icons/manual_door.svg"),
       imageOptions,
     ),
+    crosshair: useImage(
+      require("~/assets/map_icons/crosshair.svg"),
+      imageOptions,
+    ),
   };
   return icons;
 }

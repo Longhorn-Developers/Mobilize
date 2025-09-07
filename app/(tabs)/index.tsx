@@ -40,6 +40,7 @@ export default function Home() {
 
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
+  const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
   const [reportStep, setReportStep] = useState(0);
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
@@ -132,6 +133,7 @@ export default function Home() {
       if (reportStep !== 0) return;
 
       if (isPointValid(event)) {
+        setClickedPoint(event);
         // Add pressed coordinates to marked points
         setAAPointsReport((prev) => [...prev, event]);
       } else {
@@ -185,6 +187,15 @@ export default function Home() {
         coordinates: point,
         icon: mapIcons.point || undefined,
       })),
+      // Clicked point
+      clickedPoint
+        ? {
+            coordinates: clickedPoint,
+            icon: mapIcons.crosshair || undefined,
+          }
+        : {
+            coordinates: { latitude: 0, longitude: 0 },
+          },
       // POIs only show if not in report mode
       ...(!isReportMode
         ? (POIs || []).map((poi) => ({
@@ -196,7 +207,7 @@ export default function Home() {
           }))
         : []),
     ],
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode],
+    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
   );
 
   return (
@@ -256,6 +267,7 @@ export default function Home() {
               ]);
             }}
             onExit={() => {
+              setClickedPoint(null);
               setIsReportMode(false);
             }}
           />

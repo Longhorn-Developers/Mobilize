@@ -25,7 +25,7 @@ import { feature, lineString } from '@turf/helpers';
 
 import { v4 as uuidv4 } from 'uuid';
 
-import * as turf from '@turf/turf';
+
 import { LineString } from "geojson";
 
 export const useInsertAvoidanceAreaRPC = () => {
@@ -87,7 +87,7 @@ export default function Home() {
   const [description, setDescription] = useState("");
 
 
-  const [intersectionPoints, setIntersectionPoints] = useState<LatLng[]>([]);
+  //const [intersectionPoints, setIntersectionPoints] = useState<LatLng[]>([]);
   
   const [reportStep, setReportStep] = useState(0);
 
@@ -123,6 +123,7 @@ export default function Home() {
   };
 
   // Add pressed coordinates to marked points
+  /*
   const handleMapPress = (event: MapPressEvent) => {
     if (
       !isReportMode ||
@@ -135,6 +136,32 @@ export default function Home() {
     event.persist();
     setAAPoints((prev) => [...(prev || []), event.nativeEvent.coordinate]);
   };
+  */
+
+  const handleMapPress = (event: Coordinates) => {
+    if (isReportMode) {
+      if (reportStep !== 0) return;
+
+      if (isPointValid(event)) {
+        // Add pressed coordinates to marked points
+        setAAPointsReport((prev) => [...prev, event]);
+      } else {
+        Toast.show({
+          type: "error",
+          text2: "Invalid point! Please select a different point.",
+          position: "bottom",
+          bottomOffset: bottomTabBarHeight + 50,
+        });
+      }
+    } else {
+      bottomSheetRef.current?.close();
+    }
+  };
+
+  const handleAvoidanceAreaPress = (event: AppleMapsPolygon) => {
+    if (isReportMode) return;
+    bottomSheetRef.current?.present(event);
+  };
 
   return (
     <>
@@ -145,7 +172,7 @@ export default function Home() {
 
       <AppleMaps.View
         style={{ flex: 1 }}
-        onMapClick={handleMapPress}
+        onMapClick={() => handleMapPress}
         onPolygonClick={handleAvoidanceAreaPress}
         polygons={[
           // Avoidance areas from the database
@@ -219,3 +246,4 @@ export default function Home() {
     </>
   );
 }
+

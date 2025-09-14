@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
+          operationName?: string
+          variables?: Json
           extensions?: Json
           query?: string
-          variables?: Json
-          operationName?: string
         }
         Returns: Json
       }
@@ -79,15 +79,56 @@ export type Database = {
           },
         ]
       }
+      avoidance_area_votes: {
+        Row: {
+          avoidance_area_id: string
+          created_at: string
+          id: string
+          is_upvote: boolean
+          user_id: string
+        }
+        Insert: {
+          avoidance_area_id: string
+          created_at?: string
+          id?: string
+          is_upvote: boolean
+          user_id: string
+        }
+        Update: {
+          avoidance_area_id?: string
+          created_at?: string
+          id?: string
+          is_upvote?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avoidance_area_votes_avoidance_area_id_fkey"
+            columns: ["avoidance_area_id"]
+            isOneToOne: false
+            referencedRelation: "avoidance_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avoidance_area_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avoidance_areas: {
         Row: {
           boundary: unknown
           boundary_geojson: Json | null
           created_at: string
           description: string | null
+          downvote_count: number
           id: string
           name: string | null
           updated_at: string | null
+          upvote_count: number
           user_id: string | null
         }
         Insert: {
@@ -95,9 +136,11 @@ export type Database = {
           boundary_geojson?: Json | null
           created_at?: string
           description?: string | null
+          downvote_count?: number
           id?: string
           name?: string | null
           updated_at?: string | null
+          upvote_count?: number
           user_id?: string | null
         }
         Update: {
@@ -105,9 +148,11 @@ export type Database = {
           boundary_geojson?: Json | null
           created_at?: string
           description?: string | null
+          downvote_count?: number
           id?: string
           name?: string | null
           updated_at?: string | null
+          upvote_count?: number
           user_id?: string | null
         }
         Relationships: [
@@ -230,6 +275,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      handle_vote: {
+        Args: { user_id_in: string; is_upvote_in: boolean; area_id: string }
+        Returns: undefined
+      }
       insert_avoidance_area: {
         Args: { p_name: string; p_wkt: string }
         Returns: string
@@ -239,7 +288,7 @@ export type Database = {
         Returns: boolean
       }
       jsonb_matches_schema: {
-        Args: { instance: Json; schema: Json }
+        Args: { schema: Json; instance: Json }
         Returns: boolean
       }
       jsonschema_is_valid: {

@@ -9,7 +9,14 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Alert,
+} from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +48,6 @@ type CommentFormData = z.infer<typeof commentSchema>;
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [polygon, setPolygon] = useState<Polygon | null>(null);
 
   const {
@@ -66,6 +72,8 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         created_at,
         description,
         boundary_geojson,
+        upvote_count,
+        downvote_count,
         profiles (
           display_name,
           avatar_url
@@ -74,6 +82,18 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       )
       .eq("id", areaId)
       .single(),
+  );
+
+  const { data: userVote } = useQuery(
+    supabase
+      .from("avoidance_area_votes")
+      .select("is_upvote")
+      .eq("avoidance_area_id", areaId)
+      .eq("user_id", user?.id)
+      .single(),
+    {
+      enabled: !!user,
+    },
   );
 
   // Effect to convert boundary_geojson to Polygon
@@ -120,12 +140,27 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   );
 
+  const handleVote = async (isUpvote: boolean) => {
+    if (!user) {
+      Alert.alert("Authentication Required", "Please log in to vote.");
+      return;
+    }
+
+    try {
+      await supabase.rpc("handle_vote", {
+        area_id: areaId,
+        user_id_in: user.id,
+        is_upvote_in: isUpvote,
+      });
+    } catch (error) {
+      console.error("Error handling vote:", error);
+    }
+  };
+
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInSeconds = Math.floor(
-      (now.getTime() - date.getTime()) / (1000),
-    );
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     const diffInHours = Math.floor(diffInMinutes / 60);
 
@@ -135,12 +170,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     if (diffInHours < 24) return `${diffInHours}h ago`;
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays}d ago`;
-  };
-
-  const handleStatusUpdate = (stillPresent: boolean) => {
-    setSelectedStatus(stillPresent);
-    // In real app, this would update the database
-    console.log(`Status updated: ${stillPresent}`);
   };
 
   const handleAddComment = (data: CommentFormData) => {
@@ -169,6 +198,8 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
       </View>
     );
   }
+
+  const selectedStatus = userVote ? userVote.is_upvote : null;
 
   return (
     <BottomSheetScrollView
@@ -239,9 +270,41 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           </View>
 
           {/* Upvote/Downvote */}
-          <View className="flex-row">
-            <ArrowDownIcon size={24} color={colors.ut.gray} />
-            <ArrowUpIcon size={24} color={colors.ut.gray} />
+          <View className="flex-row items-center gap-2">
+            <TouchableOpacity
+              onPress={() => handleVote(false)}
+              className="flex-row items-center"
+            >
+              <ArrowDownIcon
+                size={24}
+                color={
+                  selectedStatus === false
+                    ? colors.ut.burntorange
+                    : colors.ut.gray
+                }
+                weight={selectedStatus === false ? "fill" : "regular"}
+              />
+              <Text className="text-lg text-gray-600">
+                {avoidanceArea.downvote_count}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleVote(true)}
+              className="flex-row items-center"
+            >
+              <ArrowUpIcon
+                size={24}
+                color={
+                  selectedStatus === true
+                    ? colors.ut.burntorange
+                    : colors.ut.gray
+                }
+                weight={selectedStatus === true ? "fill" : "regular"}
+              />
+              <Text className="text-lg text-gray-600">
+                {avoidanceArea.upvote_count}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -267,19 +330,21 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
               actions={[
                 {
                   label: "Yes",
-                  onPress: () => handleStatusUpdate(true),
+                  onPress: () => handleVote(true),
                   className: `py-1 px-3 ${selectedStatus === true ? "bg-ut-burntorange" : "bg-ut-burntorange/15"}`,
                   textClassName: `${selectedStatus === true ? "text-white" : "text-ut-burntorange"}`,
                 },
                 {
                   label: "No",
-                  onPress: () => handleStatusUpdate(false),
+                  onPress: () => handleVote(false),
                   className: `py-1 px-3 ${selectedStatus === false ? "bg-ut-burntorange" : "bg-ut-burntorange/15"}`,
                   textClassName: `${selectedStatus === false ? "text-white" : "text-ut-burntorange"}`,
                 },
               ]}
             />
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => userVote && handleVote(userVote.is_upvote)}
+            >
               <XIcon size={16} color={colors.ut.burntorange} />
             </TouchableOpacity>
           </View>

@@ -13,7 +13,7 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
 - **Frontend**: React Native with Expo
 - **Styling**: NativeWind (Tailwind CSS for React Native)
 - **Navigation**: Expo Router
-- **State Management**: Zustand
+- **Queries**: TanStack Query
 - **Backend**: Supabase
 - **Language**: TypeScript
 - **Development**: Node.js, Expo CLI
@@ -39,6 +39,7 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
 - **Bracket Pair Colorizer**
 
 ### Resources
+
 - [Expo Documentation](https://docs.expo.dev/)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Supabase Local Development Documentation](https://supabase.com/docs/guides/local-development)
@@ -49,7 +50,7 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/your-org/mobilize.git
+   git clone https://github.com/Longhorn-Developers/Mobilize.git
    cd mobilize
    ```
 
@@ -67,39 +68,40 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-4. **Start the development server**
+   Should usually be these by default if local supabase development:
 
-   ```bash
-   pnpm start
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
    ```
 
-5. **Run on your preferred platform**
-   - **Expo Go**: Download [Expo Go](https://expo.dev/go) app on your mobile device and scan the QR code in the terminal. Make sure to select `SDK 53` as the SDK version.
-   - **iOS**: `pnpm run ios` or press `i` in the terminal
-   - **Android**: `pnpm run android` or press `a` in the terminal
-   
+4. **Run on your preferred platform**
+   > **Note:** Expo Go is no longer supported for this project due to the use of native modules (expo-maps). You must use a development build to run the app on a physical device or simulator.
+   - **iOS**: `pnpm ios` or press `i` in the terminal after running `pnpm start`
+   - **Android**: `pnpm android` or press `a` in the terminal after running `pnpm start`
+
 ---
 
-#### Optional: Set Up Local Supabase Development
+#### Set Up Local Supabase Development
 
-> **Note:** You only need this if you want to run Supabase locally instead of using the hosted project. Make sure to install [Docker Desktop](https://docs.docker.com/desktop/) before doing the steps below.
+> **Note:** Make sure to install [Docker Desktop](https://docs.docker.com/desktop/) before doing the steps below.
 
 1. **Install Supabase CLI**
 
    ```bash
-   npm install -g supabase
+   pnpm install -g supabase
    ```
 
 2. **Initialize Supabase in your project**
 
    ```bash
-   supabase init
+   pnpm supabase init
    ```
 
 3. **Start local Supabase services**
 
    ```bash
-   supabase start
+   pnpm supabase start
    ```
 
    You will see a message like this in the terminal:
@@ -117,42 +119,44 @@ Mobilize solves this problem by providing real-time, crowdsourced accessibility 
 
    The `API URL` and `anon key` are the environment variables you need to configure in the next step.
 
-
-5. **Update your `.env.local` for local development**
+4. **Update your `.env.local` for local development**
 
    ```env
    EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
    ```
-   
-6. **Access local services**
 
+5. **Access local services**
    - **Studio**: <http://localhost:54323>
    - **API**: <http://localhost:54321>
    - **Auth**: <http://localhost:54321/auth/v1>
-
-
 
 > Make sure to revert your .env.local file if switching back to the hosted Supabase project.
 
 ## Project Structure
 
-```
+```txt
 mobilize/
-├── app/                    # App screens (Expo Router)
-│   ├── _layout.tsx        # Root layout
-│   ├── index.tsx          # Home screen
-├── components/            # Reusable UI components
-├── store/                 # State management (Zustand)
-│   └── store.ts          # Global state store
-├── utils/                 # Utility functions
-│   └── supabase.ts       # Supabase client configuration
-├── assets/               # Static assets (images, icons)
-├── global.css           # Global styles
-├── tailwind.config.js   # Tailwind CSS configuration
-├── tsconfig.json        # TypeScript configuration
-├── package.json         # Dependencies and scripts
-└── app.json            # Expo configuration
+├── app/                    # App screens and routing (Expo Router)
+│   ├── (tabs)/            # Layout for tab navigation
+│   │   ├── _layout.tsx    # Defines the tab navigator
+│   │   └── index.tsx      # Main map screen
+│   ├── _layout.tsx        # Root layout for the app
+│   ├── +html.tsx          # Custom HTML for web builds
+│   └── +not-found.tsx     # Fallback for unmatched routes
+├── assets/                 # Static assets (images, fonts, etc.)
+├── components/             # Reusable UI components
+├── docs/                   # Project documentation and guides
+├── hooks/                  # Custom React hooks
+├── supabase/               # Supabase configuration, migrations, and functions
+├── types/                  # TypeScript type definitions
+├── utils/                  # Utility functions (e.g., Supabase client)
+├── .env.local              # Local environment variables (untracked)
+├── app.json                # Expo configuration file
+├── babel.config.js         # Babel compiler configuration
+├── package.json            # Project dependencies and scripts
+├── tailwind.config.js      # Tailwind CSS configuration
+└── tsconfig.json           # TypeScript configuration
 ```
 
 ## Contributing
@@ -168,7 +172,6 @@ We welcome contributions from developers, designers, and anyone passionate about
    ```
 
 2. **Follow the coding standards**
-
    - Use TypeScript for all new code
    - Follow the existing code style and conventions
    - Use meaningful component and function names
@@ -177,12 +180,11 @@ We welcome contributions from developers, designers, and anyone passionate about
 3. **Run linting and formatting**
 
    ```bash
-   pnpm run lint    # Check for issues
-   pnpm run format  # Auto-fix formatting issues
+   pnpm lint    # Check for issues
+   pnpm format  # Auto-fix formatting issues
    ```
 
 4. **Test your changes**
-
    - Test on both iOS and Android if possible
    - Ensure accessibility features work correctly
    - Test with different screen sizes

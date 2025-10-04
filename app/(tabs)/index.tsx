@@ -260,9 +260,10 @@ export default function Home() {
               const aaPoints = [...data.aaPoints, data.aaPoints[0]];
               await insertAvoidanceArea([
                 {
-                  name: data.description,
+                  name: data.name || "Avoidance Area",
                   boundary: coordinatesToWKT(aaPoints),
-                  description: data.description,
+                  description: data.description || null,
+                  user_id: data.user_id,
                 },
               ]);
             }}

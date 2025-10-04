@@ -5,6 +5,8 @@ import {
   PlusCircleIcon,
   WarningIcon,
   XIcon,
+  TrashIcon,
+  CaretDownIcon,
 } from "phosphor-react-native";
 import {
   View,
@@ -12,16 +14,22 @@ import {
   TextInput,
   TouchableOpacity,
   ViewStyle,
+  Image,
+  ScrollView,
+  Alert,
+  Modal,
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Button } from "./Button";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z, ZodType } from "zod";
 import Toast from "react-native-toast-message";
 import { Coordinates } from "expo-maps";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "~/utils/AuthProvider";
 
 const reportFormSchema = z.object({
   aaPoints: z
@@ -38,13 +46,18 @@ const reportFormSchema = z.object({
   name: z
     .string()
     .min(5, "Name must be at least 5 characters")
-    .max(30, "Name must not exceed 30 characters"),
+    .max(30, "Name must not exceed 30 characters")
+    .default("Avoidance Area"),
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
-    .max(500, "Description must not exceed 500 characters"),
+    .max(500, "Description must not exceed 500 characters")
+    .optional(),
   images: z.array(z.string()).optional(),
+  tags: z.array(z.enum(["scooter", "construction", "event", "other"])).optional(),
 });
+
+const AVAILABLE_TAGS = ["scooter", "construction", "event", "other"] as const;
 
 type ReportFormData = z.infer<typeof reportFormSchema>;
 
@@ -77,33 +90,99 @@ const ReportModal = ({
     trigger,
     getValues,
     reset: resetForm,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
     defaultValues: {
-      name: "",
+      name: "Avoidance Area",
       description: "",
       aaPoints: [],
+      images: [],
+      tags: [],
     },
   });
 
+  const { user } = useAuth();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [polygonArea, setPolygonArea] = useState<number>(0);
 
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
+    
+    // Calculate polygon area
+    if (aaPoints.length >= 3) {
+      // Simple polygon area calculation using Shoelace formula
+      let area = 0;
+      for (let i = 0; i < aaPoints.length; i++) {
+        const j = (i + 1) % aaPoints.length;
+        area += (aaPoints[i].latitude || 0) * (aaPoints[j].longitude || 0);
+        area -= (aaPoints[j].latitude || 0) * (aaPoints[i].longitude || 0);
+      }
+      area = Math.abs(area) / 2;
+      // Convert to approximate square meters (rough estimation)
+      const areaSqMeters = area * 111320 * 111320;
+      setPolygonArea(areaSqMeters);
+    } else {
+      setPolygonArea(0);
+    }
   }, [aaPoints, setValue]);
 
+  // Sync selected images with form
+  useEffect(() => {
+    setValue("images", selectedImages);
+  }, [selectedImages, setValue]);
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'We need camera roll permissions to select images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImages(prev => [...prev, result.assets[0].uri]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleClose = () => {
+    if (isDirty || aaPoints.length > 0) {
+      setShowExitConfirm(true);
+    } else {
+      confirmExit();
+    }
+  };
+
+  const confirmExit = () => {
     setCurrentStep(0);
     setAAPoints([]);
+    setSelectedImages([]);
     resetForm();
+    setShowExitConfirm(false);
     onExit();
   };
 
   const handleFormSubmit = (data: ReportFormData) => {
-    onSubmit(data);
-    handleClose();
+    const submissionData = {
+      ...data,
+      user_id: user?.id || null,
+      created_at: new Date().toISOString(),
+    };
+    onSubmit(submissionData);
+    confirmExit();
   };
 
   // Maps the current step to the specific zod validation
@@ -113,12 +192,14 @@ const ReportModal = ({
         await trigger("aaPoints");
         return getFieldState("aaPoints");
       case 1:
-        await trigger(["name", "description", "images"], {
-          shouldFocus: true,
-        });
-        const nameState = getFieldState("name");
-        if (nameState.error) return nameState;
-        return getFieldState("description");
+        await trigger(["name"], { shouldFocus: true });
+        return getFieldState("name");
+      case 2:
+        // Description and images are optional
+        return { error: null };
+      case 3:
+        // Tags are optional
+        return { error: null };
       default:
         return getFieldState("aaPoints");
     }
@@ -147,77 +228,209 @@ const ReportModal = ({
   // Each step of the report process
   const steps: ReactNode[] = [
     // Step 1: Mark Avoidance Area Points
-    <View key={1}>
+    <View key={1} className="gap-3">
       <Text className="font-medium">
         Please indicate the Avoidance Area (AA) by marking points on the map
       </Text>
+      {aaPoints.length >= 3 && (
+        <View className="rounded-lg bg-gray-50 p-3">
+          <Text className="text-sm font-medium text-gray-700">Area Preview:</Text>
+          <Text className="text-sm text-gray-600">
+            {aaPoints.length} points • ~{Math.round(polygonArea)} sq meters
+          </Text>
+        </View>
+      )}
     </View>,
 
-    // Step 2: Describe the blockage
-    <View key={2}>
-      {/* Description body input */}
+    // Step 2: Name the area
+    <View key={2} className="gap-3">
+      <Text className="font-medium">Name your temporary blockage</Text>
+      <Controller
+        control={control}
+        name="name"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <View className="relative">
+            <TextInput
+              placeholder="Enter a name for this area"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              className={`rounded-xl border px-4 py-3 pr-10 ${
+                errors.name ? "border-red-500" : "border-gray-300"
+              }`}
+              maxLength={50}
+            />
+            <CaretDownIcon 
+              size={20} 
+              color={colors.ut.gray} 
+              style={{ position: 'absolute', right: 12, top: 12 }}
+            />
+            {errors.name && (
+              <Text className="mt-1 text-sm text-red-500">
+                {errors.name.message}
+              </Text>
+            )}
+          </View>
+        )}
+      />
+    </View>,
+
+    // Step 3: Add details (description and photos)
+    <View key={3} className="gap-4">
+      <Text className="font-medium">Add details (optional)</Text>
+      
+      {/* Description */}
       <Controller
         control={control}
         name="description"
         render={({ field: { onChange, onBlur, value } }) => (
-          <>
-            <View>
+          <View>
+            <Text className="mb-2 text-sm font-medium text-gray-700">Description</Text>
+            <View className="relative">
               <TextInput
                 multiline={true}
                 numberOfLines={4}
                 textAlignVertical="top"
-                className={`mt-2 rounded-xl border px-4 pb-16 pt-3 ${
+                className={`rounded-xl border px-4 pb-8 pt-3 ${
                   errors.description ? "border-red-500" : "border-gray-300"
                 }`}
-                placeholder="Please describe any issues encountered in the blockage's surroundings..."
+                placeholder="Describe the blockage and any issues in the surrounding area..."
                 onBlur={onBlur}
                 onChangeText={onChange}
-                value={value}
+                value={value || ""}
                 maxLength={500}
               />
               <Text className="absolute bottom-2 right-3 text-xs text-gray-500">
-                {value ? value.length : 0}/500
+                {(value || "").length}/500
               </Text>
             </View>
-            <View className="mb-2 mt-1">
-              <View>
-                {errors.description && (
-                  <Text className="text-sm text-red-500">
-                    {errors.description.message}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </>
+            {errors.description && (
+              <Text className="mt-1 text-sm text-red-500">
+                {errors.description.message}
+              </Text>
+            )}
+          </View>
         )}
       />
-      {/* Add Photo Input */}
+
+      {/* Photos */}
+      <View>
+        <Text className="mb-2 text-sm font-medium text-gray-700">Photos</Text>
+        <Button
+          variant="gray"
+          title="Add Photo"
+          onPress={pickImage}
+          icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
+        />
+        
+        {/* Image Preview */}
+        {selectedImages.length > 0 && (
+          <ScrollView horizontal className="mt-3" showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-2">
+              {selectedImages.map((uri, index) => (
+                <View key={index} className="relative">
+                  <Image source={{ uri }} className="h-20 w-20 rounded-lg" />
+                  <TouchableOpacity
+                    onPress={() => removeImage(index)}
+                    className="absolute -right-1 -top-1 rounded-full bg-red-500 p-1"
+                  >
+                    <XIcon size={12} color="white" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    </View>,
+
+    // Step 4: Add tags
+    <View key={4} className="gap-4">
+      <Text className="font-medium">Add tags (optional)</Text>
+      <Text className="text-sm text-gray-600">
+        Select tags that best describe this blockage:
+      </Text>
+      
       <Controller
         control={control}
-        name="images"
-        render={({ field: { onBlur } }) => (
-          <Button
-            variant="gray"
-            onBlur={onBlur}
-            title="Add Photo"
-            icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
-          />
+        name="tags"
+        render={({ field: { onChange, value } }) => (
+          <View className="flex-row flex-wrap gap-2">
+            {AVAILABLE_TAGS.map((tag) => {
+              const isSelected = value?.includes(tag) || false;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  onPress={() => {
+                    const currentTags = value || [];
+                    const newTags = isSelected
+                      ? currentTags.filter(t => t !== tag)
+                      : [...currentTags, tag];
+                    onChange(newTags);
+                  }}
+                  className={`rounded-full px-4 py-2 ${
+                    isSelected 
+                      ? "bg-ut-burntorange" 
+                      : "bg-gray-200"
+                  }`}
+                >
+                  <Text className={`capitalize ${
+                    isSelected ? "text-white" : "text-gray-700"
+                  }`}>
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
       />
     </View>,
 
-    // Step 3: Review and submit
-    <View key={3}>
-      <Text className="font-medium">Review the details of your report</Text>
-      <TextInput
-        multiline={true}
-        numberOfLines={4}
-        className={`mt-2 rounded-lg border border-gray-300 px-4 py-3`}
-        placeholder="Please describe any issues encountered in the blockage's surroundings..."
-        value={getValues("description")}
-        maxLength={500}
-        editable={false}
-      />
+    // Step 5: Review and submit
+    <View key={5} className="gap-4">
+      <Text className="font-medium">Review your report</Text>
+      
+      <View className="rounded-lg bg-gray-50 p-4 gap-3">
+        <View>
+          <Text className="font-medium text-gray-700">Name:</Text>
+          <Text className="text-gray-600">{getValues("name") || "Avoidance Area"}</Text>
+        </View>
+        
+        {getValues("description") && (
+          <View>
+            <Text className="font-medium text-gray-700">Description:</Text>
+            <Text className="text-gray-600">{getValues("description")}</Text>
+          </View>
+        )}
+        
+        {getValues("tags")?.length > 0 && (
+          <View>
+            <Text className="font-medium text-gray-700">Tags:</Text>
+            <View className="flex-row flex-wrap gap-1 mt-1">
+              {getValues("tags")?.map((tag, index) => (
+                <View key={index} className="rounded-full bg-ut-burntorange/20 px-2 py-1">
+                  <Text className="text-xs capitalize text-ut-burntorange">{tag}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+        
+        <View>
+          <Text className="font-medium text-gray-700">Area:</Text>
+          <Text className="text-gray-600">
+            {aaPoints.length} points • ~{Math.round(polygonArea)} sq meters
+          </Text>
+        </View>
+        
+        {selectedImages.length > 0 && (
+          <View>
+            <Text className="font-medium text-gray-700">Photos:</Text>
+            <Text className="text-gray-600">{selectedImages.length} image(s) attached</Text>
+          </View>
+        )}
+      </View>
     </View>,
   ];
 
@@ -246,48 +459,14 @@ const ReportModal = ({
 
           {/* Heading and subheading */}
           <View className="flex-1">
-            {currentStep === 1 ? (
-              <Controller
-                control={control}
-                name="name"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <View
-                    className={`flex-row items-center justify-center border-b pb-1 ${
-                      errors.name ? "border-red-500" : "border-gray-300"
-                    }`}
-                  >
-                    <PencilSimpleLineIcon
-                      size={20}
-                      color={colors.ut.gray}
-                      style={{ width: 16, height: 16, margin: 4 }}
-                    />
-                    <TextInput
-                      placeholder="Name your report"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      className="flex-1 text-2xl font-bold text-gray-400"
-                    />
-                  </View>
-                )}
-              />
-            ) : (
-              <Text className={`text-2xl font-bold`}>
-                {getValues("name") || "Avoidance Area"}
-              </Text>
-            )}
+            <Text className={`text-2xl font-bold`}>
+              {getValues("name") || "Avoidance Area"}
+            </Text>
 
             {/* Subheading */}
             <Text className="text-sm font-medium">
               Report a temporary blockage
             </Text>
-
-            {/* Name Errors */}
-            {errors.name && currentStep === 1 && (
-              <Text className="text-sm text-red-500">
-                {errors.name.message}
-              </Text>
-            )}
           </View>
         </View>
 
@@ -351,6 +530,39 @@ const ReportModal = ({
       ) : (
         <PointInteractionHint />
       )}
+      
+      {/* Exit Confirmation Modal */}
+      <Modal
+        visible={showExitConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExitConfirm(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50">
+          <View className="mx-8 rounded-lg bg-white p-6">
+            <Text className="mb-2 text-lg font-bold text-gray-900">
+              Discard Changes?
+            </Text>
+            <Text className="mb-6 text-gray-600">
+              You have unsaved changes. Are you sure you want to exit without saving?
+            </Text>
+            <View className="flex-row gap-3">
+              <Button
+                title="Continue Editing"
+                variant="gray"
+                className="flex-1"
+                onPress={() => setShowExitConfirm(false)}
+              />
+              <Button
+                title="Discard"
+                variant="primary"
+                className="flex-1"
+                onPress={confirmExit}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };

@@ -19,7 +19,6 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
-
 const initialCameraPosition = {
   coordinates: {
     // Default coordinates for UT Tower

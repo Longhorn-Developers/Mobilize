@@ -1,40 +1,17 @@
 import "~/global.css";
-import { AppStateStatus, Platform, View } from "react-native";
+import { View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Toast, {
   ErrorToast,
   SuccessToast,
   ToastConfig,
 } from "react-native-toast-message";
-import * as Network from "expo-network";
 import { Stack } from "expo-router";
-import {
-  QueryClient,
-  QueryClientProvider,
-  focusManager,
-  onlineManager,
-} from "@tanstack/react-query";
-import { useAppState } from "~/hooks/useAppState";
 import { CheckIcon, XIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "~/utils/AuthProvider";
-
-function onAppStateChange(status: AppStateStatus) {
-  // React Query already supports in web browser refetch on window focus by default
-  if (Platform.OS !== "web") {
-    focusManager.setFocused(status === "active");
-  }
-}
-
-// react-query refetch on network reconnect
-onlineManager.setEventListener((setOnline) => {
-  const eventSubscription = Network.addNetworkStateListener((state) => {
-    setOnline(!!state.isConnected);
-  });
-  return eventSubscription.remove;
-});
 
 const toastConfig = {
   /*
@@ -94,23 +71,16 @@ const toastConfig = {
   ),
 };
 
-const queryClient = new QueryClient();
-
 export default function Layout() {
-  // react-query refetch on app focus
-  useAppState(onAppStateChange);
-
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
-          <BottomSheetModalProvider>
-            <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <Toast config={toastConfig} />
-          </BottomSheetModalProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
+      <GestureHandlerRootView>
+        <BottomSheetModalProvider>
+          <StatusBar style="auto" />
+          <Stack screenOptions={{ headerShown: false }} />
+          <Toast config={toastConfig} />
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
     </AuthProvider>
   );
 }

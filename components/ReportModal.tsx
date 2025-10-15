@@ -21,7 +21,11 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z, ZodType } from "zod";
 import Toast from "react-native-toast-message";
-import { Coordinates } from "expo-maps";
+// Define coordinate type for react-native-maps
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
 
 const reportFormSchema = z.object({
   aaPoints: z

@@ -6,12 +6,11 @@ import {
   useContext,
   PropsWithChildren,
 } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "~/utils/supabase";
+import { cloudflare, CloudflareAuthUser, CloudflareAuthSession } from "~/utils/cloudflare";
 
 type AuthProps = {
-  user: User | null;
-  session: Session | null;
+  user: CloudflareAuthUser | null;
+  session: CloudflareAuthSession | null;
   initialized: boolean;
   signOut: () => Promise<void>;
 };
@@ -19,26 +18,32 @@ type AuthProps = {
 export const AuthContext = createContext<Partial<AuthProps>>({});
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<CloudflareAuthUser | null>(null);
+  const [session, setSession] = useState<CloudflareAuthSession | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session ? session.user : null);
+    const initializeAuth = async () => {
+      await cloudflare.initialize();
+      
+      // Check if user is already authenticated
+      const { data } = await cloudflare.auth.getUser();
+      if (data?.user) {
+        setUser(data.user);
+        setSession({ user: data.user, token: '' }); // Token is handled internally
         setInitialized(true);
-      },
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
+      } else {
+        setInitialized(true);
+      }
     };
+
+    initializeAuth();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await cloudflare.auth.signOut();
+    setUser(null);
+    setSession(null);
   };
 
   const value = {

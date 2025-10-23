@@ -19,6 +19,8 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
+import NavigationView from "~/components/NavigationView";
+
 const initialCameraPosition = {
   coordinates: {
     // Default coordinates for UT Tower
@@ -41,6 +43,8 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
   const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
   const [reportStep, setReportStep] = useState(0);
+
+  const [isEditRouteMode, setIsEditRouteMode] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
@@ -281,6 +285,22 @@ export default function Home() {
           className="absolute bottom-4 right-4"
           title={"Report"}
           onPress={() => setIsReportMode(true)}
+        />
+      )}
+
+      {isEditRouteMode ? (
+        <>
+          <NavigationView
+            className="absolute"
+            title="Edit Route"
+          ></NavigationView>
+        </>
+      ) : (
+        // Temporary Bottom left button to enter navigation edit mode */
+        <Button
+          className="absolute bottom-4 left-4"
+          title={"Edit Navigation Mode"}
+          onPress={() => setIsEditRouteMode(true)}
         />
       )}
     </>

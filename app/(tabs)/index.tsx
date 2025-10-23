@@ -220,7 +220,9 @@ export default function Home() {
         <AppleMaps.View
           style={{ flex: 1 }}
           onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          onMapClick={(event) => {
+            handleMapPress(event.coordinates as Coordinates);
+          }}
           cameraPosition={initialCameraPosition}
           polygons={polygons}
           annotations={annotations}
@@ -231,7 +233,9 @@ export default function Home() {
         <GoogleMaps.View
           style={{ flex: 1 }}
           onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          onMapClick={(event) =>
+            handleMapPress(event.coordinates as Coordinates)
+          }
           cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
           polygons={polygons}
           markers={annotations}

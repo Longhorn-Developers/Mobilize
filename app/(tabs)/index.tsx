@@ -293,7 +293,10 @@ export default function Home() {
           <NavigationView
             className="absolute"
             title="Edit Route"
-          ></NavigationView>
+            onExit={() => {
+              setIsEditRouteMode(false);
+            }}
+          />
         </>
       ) : (
         // Temporary Bottom left button to enter navigation edit mode */

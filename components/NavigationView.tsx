@@ -3,7 +3,7 @@ import React, { FC, useState } from "react";
 import { View, Text, TextInput } from "react-native";
 import { XIcon } from "phosphor-react-native";
 import { Button } from "~/components/Button";
-import EditRouteModal from "./EditRouteModal";
+import EditRouteModal from "~/components/EditRouteModal";
 
 enum EditMode {
   default,
@@ -21,7 +21,9 @@ interface NavigationViewProps {
 
 const NavigationView = ({
   className,
+  // should be current user location
   startLocation = undefined,
+  // end location dependent on previous routing mode view
   endLocation = undefined,
   onExit,
 }: NavigationViewProps) => {
@@ -33,30 +35,26 @@ const NavigationView = ({
 
   const getEditRouteModal = (editMode: number) => (
     <EditRouteModal
-      renderSearchBar={() => getLocationSearchBar(editMode)}
+      renderSearchBar={() => getLocationSearchBar(editMode, true)}
       onExit={() => {
         setEditMode(EditMode.default);
       }}
     />
   );
 
-  const getLocationSearchBar = (editMode: number) =>
-    editMode === EditMode.Start ? (
-      <TextInput
-        className="rounded-full bg-white px-6 pb-4 pt-3 align-text-top text-lg shadow-sm"
-        onFocus={() => setEditMode(EditMode.Start)}
-        placeholder="Start Location"
-        placeholderTextColor="gray"
-      />
-    ) : (
-      <TextInput
-        className="rounded-full bg-white px-6 pb-4 pt-3 align-text-top text-lg shadow-sm"
-        onFocus={() => setEditMode(EditMode.End)}
-        placeholder="Destination"
-        placeholderTextColor="gray"
-        defaultValue="!Queried Location!"
-      />
-    );
+  const getLocationSearchBar = (editMode: number, autoFocus: boolean) => (
+    // TODO: vertically center placeholder and typed text
+    <TextInput
+      className="rounded-full bg-white px-5 pb-4 pt-3 align-text-top text-lg shadow-sm"
+      onFocus={() => setEditMode(editMode)}
+      autoFocus={autoFocus}
+      placeholder={
+        editMode === EditMode.Start ? "Start Location" : "Destination"
+      }
+      placeholderTextColor="gray"
+      defaultValue={editMode === EditMode.Start ? "" : "Queried Location"}
+    />
+  );
 
   return (
     // Wrapper View
@@ -81,11 +79,11 @@ const NavigationView = ({
       {editMode === EditMode.default ? (
         <View className="flex w-full flex-col justify-between bg-ut-burntorange px-5 pb-7">
           {/* TODO: query start location name */}
-          {getLocationSearchBar(EditMode.Start)}
+          {getLocationSearchBar(EditMode.Start, false)}
           {/* Dotted Line */}
           <View className="ml-10 border-l-2 border-dashed border-white p-4"></View>
           {/* TODO: query end location name */}
-          {getLocationSearchBar(EditMode.End)}
+          {getLocationSearchBar(EditMode.End, false)}
         </View>
       ) : (
         getEditRouteModal(editMode)

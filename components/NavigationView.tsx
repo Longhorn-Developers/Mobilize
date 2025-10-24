@@ -28,31 +28,39 @@ const NavigationView = ({
   onExit,
 }: NavigationViewProps) => {
   const [editMode, setEditMode] = useState(EditMode.default);
+  const [searchInput, setSearchInput] = useState<string>(
+    "Location from previous state",
+  );
 
   const handleClose = () => {
     onExit();
   };
 
-  const getEditRouteModal = (editMode: number) => (
+  const getEditRouteModal = (editMode: number, searchQuery: string) => (
     <EditRouteModal
       renderSearchBar={() => getLocationSearchBar(editMode, true)}
       onExit={() => {
         setEditMode(EditMode.default);
       }}
+      searchQuery={searchQuery}
     />
   );
 
   const getLocationSearchBar = (editMode: number, autoFocus: boolean) => (
-    // TODO: vertically center placeholder and typed text
     <TextInput
-      className="rounded-full bg-white px-5 pb-4 pt-3 align-text-top text-lg shadow-sm"
+      className="h-16 rounded-full bg-white px-5 pb-4 pt-5 align-text-top text-lg/none shadow-sm"
       onFocus={() => setEditMode(editMode)}
       autoFocus={autoFocus}
       placeholder={
         editMode === EditMode.Start ? "Start Location" : "Destination"
       }
       placeholderTextColor="gray"
-      defaultValue={editMode === EditMode.Start ? "" : "Queried Location"}
+      defaultValue={
+        editMode === EditMode.Start
+          ? "Default Start Location"
+          : "Default End Location"
+      }
+      onChangeText={(text) => setSearchInput(text)}
     />
   );
 
@@ -86,7 +94,7 @@ const NavigationView = ({
           {getLocationSearchBar(EditMode.End, false)}
         </View>
       ) : (
-        getEditRouteModal(editMode)
+        getEditRouteModal(editMode, searchInput)
       )}
     </View>
   );

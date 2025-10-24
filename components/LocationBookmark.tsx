@@ -7,9 +7,14 @@ import { Button } from "~/components/Button";
 interface BookmarkProps {
   name?: string;
   location: Coordinates | undefined;
+  getEntranceSelection: (isLocationSelected: boolean) => void;
 }
 
-const LocationBookmark = ({ name, location }: BookmarkProps) => {
+const LocationBookmark = ({
+  name,
+  location,
+  getEntranceSelection,
+}: BookmarkProps) => {
   return (
     // Bookmark card
     <Button
@@ -17,9 +22,15 @@ const LocationBookmark = ({ name, location }: BookmarkProps) => {
       variant="ghost"
       title=""
       // TODO: update start or destination
-      onPress={() =>
-        console.log(location?.latitude + " " + location?.longitude)
-      }
+      onPress={() => {
+        console.log(
+          "[LocationBookmark] " +
+            location?.latitude +
+            " " +
+            location?.longitude,
+        );
+        getEntranceSelection(true);
+      }}
     >
       {/* Name and Bookmark Icon */}
       <View className="flex flex-row items-center gap-2">
@@ -32,7 +43,7 @@ const LocationBookmark = ({ name, location }: BookmarkProps) => {
         className="px-0"
         variant="ghost"
         title=""
-        icon={<DotsThreeIcon size={28} weight="bold" color="gray" />}
+        icon={<DotsThreeIcon size={28} weight="bold" color="black" />}
       />
     </Button>
   );

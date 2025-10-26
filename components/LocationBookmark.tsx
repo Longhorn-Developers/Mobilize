@@ -1,4 +1,5 @@
 import { Coordinates } from "expo-maps";
+import { Point } from "@types/geojson";
 import { BookmarkSimpleIcon, DotsThreeIcon } from "phosphor-react-native";
 import React from "react";
 import { View, Text } from "react-native";
@@ -6,7 +7,7 @@ import { Button } from "~/components/Button";
 
 interface BookmarkProps {
   name?: string;
-  location: Coordinates | undefined;
+  location: Point | undefined;
   getEntranceSelection: (isLocationSelected: boolean) => void;
 }
 
@@ -25,9 +26,9 @@ const LocationBookmark = ({
       onPress={() => {
         console.log(
           "[LocationBookmark] " +
-            location?.latitude +
+            location?.coordinates[0] +
             " " +
-            location?.longitude,
+            location?.coordinates[1],
         );
         getEntranceSelection(true);
       }}

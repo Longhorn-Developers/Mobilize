@@ -1,6 +1,6 @@
 import { Coordinates } from "expo-maps";
 import React, { ReactNode, useState } from "react";
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import LocationBookmark from "~/components/LocationBookmark";
 import { Button } from "~/components/Button";
 import { CaretRightIcon } from "phosphor-react-native";
@@ -8,14 +8,7 @@ import { supabase } from "~/utils/supabase";
 import { useQuery } from "@supabase-cache-helpers/postgrest-react-query";
 import { Point } from "@types/geojson";
 
-// TODO: Store and fetch bookmarks from db
-type tempPOI = {
-  id?: number;
-  name?: string;
-  location?: Coordinates | undefined;
-  entrances?: string[];
-};
-
+// Buildings
 type BuildingProps = {
   building: BuildingData;
   onPress: () => void;
@@ -23,32 +16,23 @@ type BuildingProps = {
 };
 
 const Building = ({ building, onPress, className }: BuildingProps) => (
-  <View>
+  <TouchableOpacity onPress={onPress}>
     <Text className={`${className}`}>{building.bld_name}</Text>
-  </View>
+  </TouchableOpacity>
 );
 
 type BuildingData = {
   id: string;
   bld_name: string;
+  rel_POIs: string[];
   location_geojson: Point;
-  POI_count: number;
 };
 
-const bookmarks: tempPOI[] = [
-  {
-    id: 1,
-    name: "Temporary Location",
-    location: { longitude: 10, latitude: 20 },
-    entrances: ["South Entrance", "North Entrance"],
-  },
-  {
-    id: 2,
-    name: "Another Location",
-    location: { longitude: 20, latitude: 40 },
-    entrances: ["West Entrance"],
-  },
-];
+type BookmarkData = {
+  id: string;
+  label: string;
+  location_geojson: Point;
+};
 
 interface EditRouteModalProps {
   className?: string;
@@ -64,7 +48,7 @@ const EditRouteModal = ({
   searchQuery,
 }: EditRouteModalProps) => {
   const [isLocationSelected, setIsLocationSelected] = useState<boolean>(false);
-  const RESULTS_RENDER_LIMIT = 20;
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingData>();
 
   const { data: POIs } = useQuery(
     supabase.from("pois").select("id, poi_type, metadata, location_geojson"),
@@ -79,7 +63,8 @@ const EditRouteModal = ({
     BuildingData
   >();
 
-  // Iterate through every POI to generate a map of building names to building data
+  // Compile building data
+  let id_index = 0;
   POIs?.forEach((POI) => {
     const bld_name: string = POI.metadata.bld_name;
     if (buildingsMap.has(bld_name)) {
@@ -88,21 +73,22 @@ const EditRouteModal = ({
       ) as BuildingData;
       // Average location of POIs related to a building
       storedBuilding.location_geojson.coordinates[0] *=
-        storedBuilding.POI_count;
+        storedBuilding.rel_POIs.length;
       storedBuilding.location_geojson.coordinates[1] *=
-        storedBuilding.POI_count++;
+        storedBuilding.rel_POIs.length;
+      storedBuilding.rel_POIs = [...POI.id];
       storedBuilding.location_geojson.coordinates[0] /=
-        storedBuilding.POI_count;
+        storedBuilding.rel_POIs.length;
       storedBuilding.location_geojson.coordinates[1] /=
-        storedBuilding.POI_count;
-      storedBuilding.id += POI.id;
+        storedBuilding.rel_POIs.length;
     } else {
       buildingsMap.set(bld_name, {
-        id: POI.id,
+        id: "" + id_index,
         bld_name: bld_name,
+        rel_POIs: [POI.id],
         location_geojson: POI.location_geojson,
-        POI_count: 1,
       });
+      id_index++;
     }
   });
   const buildings: BuildingData[] = [...buildingsMap.values()];
@@ -111,40 +97,59 @@ const EditRouteModal = ({
     return (
       <Building
         building={item}
-        onPress={() => console.log("Button Pressed!")}
+        onPress={() => {
+          console.log("[EditRouteModal] Search result selected!");
+          setSelectedBuilding(item);
+          preprocessRelPOIs(item);
+          setIsLocationSelected(true);
+        }}
         className="text-lg color-[#64748b]"
       />
     );
   };
 
-  const renderBookmark = (bookmark: tempPOI) => {
+  const preprocessRelPOIs = (building: BuildingData) => {};
+
+  // Temporary list of bookmarks. TODO: have a way to create new bookmarks/query from db
+  const bookmarks: BookmarkData[] = [
+    {
+      id: "temp01",
+      label: "PSY Class",
+      location_geojson: { type: "Point", coordinates: [-97.735, 30.28] },
+    },
+    {
+      id: "temp02",
+      label: "Union Building",
+      location_geojson: { type: "Point", coordinates: [-97.738, 30.285] },
+    },
+  ];
+
+  const renderBookmark = ({ item }: { item: BookmarkData }) => {
     // List all bookmark cards. Possible future TODO: add scrolling
     return (
       <LocationBookmark
-        key={bookmark.id}
-        name={bookmark.name}
-        location={bookmark.location}
+        key={item.id}
+        name={item.label}
+        location={item.location_geojson}
         getEntranceSelection={() => setIsLocationSelected(true)}
       />
     );
   };
 
-  let i = 0;
-  const renderEntranceButton = ({
-    selectedLocation,
-  }: {
-    selectedLocation: tempPOI;
-  }) => {
+  const renderEntranceButton = ({ item }: { item: BuildingData }) => {
+    // TODO: query nearby POIs (for the purpose of listing icons)
+
     // List all available entrances as buttons
     return (
       <Button
         // Doesn't do anything right now
-        key={i++} // Will eventuall by appropriate location ID
+        key={item.id} // Will eventuall by appropriate location ID
         variant="primary"
         className="rounded-e-full rounded-s-full border-2 border-ut-burntorange bg-white shadow-none"
       >
-        <Text className="color-[#64748b]">{selectedLocation.name}</Text>
+        <Text className="color-[#64748b]">Name of entrance</Text>
         {/* TODO: list appropriate icons */}
+        {/* Generate appropriate icons given the entrance */}
       </Button>
     );
   };
@@ -156,23 +161,19 @@ const EditRouteModal = ({
         {/* Search Bar */}
         {renderSearchBar && renderSearchBar()}
         {!isLocationSelected ? (
-          // Location Selection Options
+          // Location Selection Options (search, find on map, bookmarks)
           <>
             {/* Dynamic Search Results */}
             <View className="rounded-xl bg-white px-5 py-4 shadow-sm">
-              {/* <Text className="text-lg color-[#64748b]">
-                TODO: Dynamic Search Results with scroll
-              </Text> */}
               <FlatList
-                data={buildings
-                  .filter(
-                    (element) =>
-                      element.bld_name &&
-                      element.bld_name.includes(searchQuery?.toUpperCase()),
-                  )
-                  .slice(0, RESULTS_RENDER_LIMIT)}
+                data={buildings.filter(
+                  (element) =>
+                    element.bld_name &&
+                    element.bld_name.includes(searchQuery?.toUpperCase()),
+                )}
                 renderItem={renderSearchResults}
                 className="max-h-36"
+                persistentScrollbar={true}
                 ItemSeparatorComponent={() => <View className="h-8" />}
               />
             </View>
@@ -198,15 +199,24 @@ const EditRouteModal = ({
               />
             </Button>
             {/* Bookmarked Locations */}
-            {/* Implement a FlatList */}
+            <FlatList
+              data={bookmarks}
+              renderItem={renderBookmark}
+              ItemSeparatorComponent={() => <View className="h-2" />}
+            />
           </>
         ) : (
           // Change Entrance Options
           <View className="flex flex-col gap-2 rounded-xl bg-white px-5 py-4 shadow-sm">
             {/* Heading */}
             <Text className="text-lg color-[#64748b]">Change Entrance</Text>
-            {/* EntranceButtons */}
-            {/* Implement a FlatList */}
+            {/* Entrance Buttons */}
+            {/* TODO: query POIs on boundary of given building. How to group POIs for button? */}
+            {/* <FlatList
+              data={selectedBuilding?.rel_POIs}
+              renderItem={renderEntranceButton}
+            /> */}
+            <Text>Temporary Text: {selectedBuilding?.bld_name}</Text>
           </View>
         )}
       </View>

@@ -13,3 +13,4 @@ database_id = "94e7ce6f-84cf-4247-99b2-3c88f6810eed"
 
 [vars]
 ENVIRONMENT = "development"
+JWT_SECRET = "dev-secret-key-change-in-production"

@@ -340,6 +340,16 @@ export class CloudflareClient {
       console.error('Failed to initialize Cloudflare client:', error);
     }
   }
+
+  // Public method to get the base URL for direct API calls
+  getBaseUrl() {
+    return this.baseUrl;
+  }
+
+  // Public method to get auth headers for direct API calls
+  getHeaders() {
+    return this.getAuthHeaders();
+  }
 }
 
 // Create and export the client instance

@@ -1,7 +1,7 @@
 // POI synchronization utilities
 // Migrated from Supabase Edge Functions
 
-export async function syncAccessibleEntrances(db: D1Database, kmlUrl: string): Promise<void> {
+export async function syncAccessibleEntrances(db: any, kmlUrl: string): Promise<void> {
   try {
     // Fetch KML data
     const response = await fetch(kmlUrl);

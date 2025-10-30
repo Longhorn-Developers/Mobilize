@@ -31,8 +31,8 @@ const reportFormSchema = z.object({
   aaPoints: z
     .array(
       z.object({
-        latitude: z.number().optional(),
-        longitude: z.number().optional(),
+        latitude: z.number(),
+        longitude: z.number(),
       }) satisfies ZodType<Coordinates>,
     )
     .min(

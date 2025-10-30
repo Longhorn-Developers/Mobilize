@@ -6,6 +6,7 @@ import {
   useContext,
   PropsWithChildren,
 } from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import { cloudflare, CloudflareAuthUser, CloudflareAuthSession } from "~/utils/cloudflare";
 
 type AuthProps = {
@@ -24,15 +25,27 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      await cloudflare.initialize();
-      
-      // Check if user is already authenticated
-      const { data } = await cloudflare.auth.getUser();
-      if (data?.user) {
-        setUser(data.user);
-        setSession({ user: data.user, token: '' }); // Token is handled internally
-        setInitialized(true);
-      } else {
+      try {
+        console.log('=== AUTH PROVIDER: Starting initialization ===');
+        await cloudflare.initialize();
+        console.log('AUTH PROVIDER: Cloudflare client initialized');
+        
+        // Check if user is already authenticated
+        console.log('AUTH PROVIDER: Checking for existing user...');
+        const { data } = await cloudflare.auth.getUser();
+        console.log('AUTH PROVIDER: getUser result:', data);
+        
+        if (data?.user) {
+          console.log('AUTH PROVIDER: User found:', data.user);
+          setUser(data.user);
+          setSession({ user: data.user, token: '' }); // Token is handled internally
+        } else {
+          console.log('AUTH PROVIDER: No user found');
+        }
+      } catch (error) {
+        console.error('AUTH PROVIDER: Error during initialization:', error);
+      } finally {
+        console.log('AUTH PROVIDER: Initialization complete, setting initialized=true');
         setInitialized(true);
       }
     };
@@ -52,6 +65,18 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     initialized,
     signOut,
   };
+
+  // Show loading screen while initializing
+  if (!initialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#bf5700" />
+        <Text style={{ marginTop: 20, fontSize: 16, color: '#666' }}>
+          Initializing authentication...
+        </Text>
+      </View>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

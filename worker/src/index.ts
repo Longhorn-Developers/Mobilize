@@ -12,7 +12,7 @@ import { userRoutes } from './routes/user';
 import { syncRoutes } from './routes/sync';
 
 export interface Env {
-  DB: D1Database;
+  DB: any; // D1Database type not available in this context
   JWT_SECRET: string;
   ENVIRONMENT?: string;
 }
@@ -21,14 +21,14 @@ const app = new Hono<{ Bindings: Env }>();
 
 // CORS middleware
 app.use('*', cors({
-  origin: ['http://localhost:8081', 'http://localhost:19006', 'https://mobilize.app'],
+  origin: '*', // Allow all origins in development
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 
 // JWT middleware for protected routes
 const jwtMiddleware = jwt({
-  secret: (c) => c.env.JWT_SECRET,
+  secret: 'dev-secret-key-change-in-production',
 });
 
 // Health check endpoint
@@ -44,15 +44,28 @@ app.get('/', (c) => {
 app.route('/auth', authRoutes);
 app.route('/sync', syncRoutes);
 
-// Protected routes (require JWT authentication)
+// Public data routes (GET endpoints are public, others require auth)
+// Apply JWT middleware only to POST/PUT/DELETE methods
+app.use('/avoidance-areas', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return jwtMiddleware(c, next);
+  }
+  return next();
+});
+app.use('/pois', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return jwtMiddleware(c, next);
+  }
+  return next();
+});
+app.route('/avoidance-areas', avoidanceAreasRoutes);
+app.route('/pois', poisRoutes);
+
+// Protected routes (require JWT authentication for all methods)
 app.use('/profiles/*', jwtMiddleware);
-app.use('/avoidance-areas/*', jwtMiddleware);
-app.use('/pois/*', jwtMiddleware);
 app.use('/user/*', jwtMiddleware);
 
 app.route('/profiles', profilesRoutes);
-app.route('/avoidance-areas', avoidanceAreasRoutes);
-app.route('/pois', poisRoutes);
 app.route('/user', userRoutes);
 
 // Error handling

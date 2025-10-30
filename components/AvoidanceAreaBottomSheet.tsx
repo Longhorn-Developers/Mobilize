@@ -1,25 +1,28 @@
-import { ForwardedRef } from "react";
+import { forwardRef, useState } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import colors from "~/types/colors";
+import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
+
 // Define polygon type for react-native-maps
 interface MapPolygon {
   key: string;
+  id?: string;
   coordinates: Array<{latitude: number; longitude: number}>;
   fillColor: string;
   strokeColor: string;
   strokeWidth: number;
 }
-import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
 
 interface AvoidanceAreaBottomSheetProps {
-  ref: ForwardedRef<BottomSheetModal>;
+  selectedAreaId?: string;
 }
 
-const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
+const AvoidanceAreaBottomSheet = forwardRef<BottomSheetModal, AvoidanceAreaBottomSheetProps>(({ selectedAreaId }, ref) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
+  
   return (
-    <BottomSheetModal<MapPolygon>
+    <BottomSheetModal
       ref={ref}
       bottomInset={bottomTabBarHeight}
       backgroundStyle={{ borderRadius: 32 }}
@@ -30,12 +33,11 @@ const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
         width: 80,
       }}
     >
-      {({ data }) => {
-        if (!data || !data.id) return;
-        return <AvoidanceAreaDetails areaId={data.id} />;
-      }}
+      {selectedAreaId ? (
+        <AvoidanceAreaDetails areaId={selectedAreaId} />
+      ) : null}
     </BottomSheetModal>
   );
-};
+});
 
 export default AvoidanceAreaBottomSheet;

@@ -1,5 +1,6 @@
 {
   "expo": {
+    "newArchEnabled": true,
     "name": "MobilizeUT",
     "slug": "mobilizeut",
     "version": "1.0.0",

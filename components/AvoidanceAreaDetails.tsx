@@ -9,7 +9,7 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
+import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +19,7 @@ import { ActionButtonGroup } from "./ActionButtonGroup";
 import { cloudflare } from "~/utils/cloudflare";
 import { useAuth } from "~/utils/AuthProvider";
 import * as turf from "@turf/turf";
-import { Polygon } from "@types/geojson";
+import { Polygon } from "geojson";
 
 const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
@@ -60,7 +60,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     const fetchAvoidanceArea = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${cloudflare.baseUrl}/avoidance-areas`);
+        const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas`);
         if (response.ok) {
           const data = await response.json();
           const area = data.avoidance_areas.find((a: any) => a.id === areaId);
@@ -87,7 +87,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await fetch(`${cloudflare.baseUrl}/avoidance-areas/${areaId}/reports`);
+        const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`);
         if (response.ok) {
           const data = await response.json();
           setReports(data.reports || []);
@@ -102,11 +102,11 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
   const addReport = async (data: CommentFormData) => {
     try {
-      const response = await fetch(`${cloudflare.baseUrl}/avoidance-areas/${areaId}/reports`, {
+      const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...cloudflare.getAuthHeaders(),
+          ...cloudflare.getHeaders(),
         },
         body: JSON.stringify({
           title: null,
@@ -118,7 +118,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         console.log("Report added successfully");
         reset();
         // Refresh reports
-        const reportsResponse = await fetch(`${cloudflare.baseUrl}/avoidance-areas/${areaId}/reports`);
+        const reportsResponse = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`);
         if (reportsResponse.ok) {
           const reportsData = await reportsResponse.json();
           setReports(reportsData.reports || []);

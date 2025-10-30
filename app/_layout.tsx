@@ -1,4 +1,6 @@
+import "../polyfills";
 import "~/global.css";
+import React from "react";
 import { View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Toast, {
@@ -12,6 +14,29 @@ import colors from "~/types/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "~/utils/AuthProvider";
+import ErrorBoundary from "~/components/ErrorBoundary";
+
+// Catch unhandled promise rejections
+if (typeof (global as any).__OLD_RN_REJECTION_HANDLER__ === 'undefined') {
+  const oldHandler = (global as any).onunhandledrejection;
+  (global as any).onunhandledrejection = (event: any) => {
+    console.error('=== UNHANDLED PROMISE REJECTION ===');
+    console.error('Reason:', event?.reason ?? event);
+    console.error('Promise:', event?.promise);
+    if (oldHandler) oldHandler(event);
+  };
+  (global as any).__OLD_RN_REJECTION_HANDLER__ = oldHandler;
+}
+
+// Catch global errors
+const oldErrorHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  console.error('=== GLOBAL ERROR ===');
+  console.error('Fatal:', isFatal);
+  console.error('Error:', error);
+  console.error('Stack:', error.stack);
+  if (oldErrorHandler) oldErrorHandler(error, isFatal);
+});
 
 const toastConfig = {
   /*
@@ -72,15 +97,18 @@ const toastConfig = {
 };
 
 export default function Layout() {
+  console.log('=== ROOT LAYOUT RENDERED ===');
   return (
-    <AuthProvider>
-      <GestureHandlerRootView>
-        <BottomSheetModalProvider>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
-          <Toast config={toastConfig} />
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <BottomSheetModalProvider>
+            <StatusBar style="auto" />
+            <Stack screenOptions={{ headerShown: false }} />
+            <Toast config={toastConfig} />
+          </BottomSheetModalProvider>
+        </GestureHandlerRootView>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

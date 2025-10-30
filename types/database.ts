@@ -1,5 +1,5 @@
 import { MergeDeep } from "type-fest";
-import { Polygon, Point } from "@types/geojson";
+import { Polygon, Point } from "geojson";
 import { Database as DatabaseGenerated } from "./database-generated";
 export { Json, Constants } from "./database-generated";
 
@@ -10,7 +10,7 @@ type accessible_entrance_metadata = {
   auto_opene: boolean;
 };
 
-export type metadata_types = accessible_entrance_metadata;
+export type POIMetadata = accessible_entrance_metadata;
 
 export type Database = MergeDeep<
   DatabaseGenerated,
@@ -20,7 +20,7 @@ export type Database = MergeDeep<
         pois: {
           Row: {
             location_geojson: Point;
-            metadata: metadata_types;
+            metadata: accessible_entrance_metadata;
           };
         };
         avoidance_areas: {

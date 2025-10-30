@@ -1,8 +1,8 @@
+import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import MapView, { Marker, Polygon, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import { View, Platform } from "react-native";
+import { View, Platform, Text, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
@@ -13,7 +13,8 @@ import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { coordinatesToGeoJSON } from "~/utils/postgis";
 import { POIMetadata } from "~/types/database";
-import useMapIcons from "~/hooks/useMapIcons";
+import useMapIcons, { FastImage, getMapIcon } from "~/hooks/useMapIcons";
+import ErrorBoundary from "~/components/ErrorBoundary";
 
 // Define coordinate type for react-native-maps
 interface Coordinates {
@@ -34,8 +35,25 @@ const initialCameraPosition = {
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  console.log('Home: Safe area insets loaded');
+  
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const mapIcons = useMapIcons();
+  console.log('Home: Bottom tab bar height loaded');
+  
+  console.log('Home: About to call useMapIcons...');
+  let mapIcons;
+  try {
+    mapIcons = useMapIcons();
+    console.log('Home: useMapIcons completed, mapIcons:', Object.keys(mapIcons || {}));
+  } catch (error) {
+    console.error('Home: Failed to load map icons:', error);
+    // Return a fallback UI instead of crashing
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <Text style={{ fontSize: 16, color: 'black' }}>Error loading map icons. Please restart the app.</Text>
+      </View>
+    );
+  }
 
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
@@ -49,46 +67,77 @@ export default function Home() {
 
   // Fetch data from Cloudflare API
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchData = async () => {
       try {
+        console.log('Home: Starting data fetch...');
         setLoading(true);
         
-        // Fetch avoidance areas
-        const avoidanceAreasResponse = await fetch(`${cloudflare.baseUrl}/avoidance-areas`);
-        if (avoidanceAreasResponse.ok) {
-          const avoidanceAreasData = await avoidanceAreasResponse.json();
-          setAvoidanceAreas(avoidanceAreasData.avoidance_areas || []);
-        }
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        try {
+          // Fetch avoidance areas
+          const avoidanceAreasResponse = await fetch(
+            `${cloudflare.getBaseUrl()}/avoidance-areas`,
+            { signal: controller.signal }
+          );
+          
+          if (avoidanceAreasResponse.ok && isMounted) {
+            const avoidanceAreasData = await avoidanceAreasResponse.json();
+            setAvoidanceAreas(avoidanceAreasData.avoidance_areas || []);
+          }
 
-        // Fetch POIs
-        const poisResponse = await fetch(`${cloudflare.baseUrl}/pois`);
-        if (poisResponse.ok) {
-          const poisData = await poisResponse.json();
-          setPOIs(poisData.pois || []);
+          // Fetch POIs
+          const poisResponse = await fetch(
+            `${cloudflare.getBaseUrl()}/pois`,
+            { signal: controller.signal }
+          );
+          
+          if (poisResponse.ok && isMounted) {
+            const poisData = await poisResponse.json();
+            setPOIs(poisData.pois || []);
+          }
+          
+          clearTimeout(timeoutId);
+        } catch (fetchError: any) {
+          if (fetchError.name !== 'AbortError') {
+            throw fetchError;
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        Toast.show({
-          type: "error",
-          text2: "Failed to load map data",
-          position: "bottom",
-          bottomOffset: bottomTabBarHeight + 50,
-        });
+        if (isMounted) {
+          Toast.show({
+            type: "error",
+            text2: "Failed to load map data",
+            position: "bottom",
+            bottomOffset: bottomTabBarHeight + 50,
+          });
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-
+    
     fetchData();
-  }, []);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [bottomTabBarHeight]);
 
   const insertAvoidanceArea = async (data: any[]) => {
     try {
-      const response = await fetch(`${cloudflare.baseUrl}/avoidance-areas`, {
+      const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...cloudflare.getAuthHeaders(),
+          ...cloudflare.getHeaders(),
         },
         body: JSON.stringify({
           name: data[0].name,
@@ -108,12 +157,12 @@ export default function Home() {
       });
 
       // Refresh avoidance areas
-      const avoidanceAreasResponse = await fetch(`${cloudflare.baseUrl}/avoidance-areas`);
+      const avoidanceAreasResponse = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas`);
       if (avoidanceAreasResponse.ok) {
         const avoidanceAreasData = await avoidanceAreasResponse.json();
         setAvoidanceAreas(avoidanceAreasData.avoidance_areas || []);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating avoidance area:', error);
       Toast.show({
         type: "error",
@@ -124,17 +173,6 @@ export default function Home() {
     }
   };
 
-  const getMapIcon = useCallback(
-    (poiType: string, metadata: POIMetadata) => {
-      switch (poiType) {
-        case "accessible_entrance":
-          return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
-        default:
-          return undefined;
-      }
-    },
-    [mapIcons],
-  );
 
   // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
   const isPointValid = (point: Coordinates) => {
@@ -207,32 +245,54 @@ export default function Home() {
   };
 
   const polygons = useMemo(
-    () => [
+    () => {
+      const polygonList = [];
+      
       // Avoidance areas from the database
-      ...(avoidanceAreas || []).map((area) => {
-        const boundary = typeof area.boundary_json === 'string' 
-          ? JSON.parse(area.boundary_json) 
-          : area.boundary_json;
-        return {
-          key: area.id,
-          coordinates: boundary.coordinates[0].map((coord: number[]) => ({
-            longitude: coord[0],
-            latitude: coord[1],
-          })),
+      if (avoidanceAreas && avoidanceAreas.length > 0) {
+        avoidanceAreas.forEach((area) => {
+          try {
+            const boundary = typeof area.boundary_json === 'string' 
+              ? JSON.parse(area.boundary_json) 
+              : area.boundary_json;
+            
+            // Validate boundary exists and has coordinates
+            if (boundary && boundary.coordinates && boundary.coordinates[0] && Array.isArray(boundary.coordinates[0])) {
+              const coords = boundary.coordinates[0].map((coord: number[]) => ({
+                longitude: coord[0],
+                latitude: coord[1],
+              }));
+              
+              // Only add if coordinates array is not empty
+              if (coords.length > 0) {
+                polygonList.push({
+                  key: area.id,
+                  coordinates: coords,
+                  fillColor: "rgba(255, 0, 0, 0.25)",
+                  strokeColor: "rgba(255, 0, 0, 0.5)",
+                  strokeWidth: 1,
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing boundary for area:', area.id, error);
+          }
+        });
+      }
+      
+      // User selected aaPoints to report - only include if not empty
+      if (aaPointsReport && aaPointsReport.length > 0) {
+        polygonList.push({
+          key: 'user-report',
+          coordinates: aaPointsReport,
           fillColor: "rgba(255, 0, 0, 0.25)",
-          strokeColor: "rgba(255, 0, 0, 0.5)",
-          strokeWidth: 1,
-        };
-      }),
-      // User selected aaPoints to report
-      {
-        key: 'user-report',
-        coordinates: aaPointsReport,
-        fillColor: "rgba(255, 0, 0, 0.25)",
-        strokeColor: "red",
-        strokeWidth: 2,
-      },
-    ],
+          strokeColor: "red",
+          strokeWidth: 2,
+        });
+      }
+      
+      return polygonList;
+    },
     [avoidanceAreas, aaPointsReport],
   );
 
@@ -242,13 +302,17 @@ export default function Home() {
       ...aaPointsReport.map((point, index) => ({
         key: `report-point-${index}`,
         coordinate: point,
-        pinColor: 'red',
+        icon: mapIcons.crosshair,
+        title: undefined,
+        description: undefined,
       })),
       // Clicked point
       ...(clickedPoint ? [{
         key: 'clicked-point',
         coordinate: clickedPoint,
-        pinColor: 'blue',
+        icon: mapIcons.crosshair,
+        title: undefined,
+        description: undefined,
       }] : []),
       // POIs only show if not in report mode
       ...(!isReportMode
@@ -265,16 +329,26 @@ export default function Home() {
                 longitude: location.coordinates[0],
                 latitude: location.coordinates[1],
               },
-              pinColor: metadata.auto_opene ? 'green' : 'orange',
-              title: metadata.name || 'POI',
-              description: `${metadata.bld_name || 'Building'} - Floor ${metadata.floor || 'N/A'}`,
+              icon: getMapIcon(poi.type || 'point', metadata || {}, mapIcons),
+              title: metadata?.name || 'POI',
+              description: `${metadata?.bld_name || 'Building'} - Floor ${metadata?.floor || 'N/A'}`,
             };
           })
         : []),
     ],
-    [POIs, aaPointsReport, isReportMode, clickedPoint],
+    [POIs, aaPointsReport, isReportMode, clickedPoint, mapIcons],
   );
 
+
+  // Add safety check for mapIcons
+  if (!mapIcons || Object.keys(mapIcons).length === 0) {
+    console.error('Home: MapIcons not loaded properly');
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <Text style={{ fontSize: 16, color: 'black' }}>Loading map icons...</Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -307,15 +381,58 @@ export default function Home() {
         ))}
         
         {/* Markers */}
-        {markers.map((marker) => (
-          <Marker
-            key={marker.key}
-            coordinate={marker.coordinate}
-            pinColor={marker.pinColor}
-            title={marker.title}
-            description={marker.description}
-          />
-        ))}
+        {markers.map((marker) => {
+          try {
+            // Ensure icon is always defined with fallback
+            const iconSource = marker.icon || mapIcons.point;
+            
+            // For Android Google Maps, use Image.resolveAssetSource format directly
+            // The source object from resolveAssetSource has the correct format
+            // Add null checks to prevent crashes
+            let imageSource = null;
+            if (iconSource && iconSource.source && iconSource.source.uri) {
+              // Use resolved source if it has a URI
+              imageSource = iconSource.source;
+            } else if (iconSource && iconSource.source) {
+              // Use source even if URI might not be set
+              imageSource = iconSource.source;
+            } else if (iconSource && iconSource.require) {
+              imageSource = iconSource.require;
+            } else if (mapIcons && mapIcons.point && mapIcons.point.source) {
+              // Ultimate fallback
+              imageSource = mapIcons.point.source;
+            } else if (mapIcons && mapIcons.point && mapIcons.point.require) {
+              imageSource = mapIcons.point.require;
+            }
+            
+            // Only add image prop if we have a valid source
+            const markerProps: any = {
+              key: marker.key,
+              coordinate: marker.coordinate,
+              title: marker.title,
+              description: marker.description,
+              tracksViewChanges: false,
+            };
+            
+            if (imageSource) {
+              markerProps.image = imageSource;
+            }
+            
+            return <Marker {...markerProps} />;
+          } catch (error) {
+            console.error('Error rendering marker:', marker.key, error);
+            // Return a basic marker without custom icon as fallback
+            return (
+              <Marker
+                key={marker.key}
+                coordinate={marker.coordinate}
+                title={marker.title}
+                description={marker.description}
+                tracksViewChanges={false}
+              />
+            );
+          }
+        })}
       </MapView>
 
       {isReportMode ? (

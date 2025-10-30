@@ -57,7 +57,7 @@ app.get('/type/:type', async (c) => {
 // Get POIs within a geographic area (bounding box)
 app.get('/nearby', async (c) => {
   try {
-    const { lat, lng, radius = 1000, type } = c.req.query();
+    const { lat, lng, radius = '1000', type } = c.req.query();
 
     if (!lat || !lng) {
       return c.json({ error: 'Latitude and longitude are required' }, 400);

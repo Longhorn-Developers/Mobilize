@@ -1,43 +1,89 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import * as turf from "@turf/turf";
+import {
+  useInsertMutation,
+  useQuery,
+} from "@supabase-cache-helpers/postgrest-react-query";
+import { AppleMaps, GoogleMaps, Coordinates } from "expo-maps";
+import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
+import { View, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Toast from "react-native-toast-message";
-
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
-import {
-  usePOIs,
-  useAvoidanceAreas,
-  useInsertAvoidanceArea,
-} from "~/utils/api-hooks";
-import useMapIcons from "~/utils/useMapIcons";
+import { supabase } from "~/utils/supabase";
+import * as turf from "@turf/turf";
+import Toast from "react-native-toast-message";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { coordinatesToWKT } from "~/utils/postgis";
+import { Enums, metadata_types } from "~/types/database";
+import useMapIcons from "~/hooks/useMapIcons";
+import { SearchBar } from "~/components/SearchBar";
+
+const initialCameraPosition = {
+  coordinates: {
+    // Default coordinates for UT Tower
+    // longitude: -97.73921,
+    // latitude: 30.28565,
+
+    // Testing camera position for test avoidance area
+    longitude: -97.7333,
+    latitude: 30.2672,
+  },
+  zoom: 16,
+};
 
 export default function Home() {
-  // hooks
   const insets = useSafeAreaInsets();
-  const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const mapIcons = useMapIcons();
+
+  const [isReportMode, setIsReportMode] = useState(false);
+  const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
+  const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
+  const [reportStep, setReportStep] = useState(0);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
-  // states
-  const [isReportMode, setIsReportMode] = useState(false);
-  const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
-  const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
-  const [reportStep, setReportStep] = useState(0);
+  const { data: avoidanceAreas } = useQuery(
+    supabase.from("avoidance_areas").select("id,boundary_geojson"),
+  );
 
-  // query hooks
-  const { data: avoidanceAreas } = useAvoidanceAreas();
-  const { data: POIs } = usePOIs();
-  const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+  const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
+    supabase.from("avoidance_areas"),
+    ["id"],
+    "",
+    {
+      onSuccess: () => {
+        Toast.show({
+          type: "success",
+          text2:
+            "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
+          topOffset: insets.top + 35,
+        });
+      },
+      onError: (error) => {
+        Toast.show({
+          type: "error",
+          text2: `Error reporting avoidance area: ${error.message}`,
+          position: "bottom",
+          bottomOffset: bottomTabBarHeight + 50,
+        });
+      },
+    },
+  );
+
+  const { data: POIs } = useQuery(
+    supabase.from("pois").select("id, poi_type, metadata, location_geojson"),
+    {
+      staleTime: 1000 * 60 * 60, // 1 hour
+    },
+  );
 
   const getMapIcon = useCallback(
-    (poiType: any, metadata: any) => {
+    (poiType: Enums<"poi_type">, metadata: metadata_types) => {
       switch (poiType) {
         case "accessible_entrance":
           return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
@@ -49,14 +95,14 @@ export default function Home() {
   );
 
   // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
-  const isPointValid = (point: LatLng) => {
+  const isPointValid = (point: Coordinates) => {
     if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
 
     const polygon = turf.polygon([
       [
-        ...aaPointsReport.map((p) => [p.longitude, p.latitude]),
-        [point.longitude, point.latitude],
-        [aaPointsReport[0].longitude, aaPointsReport[0].latitude],
+        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
+        [point.longitude || 0, point.latitude || 0],
+        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
       ],
     ]);
     const kinks = turf.kinks(polygon);
@@ -65,15 +111,33 @@ export default function Home() {
     return kinks.features.length === 0;
   };
 
-  const handleMapPress = (event: any) => {
-    const coordinate = event.nativeEvent.coordinate;
+  // Check if map pressed is among one of the POIs
+  const handlePOIPress = (event: Coordinates) => {
+    if (!POIs) return;
+
+    const CLICK_TOLERANCE = 0.0001;
+    const POIclicked = POIs.find((poi) => {
+      const lonDiff = Math.abs(
+        poi.location_geojson.coordinates[0] - (event.longitude ?? 0),
+      );
+      const latDiff = Math.abs(
+        poi.location_geojson.coordinates[1] - (event.latitude ?? 0),
+      );
+      return lonDiff <= CLICK_TOLERANCE && latDiff <= CLICK_TOLERANCE;
+    });
+    if (POIclicked) {
+      console.log(`POI CLICKED: ${POIclicked.id}`);
+    }
+  };
+
+  const handleMapPress = (event: Coordinates) => {
     if (isReportMode) {
       if (reportStep !== 0) return;
 
-      if (isPointValid(coordinate)) {
-        setClickedPoint(coordinate);
+      if (isPointValid(event)) {
+        setClickedPoint(event);
         // Add pressed coordinates to marked points
-        setAAPointsReport((prev) => [...prev, coordinate]);
+        setAAPointsReport((prev) => [...prev, event]);
       } else {
         Toast.show({
           type: "error",
@@ -83,73 +147,64 @@ export default function Home() {
         });
       }
     } else {
+      handlePOIPress(event);
       bottomSheetRef.current?.close();
     }
   };
 
   // Handle avoidance area click
-  const handleAvoidanceAreaPress = (polygonId: string) => {
+  const handleAvoidanceAreaPress = (event: AppleMapsPolygon) => {
     if (isReportMode) return;
-    bottomSheetRef.current?.present({ id: polygonId });
+    bottomSheetRef.current?.present(event);
   };
 
   const polygons = useMemo(
     () => [
       // Avoidance areas from the database
-      ...(avoidanceAreas || []).map((area) => ({
-        id: String(area.id),
-        coordinates: area.boundary_geojson.coordinates[0].map(
-          (coord: [number, number]) => ({
-            longitude: coord[0],
-            latitude: coord[1],
-          }),
-        ),
-        fillColor: "rgba(255, 0, 0, 0.25)",
-        strokeColor: "rgba(255, 0, 0, 0.5)",
-        strokeWidth: 0.1,
+      ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
+        id: area.id || undefined,
+        coordinates: area.boundary_geojson.coordinates[0].map((coord) => ({
+          longitude: coord[0],
+          latitude: coord[1],
+        })),
+        color: "rgba(255, 0, 0, 0.25)",
+        lineColor: "rgba(255, 0, 0, 0.5)",
+        lineWidth: 0.1,
       })),
       // User selected aaPoints to report
-      ...(aaPointsReport.length > 0
-        ? [
-            {
-              id: "report-polygon",
-              coordinates: aaPointsReport,
-              fillColor: "rgba(255, 0, 0, 0.25)",
-              strokeColor: "red",
-              strokeWidth: 2,
-            },
-          ]
-        : []),
+      {
+        coordinates: aaPointsReport,
+        color: "rgba(255, 0, 0, 0.25)",
+        lineColor: "red",
+        lineWidth: 2,
+      },
     ],
     [avoidanceAreas, aaPointsReport],
   );
 
-  const markers = useMemo(
+  const annotations = useMemo(
     () => [
       // User selected aaPoints to report
-      ...aaPointsReport.map((point, index) => ({
-        id: `report-point-${index}`,
-        coordinate: point,
+      ...aaPointsReport.map((point) => ({
+        coordinates: point,
         icon: mapIcons.point || undefined,
       })),
       // Clicked point
-      ...(clickedPoint
-        ? [
-            {
-              id: "clicked-point",
-              coordinate: clickedPoint,
-              icon: mapIcons.crosshair || undefined,
-            },
-          ]
-        : []),
+      clickedPoint
+        ? {
+            coordinates: clickedPoint,
+            icon: mapIcons.crosshair || undefined,
+          }
+        : {
+            coordinates: { latitude: 0, longitude: 0 },
+          },
       // POIs only show if not in report mode
       ...(!isReportMode
         ? (POIs || []).map((poi) => ({
-            id: String(poi.id),
-            coordinate: {
+            coordinates: {
               longitude: poi.location_geojson.coordinates[0],
               latitude: poi.location_geojson.coordinates[1],
-            } satisfies LatLng,
+            } satisfies Coordinates,
             icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
           }))
         : []),
@@ -161,46 +216,40 @@ export default function Home() {
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
+       {/* Search Bar */}
+      <SearchBar 
+        onPress={() => setIsSearchModalVisible(true)}
+        className="absolute left-4 right-4 z-10"
+        style={{ top: insets.top + 10 }}
+      />
+
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
 
-      <MapView
-        style={{ flex: 1 }}
-        onPress={handleMapPress}
-        region={{
-          latitude: 30.282,
-          longitude: -97.733,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-      >
-        {/* Render polygons */}
-        {polygons.map((polygon, index) => (
-          <Polygon
-            key={polygon.id || `polygon-${index}`}
-            coordinates={polygon.coordinates}
-            fillColor={polygon.fillColor}
-            strokeColor={polygon.strokeColor}
-            strokeWidth={polygon.strokeWidth}
-            tappable={true}
-            onPress={() => {
-              if (polygon.id && polygon.id !== "report-polygon") {
-                handleAvoidanceAreaPress(polygon.id);
-              }
-            }}
-          />
-        ))}
+      {Platform.OS === "ios" && (
+        <AppleMaps.View
+          style={{ flex: 1 }}
+          onPolygonClick={handleAvoidanceAreaPress}
+          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          cameraPosition={initialCameraPosition}
+          polygons={polygons}
+          annotations={annotations}
+        />
+      )}
 
-        {/* Render markers */}
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={marker.coordinate}
-            image={marker.icon}
-            anchor={{ x: 0.5, y: 0.5 }}
-          />
-        ))}
-      </MapView>
+      {Platform.OS === "android" && (
+        <GoogleMaps.View
+          style={{ flex: 1 }}
+          onPolygonClick={handleAvoidanceAreaPress}
+          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
+          polygons={polygons}
+          markers={annotations}
+          uiSettings={{
+            zoomControlsEnabled: false,
+          }}
+        />
+      )}
 
       {isReportMode ? (
         <>
@@ -218,20 +267,13 @@ export default function Home() {
             setCurrentStep={(index) => setReportStep(index)}
             onSubmit={async (data) => {
               const aaPoints = [...data.aaPoints, data.aaPoints[0]];
-
-              await insertAvoidanceArea({
-                user_id: 1, // TODO: REPLACE Temporary user ID
-                name: data.description,
-                boundary_geojson: {
-                  type: "Polygon",
-                  coordinates: [
-                    aaPoints.map((point) => [
-                      point.longitude || 0,
-                      point.latitude || 0,
-                    ]),
-                  ],
+              await insertAvoidanceArea([
+                {
+                  name: data.description,
+                  boundary: coordinatesToWKT(aaPoints),
+                  description: data.description,
                 },
-              });
+              ]);
             }}
             onExit={() => {
               setClickedPoint(null);

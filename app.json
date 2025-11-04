@@ -1,5 +1,9 @@
 {
   "expo": {
+    "assetBundlePatterns": [
+      "assets/map_icons/**/*"
+    ],
+    "newArchEnabled": true,
     "name": "MobilizeUT",
     "slug": "mobilizeut",
     "version": "1.0.0",
@@ -9,7 +13,17 @@
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser", "expo-maps"],
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow MobilizeUT to use your location to show your position on the map."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
@@ -22,14 +36,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.astrol.mobilizeut"
     },
     "android": {
       "config": {
-        "googleMaps" : {
+        "googleMaps": {
           "apiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
         }
       },

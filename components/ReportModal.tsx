@@ -21,14 +21,18 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z, ZodType } from "zod";
 import Toast from "react-native-toast-message";
-import { Coordinates } from "expo-maps";
+// Define coordinate type for react-native-maps
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
 
 const reportFormSchema = z.object({
   aaPoints: z
     .array(
       z.object({
-        latitude: z.number().optional(),
-        longitude: z.number().optional(),
+        latitude: z.number(),
+        longitude: z.number(),
       }) satisfies ZodType<Coordinates>,
     )
     .min(
@@ -51,6 +55,7 @@ type ReportFormData = z.infer<typeof reportFormSchema>;
 interface ReportModeDialogProps {
   className?: string;
   style?: ViewStyle;
+  theme?: "light" | "dark";
   aaPoints: Coordinates[];
   currentStep: number;
   setAAPoints: (points: Coordinates[]) => void;
@@ -62,6 +67,7 @@ interface ReportModeDialogProps {
 const ReportModal = ({
   className,
   style,
+  theme = "light",
   aaPoints,
   setAAPoints,
   currentStep,
@@ -148,7 +154,10 @@ const ReportModal = ({
   const steps: ReactNode[] = [
     // Step 1: Mark Avoidance Area Points
     <View key={1}>
-      <Text className="font-medium">
+      <Text 
+        className="font-medium"
+        style={{ color: theme === "dark" ? "#e5e7eb" : "#111827" }}
+      >
         Please indicate the Avoidance Area (AA) by marking points on the map
       </Text>
     </View>,
@@ -225,8 +234,13 @@ const ReportModal = ({
     <>
       {/* Main Modal */}
       <View
-        className={`gap-4 rounded-lg bg-white px-8 py-6 ${className}`}
-        style={style}
+        className={`gap-4 rounded-lg px-8 py-6 ${className}`}
+        style={[
+          style,
+          {
+            backgroundColor: theme === "dark" ? "#111827" : "white",
+          },
+        ]}
       >
         {/* Exit Button */}
         <Button
@@ -272,13 +286,19 @@ const ReportModal = ({
                 )}
               />
             ) : (
-              <Text className={`text-2xl font-bold`}>
+              <Text 
+                className={`text-2xl font-bold`}
+                style={{ color: theme === "dark" ? "#e5e7eb" : "#111827" }}
+              >
                 {getValues("name") || "Avoidance Area"}
               </Text>
             )}
 
             {/* Subheading */}
-            <Text className="text-sm font-medium">
+            <Text 
+              className="text-sm font-medium"
+              style={{ color: theme === "dark" ? "#9ca3af" : "#6b7280" }}
+            >
               Report a temporary blockage
             </Text>
 
@@ -309,7 +329,10 @@ const ReportModal = ({
         {/* Steps */}
         <View>
           {/* Step indicator text */}
-          <Text className="mb-2 text-gray-600">
+          <Text 
+            className="mb-2"
+            style={{ color: theme === "dark" ? "#9ca3af" : "#6b7280" }}
+          >
             Step {currentStep + 1} of {steps.length}
           </Text>
 

@@ -1,0 +1,33 @@
+{
+  "name": "mobilize-cloudflare-api",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers API for Mobilize application",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "wrangler deploy --env production",
+    "db:create": "wrangler d1 create mobilize-db",
+    "db:migrate": "wrangler d1 execute mobilize-db --file=./src/database/schema.sql",
+    "db:migrate:local": "wrangler d1 execute mobilize-db --local --file=./src/database/schema.sql",
+    "db:shell": "wrangler d1 execute mobilize-db --command",
+    "db:shell:local": "wrangler d1 execute mobilize-db --local --command",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^4.42.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

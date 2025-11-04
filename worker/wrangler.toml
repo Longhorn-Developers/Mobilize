@@ -1,0 +1,16 @@
+name = "mobilize-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "mobilize-api-prod"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mobilize-db"
+database_id = "94e7ce6f-84cf-4247-99b2-3c88f6810eed"
+
+[vars]
+ENVIRONMENT = "development"
+JWT_SECRET = "dev-secret-key-change-in-production"

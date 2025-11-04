@@ -1,39 +1,42 @@
+import "../polyfills";
 import "~/global.css";
-import { AppStateStatus, Platform, View } from "react-native";
+import React from "react";
+import { View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Toast, {
   ErrorToast,
   SuccessToast,
   ToastConfig,
 } from "react-native-toast-message";
-import * as Network from "expo-network";
 import { Stack } from "expo-router";
-import {
-  QueryClient,
-  QueryClientProvider,
-  focusManager,
-  onlineManager,
-} from "@tanstack/react-query";
-import { useAppState } from "~/hooks/useAppState";
 import { CheckIcon, XIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "~/utils/AuthProvider";
+import { MapSettingsProvider } from "~/contexts/MapSettingsContext";
+import ErrorBoundary from "~/components/ErrorBoundary";
 
-function onAppStateChange(status: AppStateStatus) {
-  // React Query already supports in web browser refetch on window focus by default
-  if (Platform.OS !== "web") {
-    focusManager.setFocused(status === "active");
-  }
+// Catch unhandled promise rejections
+if (typeof (global as any).__OLD_RN_REJECTION_HANDLER__ === 'undefined') {
+  const oldHandler = (global as any).onunhandledrejection;
+  (global as any).onunhandledrejection = (event: any) => {
+    console.error('=== UNHANDLED PROMISE REJECTION ===');
+    console.error('Reason:', event?.reason ?? event);
+    console.error('Promise:', event?.promise);
+    if (oldHandler) oldHandler(event);
+  };
+  (global as any).__OLD_RN_REJECTION_HANDLER__ = oldHandler;
 }
 
-// react-query refetch on network reconnect
-onlineManager.setEventListener((setOnline) => {
-  const eventSubscription = Network.addNetworkStateListener((state) => {
-    setOnline(!!state.isConnected);
-  });
-  return eventSubscription.remove;
+// Catch global errors
+const oldErrorHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  console.error('=== GLOBAL ERROR ===');
+  console.error('Fatal:', isFatal);
+  console.error('Error:', error);
+  console.error('Stack:', error.stack);
+  if (oldErrorHandler) oldErrorHandler(error, isFatal);
 });
 
 const toastConfig = {
@@ -94,23 +97,21 @@ const toastConfig = {
   ),
 };
 
-const queryClient = new QueryClient();
-
 export default function Layout() {
-  // react-query refetch on app focus
-  useAppState(onAppStateChange);
-
+  console.log('=== ROOT LAYOUT RENDERED ===');
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
-          <BottomSheetModalProvider>
-            <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <Toast config={toastConfig} />
-          </BottomSheetModalProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <MapSettingsProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <BottomSheetModalProvider>
+              <StatusBar style="auto" />
+              <Stack screenOptions={{ headerShown: false }} />
+              <Toast config={toastConfig} />
+            </BottomSheetModalProvider>
+          </GestureHandlerRootView>
+        </MapSettingsProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

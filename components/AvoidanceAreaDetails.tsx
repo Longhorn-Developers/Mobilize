@@ -9,21 +9,17 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
+import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
-import {
-  useInsertMutation,
-  useQuery,
-} from "@supabase-cache-helpers/postgrest-react-query";
-import { supabase } from "~/utils/supabase";
+import { cloudflare } from "~/utils/cloudflare";
 import { useAuth } from "~/utils/AuthProvider";
 import * as turf from "@turf/turf";
-import { Polygon } from "@types/geojson";
+import { Polygon } from "geojson";
 
 const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
@@ -43,6 +39,9 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [polygon, setPolygon] = useState<Polygon | null>(null);
+  const [avoidanceArea, setAvoidanceArea] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const {
     control,
@@ -56,69 +55,81 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  const { data: avoidanceArea, isLoading } = useQuery(
-    supabase
-      .from("avoidance_areas")
-      .select(
-        `
-        user_id,
-        name,
-        created_at,
-        description,
-        boundary_geojson,
-        profiles (
-          display_name,
-          avatar_url
-        )
-      `,
-      )
-      .eq("id", areaId)
-      .single(),
-  );
-
-  // Effect to convert boundary_geojson to Polygon
+  // Fetch avoidance area data
   useEffect(() => {
-    if (avoidanceArea?.boundary_geojson) {
-      const coordinates = (
-        avoidanceArea.boundary_geojson as { coordinates: any[] }
-      ).coordinates[0];
-      setPolygon({
-        type: "Polygon",
-        coordinates: [coordinates],
+    const fetchAvoidanceArea = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas`);
+        if (response.ok) {
+          const data = await response.json();
+          const area = data.avoidance_areas.find((a: any) => a.id === areaId);
+          setAvoidanceArea(area);
+          
+          if (area?.boundary_json) {
+            const boundary = typeof area.boundary_json === 'string' 
+              ? JSON.parse(area.boundary_json) 
+              : area.boundary_json;
+            setPolygon(boundary);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching avoidance area:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAvoidanceArea();
+  }, [areaId]);
+
+  // Fetch reports data
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`);
+        if (response.ok) {
+          const data = await response.json();
+          setReports(data.reports || []);
+        }
+      } catch (error) {
+        console.error('Error fetching reports:', error);
+      }
+    };
+
+    fetchReports();
+  }, [areaId]);
+
+  const addReport = async (data: CommentFormData) => {
+    try {
+      const response = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...cloudflare.getHeaders(),
+        },
+        body: JSON.stringify({
+          title: null,
+          description: data.content,
+        }),
       });
-    }
-  }, [avoidanceArea?.boundary_geojson]);
 
-  const { data: reports } = useQuery(
-    supabase
-      .from("avoidance_area_reports")
-      .select(
-        `
-        id,
-        user_id,
-        description,
-        updated_at,
-        profiles (
-          display_name
-        )
-      `,
-      )
-      .eq("avoidance_area_id", areaId),
-  );
-
-  const { mutateAsync: addReport } = useInsertMutation(
-    supabase.from("avoidance_area_reports"),
-    ["id"],
-    "avoidance_area_id",
-    {
-      onSuccess: () => {
+      if (response.ok) {
         console.log("Report added successfully");
-      },
-      onError: (error) => {
-        console.error("Error adding report:", error);
-      },
-    },
-  );
+        reset();
+        // Refresh reports
+        const reportsResponse = await fetch(`${cloudflare.getBaseUrl()}/avoidance-areas/${areaId}/reports`);
+        if (reportsResponse.ok) {
+          const reportsData = await reportsResponse.json();
+          setReports(reportsData.reports || []);
+        }
+      } else {
+        console.error("Error adding report:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error adding report:", error);
+    }
+  };
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -144,14 +155,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   };
 
   const handleAddComment = (data: CommentFormData) => {
-    addReport([
-      {
-        user_id: user ? user.id : null,
-        avoidance_area_id: areaId,
-        description: data.content,
-      },
-    ]);
-    reset();
+    addReport(data);
   };
 
   if (isLoading) {
@@ -214,22 +218,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           <View className="flex-row items-center gap-2">
             {/* Profile Pic */}
             <View className="h-10 w-10 items-center justify-center rounded-full bg-gray-300">
-              {avoidanceArea.profiles?.avatar_url ? (
-                <Image
-                  source={{ uri: avoidanceArea.profiles.avatar_url }}
-                  className="h-full w-full rounded-full"
-                />
-              ) : (
-                <Text className="text-center text-gray-500">
-                  {avoidanceArea.profiles?.display_name?.[0].toLocaleUpperCase() ||
-                    "A"}
-                </Text>
-              )}
+              <Text className="text-center text-gray-500">
+                {avoidanceArea.user_id?.[0].toLocaleUpperCase() || "A"}
+              </Text>
             </View>
 
             {/* Author Username */}
             <Text className="text-lg text-gray-600">
-              @{avoidanceArea.profiles?.display_name || "anonymous"}
+              @{avoidanceArea.user_id || "anonymous"}
             </Text>
 
             {/* Created At */}
@@ -311,7 +307,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="font-medium text-gray-700">
-                      @{report.profiles?.display_name || "anonymous"}
+                      @{report.user_display_name || report.user_id || "anonymous"}
                     </Text>
                     <Text className="text-sm text-gray-500">
                       {formatTimeAgo(report.updated_at)}

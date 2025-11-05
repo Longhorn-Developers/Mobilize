@@ -1,3 +1,4 @@
+import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
 import { avoidance_areas, pois, profiles } from './db/schema';
@@ -6,54 +7,47 @@ export interface Env {
 	staging_mobilize_db: D1Database;
 }
 
-export default {
-	async fetch(request: Request, env: Env) {
-		const db = drizzle(env.staging_mobilize_db);
-		const url = new URL(request.url);
+const app = new Hono<{ Bindings: Env }>();
 
-		// Route to add a test user
-		// if (url.pathname === '/add') {
-		// 	const newUser = await db.insert(users).values({ name: 'Test User' }).returning().get();
+// Health check route
+app.get('/health', (c) => {
+	return c.text('OK');
+});
 
-		// 	return Response.json(newUser);
-		// }
+// GET profiles by id
+app.get('/profiles', async (c) => {
+	const db = drizzle(c.env.staging_mobilize_db);
+	const profileId = c.req.query('id');
 
-		// health check route
-		if (url.pathname === '/health') {
-			return new Response('OK');
-		}
+	if (!profileId) {
+		return c.text('Profile ID is required', 400);
+	}
 
-		// GET profiles by id
-		if (url.pathname === '/profiles') {
-			const profileId = url.searchParams.get('id');
-			if (!profileId) {
-				return new Response('Profile ID is required', { status: 400 });
-			}
-			const profile = await db
-				.select()
-				.from(profiles)
-				.where(eq(profiles.id, Number(profileId)))
-				.get();
-			if (!profile) {
-				return new Response('Profile not found', { status: 404 });
-			}
+	const profile = await db
+		.select()
+		.from(profiles)
+		.where(eq(profiles.id, Number(profileId)))
+		.get();
 
-			return Response.json(profile);
-		}
+	if (!profile) {
+		return c.text('Profile not found', 404);
+	}
 
-		// GET pois
-		if (url.pathname === '/pois') {
-			const pois_result = await db.select().from(pois).all();
-			return Response.json(pois_result);
-		}
+	return c.json(profile);
+});
 
-		// GET avoidance_areas
-		if (url.pathname === '/avoidance_areas') {
-			const avoidance_areas_result = await db.select().from(avoidance_areas).all();
-			return Response.json(avoidance_areas_result);
-		}
+// GET pois
+app.get('/pois', async (c) => {
+	const db = drizzle(c.env.staging_mobilize_db);
+	const pois_result = await db.select().from(pois).all();
+	return c.json(pois_result);
+});
 
-		// Default route - 404 for non-existent API routes
-		return new Response('Not Found', { status: 404 });
-	},
-};
+// GET avoidance_areas
+app.get('/avoidance_areas', async (c) => {
+	const db = drizzle(c.env.staging_mobilize_db);
+	const avoidance_areas_result = await db.select().from(avoidance_areas).all();
+	return c.json(avoidance_areas_result);
+});
+
+export default app;

@@ -13,8 +13,9 @@ import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { coordinatesToGeoJSON } from "~/utils/postgis";
 import { POIMetadata } from "~/types/database";
-import useMapIcons, { FastImage, getMapIcon } from "~/hooks/useMapIcons";
+import useMapIcons, { getMapIcon } from "~/hooks/useMapIcons";
 import ErrorBoundary from "~/components/ErrorBoundary";
+import { MapPolygon } from "~/components/AvoidanceAreaBottomSheet";
 
 // Define coordinate type for react-native-maps
 interface Coordinates {
@@ -215,14 +216,29 @@ export default function Home() {
   };
 
   const handleMapPress = (event: any) => {
-    const coordinate = event.nativeEvent.coordinate;
-    
+    // Defensive check: make sure event has a valid coordinate
+    const coordinate = event?.nativeEvent?.coordinate;
+    if (
+      !coordinate ||
+      typeof coordinate.latitude !== 'number' ||
+      typeof coordinate.longitude !== 'number'
+    ) {
+      console.warn("Map press ignored: invalid coordinate", event);
+      Toast.show({
+        type: "error",
+        text2: "Please tap on a valid location on the map.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
+      return;
+    }
+  
     if (isReportMode) {
+      // Only allow adding points during step 0
       if (reportStep !== 0) return;
-
+  
       if (isPointValid(coordinate)) {
         setClickedPoint(coordinate);
-        // Add pressed coordinates to marked points
         setAAPointsReport((prev) => [...prev, coordinate]);
       } else {
         Toast.show({
@@ -238,10 +254,12 @@ export default function Home() {
     }
   };
 
-  // Handle avoidance area click
-  const handleAvoidanceAreaPress = (polygon: any) => {
+  const [selectedPolygonId, setSelectedPolygonId] = useState<string | undefined>(undefined);
+
+  const handleAvoidanceAreaPress = (polygon: MapPolygon) => {
     if (isReportMode) return;
-    bottomSheetRef.current?.present(polygon);
+    setSelectedPolygonId(polygon.key);  // <-- store clicked polygon id
+    bottomSheetRef.current?.present();   // <-- open the sheet
   };
 
   const polygons = useMemo(
@@ -296,48 +314,60 @@ export default function Home() {
     [avoidanceAreas, aaPointsReport],
   );
 
-  const markers = useMemo(
-    () => [
-      // User selected aaPoints to report
-      ...aaPointsReport.map((point, index) => ({
-        key: `report-point-${index}`,
+  const markers = useMemo(() => {
+    const markersList: {
+      key: string;
+      coordinate: Coordinates;
+      icon?: any;
+      title?: string;
+      description?: string;
+    }[] = [];
+  
+    // POI markers (only if not reporting)
+    if (!isReportMode) {
+      (POIs || []).forEach((poi) => {
+        const location = typeof poi.location_json === 'string'
+          ? JSON.parse(poi.location_json)
+          : poi.location_json;
+        const metadata = typeof poi.metadata === 'string'
+          ? JSON.parse(poi.metadata)
+          : poi.metadata;
+  
+        markersList.push({
+          key: poi.id,
+          coordinate: {
+            longitude: location.coordinates[0],
+            latitude: location.coordinates[1],
+          },
+          icon: getMapIcon(poi.poi_type || poi.type || 'point', metadata || {}, mapIcons),
+          title: metadata?.name || 'POI',
+          description: `${metadata?.bld_name || 'Building'} - Floor ${metadata?.floor || 'N/A'}`,
+        });
+      });
+    }
+  
+    // Report points
+    aaPointsReport.forEach((point, index) => {
+      markersList.push({
+        key: `report-${index}`,
         coordinate: point,
         icon: mapIcons.crosshair,
-        title: undefined,
-        description: undefined,
-      })),
-      // Clicked point
-      ...(clickedPoint ? [{
+      });
+    });
+  
+    // Add clickedPoint separately so it appears immediately
+    if (clickedPoint) {
+      markersList.push({
         key: 'clicked-point',
         coordinate: clickedPoint,
         icon: mapIcons.crosshair,
-        title: undefined,
-        description: undefined,
-      }] : []),
-      // POIs only show if not in report mode
-      ...(!isReportMode
-        ? (POIs || []).map((poi) => {
-            const location = typeof poi.location_json === 'string' 
-              ? JSON.parse(poi.location_json) 
-              : poi.location_json;
-            const metadata = typeof poi.metadata === 'string' 
-              ? JSON.parse(poi.metadata) 
-              : poi.metadata;
-            return {
-              key: poi.id,
-              coordinate: {
-                longitude: location.coordinates[0],
-                latitude: location.coordinates[1],
-              },
-              icon: getMapIcon(poi.type || 'point', metadata || {}, mapIcons),
-              title: metadata?.name || 'POI',
-              description: `${metadata?.bld_name || 'Building'} - Floor ${metadata?.floor || 'N/A'}`,
-            };
-          })
-        : []),
-    ],
-    [POIs, aaPointsReport, isReportMode, clickedPoint, mapIcons],
-  );
+      });
+    }
+  
+    return markersList;
+  }, [POIs, aaPointsReport, clickedPoint, isReportMode, mapIcons]);
+
+  
 
 
   // Add safety check for mapIcons
@@ -355,14 +385,16 @@ export default function Home() {
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+      <AvoidanceAreaBottomSheet
+        ref={bottomSheetRef}
+        selectedAreaId={selectedPolygonId}
+      />
 
       <MapView
         style={{ flex: 1 }}
-        provider={PROVIDER_GOOGLE}
         initialRegion={{
-          latitude: initialCameraPosition.latitude,
-          longitude: initialCameraPosition.longitude,
+          latitude: 30.2672,
+          longitude: -97.7333,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
@@ -379,61 +411,20 @@ export default function Home() {
             onPress={() => handleAvoidanceAreaPress(polygon)}
           />
         ))}
-        
+
         {/* Markers */}
-        {markers.map((marker) => {
-          try {
-            // Ensure icon is always defined with fallback
-            const iconSource = marker.icon || mapIcons.point;
-            
-            // For Android Google Maps, use Image.resolveAssetSource format directly
-            // The source object from resolveAssetSource has the correct format
-            // Add null checks to prevent crashes
-            let imageSource = null;
-            if (iconSource && iconSource.source && iconSource.source.uri) {
-              // Use resolved source if it has a URI
-              imageSource = iconSource.source;
-            } else if (iconSource && iconSource.source) {
-              // Use source even if URI might not be set
-              imageSource = iconSource.source;
-            } else if (iconSource && iconSource.require) {
-              imageSource = iconSource.require;
-            } else if (mapIcons && mapIcons.point && mapIcons.point.source) {
-              // Ultimate fallback
-              imageSource = mapIcons.point.source;
-            } else if (mapIcons && mapIcons.point && mapIcons.point.require) {
-              imageSource = mapIcons.point.require;
-            }
-            
-            // Only add image prop if we have a valid source
-            const markerProps: any = {
-              key: marker.key,
-              coordinate: marker.coordinate,
-              title: marker.title,
-              description: marker.description,
-              tracksViewChanges: false,
-            };
-            
-            if (imageSource) {
-              markerProps.image = imageSource;
-            }
-            
-            return <Marker {...markerProps} />;
-          } catch (error) {
-            console.error('Error rendering marker:', marker.key, error);
-            // Return a basic marker without custom icon as fallback
-            return (
-              <Marker
-                key={marker.key}
-                coordinate={marker.coordinate}
-                title={marker.title}
-                description={marker.description}
-                tracksViewChanges={false}
-              />
-            );
-          }
-        })}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.key}
+            coordinate={marker.coordinate}
+            title={marker.title}
+            description={marker.description}
+            tracksViewChanges={false}
+            image={marker.icon?.require || mapIcons.point.require} // <-- use require()
+          />
+        ))}
       </MapView>
+
 
       {isReportMode ? (
         <>

@@ -5,7 +5,7 @@ import colors from "~/types/colors";
 import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
 
 // Define polygon type for react-native-maps
-interface MapPolygon {
+export interface MapPolygon {
   key: string;
   id?: string;
   coordinates: Array<{latitude: number; longitude: number}>;

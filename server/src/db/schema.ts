@@ -1,0 +1,42 @@
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+
+export const profiles = sqliteTable('profiles', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	display_name: text('name').notNull(),
+	avatar_url: text('avatar_url'),
+});
+
+export const pois = sqliteTable('pois', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	poi_type: text('poi_type').notNull(),
+	metadata: text('metadata'),
+	location_geojson: text('location_geojson').notNull(),
+	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
+	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+});
+
+export const avoidance_areas = sqliteTable('avoidance_areas', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	user_id: integer('user_id')
+		.notNull()
+		.references(() => profiles.id),
+	name: text('name').notNull(),
+	description: text('description'),
+	boundary_geojson: text('boundary_geojson').notNull(),
+	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
+	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+});
+
+export const avoidance_area_reports = sqliteTable('avoidance_area_reports', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	user_id: integer('user_id')
+		.notNull()
+		.references(() => profiles.id),
+	avoidance_area_id: integer('avoidance_area_id')
+		.notNull()
+		.references(() => avoidance_areas.id),
+	title: text('title').notNull(),
+	description: text('description'),
+	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
+	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+});

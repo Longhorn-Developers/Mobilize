@@ -36,14 +36,14 @@ app.get('/profiles', async (c) => {
 	return c.json(profile);
 });
 
-// GET pois
+// GET all pois
 app.get('/pois', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const pois_result = await db.select().from(pois).all();
 	return c.json(pois_result);
 });
 
-// GET avoidance_areas
+// GET all avoidance_areas
 app.get('/avoidance_areas', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const avoidance_areas_result = await db.select().from(avoidance_areas).all();
@@ -78,7 +78,7 @@ app.get('/avoidance_areas/:id', async (c) => {
 	return c.json(area);
 });
 
-// GET reports for a specific avoidance area
+// GET reports for a specific avoidance area id
 app.get('/avoidance_areas/:id/reports', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const areaId = c.req.param('id');
@@ -102,7 +102,14 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 
 app.post('/avoidance_areas', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
-	const body = await c.req.json();
+
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+	}
 
 	const { user_id, name, description, boundary_geojson } = body;
 
@@ -116,7 +123,7 @@ app.post('/avoidance_areas', async (c) => {
 			user_id,
 			name,
 			description: description || null,
-			boundary_geojson,
+			boundary_geojson: JSON.stringify(boundary_geojson),
 		})
 		.returning();
 

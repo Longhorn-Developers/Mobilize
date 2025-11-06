@@ -12,7 +12,11 @@ import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import useMapIcons from "~/utils/useMapIcons";
-import { usePOIs, useAvoidanceAreas } from "~/utils/api-hooks";
+import {
+  usePOIs,
+  useAvoidanceAreas,
+  useInsertAvoidanceArea,
+} from "~/utils/api-hooks";
 const initialCameraPosition = {
   coordinates: {
     // Default coordinates for UT Tower
@@ -38,33 +42,9 @@ export default function Home() {
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
-  // Use new API hooks instead of Supabase
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: POIs } = usePOIs();
-
-  // const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
-  //   supabase.from("avoidance_areas"),
-  //   ["id"],
-  //   "",
-  //   {
-  //     onSuccess: () => {
-  //       Toast.show({
-  //         type: "success",
-  //         text2:
-  //           "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
-  //         topOffset: insets.top + 35,
-  //       });
-  //     },
-  //     onError: (error) => {
-  //       Toast.show({
-  //         type: "error",
-  //         text2: `Error reporting avoidance area: ${error.message}`,
-  //         position: "bottom",
-  //         bottomOffset: bottomTabBarHeight + 50,
-  //       });
-  //     },
-  //   },
-  // );
+  const insertAvoidanceAreaMutation = useInsertAvoidanceArea();
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -245,18 +225,22 @@ export default function Home() {
             currentStep={reportStep}
             setAAPoints={(points) => setAAPointsReport(points)}
             setCurrentStep={(index) => setReportStep(index)}
-            // onSubmit={async (data) => {
-            //   const aaPoints = [...data.aaPoints, data.aaPoints[0]];
-            //   await insertAvoidanceArea([
-            //     {
-            //       name: data.description,
-            //       boundary: coordinatesToWKT(aaPoints),
-            //       description: data.description,
-            //     },
-            //   ]);
-            // }}
             onSubmit={async (data) => {
-              console.log(data);
+              const aaPoints = [...data.aaPoints, data.aaPoints[0]];
+
+              await insertAvoidanceAreaMutation.mutateAsync({
+                user_id: 1, // Temporary user ID
+                name: data.description,
+                boundary_geojson: {
+                  type: "Polygon",
+                  coordinates: [
+                    aaPoints.map((point) => [
+                      point.longitude || 0,
+                      point.latitude || 0,
+                    ]),
+                  ],
+                },
+              });
             }}
             onExit={() => {
               setClickedPoint(null);

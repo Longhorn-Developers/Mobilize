@@ -1,6 +1,10 @@
 // TanStack Query hooks for the Hono backend
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { apiClient } from "./api-client";
+import { Polygon } from "geojson";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 
 // Query Keys
 export const queryKeys = {
@@ -63,5 +67,43 @@ export function useHealthCheck() {
     queryFn: () => apiClient.healthCheck(),
     retry: 3,
     retryDelay: 1000,
+  });
+}
+
+// insert a new avoidance area
+export function useInsertAvoidanceArea() {
+  const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
+
+  return useMutation({
+    mutationFn: (data: {
+      user_id: number;
+      name: string;
+      description?: string;
+      boundary_geojson: Polygon;
+    }) => apiClient.insertAvoidanceArea(data),
+    onSuccess: () => {
+      // Invalidate and refetch avoidance areas
+      queryClient.invalidateQueries({ queryKey: queryKeys.avoidanceAreas });
+
+      Toast.show({
+        type: "success",
+        text2:
+          "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
+        topOffset: insets.top + 35,
+      });
+
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error reporting avoidance area: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
+    },
+
   });
 }

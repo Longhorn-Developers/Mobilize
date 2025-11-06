@@ -1,3 +1,4 @@
+import { Polygon } from "geojson";
 import { Profile, POIRaw, AvoidanceAreaRaw, AvoidanceAreaDetailRaw, AvoidanceAreaReport } from "~/types/database";
 
 class ApiClient {
@@ -81,6 +82,18 @@ class ApiClient {
     return this.request<AvoidanceAreaReport[]>(
       `/avoidance_areas/${id}/reports`,
     );
+  }
+
+  async insertAvoidanceArea(data: {
+    user_id: number;
+    name: string;
+    description?: string;
+    boundary_geojson: Polygon;
+  }) {
+    return this.request<any>("/avoidance_areas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 }
 

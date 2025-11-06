@@ -24,6 +24,7 @@
     "drizzle-orm": "^0.44.7",
     "expo": "^54.0.12",
     "expo-constants": "~18.0.9",
+    "expo-device": "^8.0.9",
     "expo-image": "~3.0.9",
     "expo-linking": "~8.0.8",
     "expo-maps": "~0.12.8",
@@ -61,6 +62,8 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.5.14",
+    "react-query-external-sync": "^2.2.3",
+    "socket.io-client": "^4.8.1",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.3"
   },

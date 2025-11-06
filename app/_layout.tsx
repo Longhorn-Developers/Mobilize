@@ -14,6 +14,7 @@ import {
   focusManager,
   onlineManager,
 } from "@tanstack/react-query";
+import { useSyncQueriesExternal } from "react-query-external-sync";
 import { useAppState } from "~/utils/useAppState";
 import { CheckIcon, XIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
@@ -96,18 +97,31 @@ const toastConfig = {
 const queryClient = new QueryClient();
 
 export default function Layout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  );
+}
+
+function App() {
+  useSyncQueriesExternal({
+    queryClient,
+    socketURL: "http://localhost:42831",
+    deviceName: Platform?.OS || "web",
+    platform: Platform?.OS || "web",
+    deviceId: Platform?.OS || "web",
+  });
   // react-query refetch on app focus
   useAppState(onAppStateChange);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView>
-        <BottomSheetModalProvider>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
-          <Toast config={toastConfig} />
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <GestureHandlerRootView>
+      <BottomSheetModalProvider>
+        <StatusBar style="auto" />
+        <Stack screenOptions={{ headerShown: false }} />
+        <Toast config={toastConfig} />
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }

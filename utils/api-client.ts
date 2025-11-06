@@ -67,7 +67,7 @@ class ApiClient {
   }
 
   // Get single avoidance area by ID with profile info
-  async getAvoidanceArea(id: number) {
+  async getAvoidanceArea(id: string) {
     const area = await this.request<AvoidanceAreaDetailRaw>(
       `/avoidance_areas/${id}`,
     );
@@ -78,7 +78,7 @@ class ApiClient {
   }
 
   // Get reports for a specific avoidance area
-  async getAvoidanceAreaReports(id: number) {
+  async getAvoidanceAreaReports(id: string) {
     return this.request<AvoidanceAreaReport[]>(
       `/avoidance_areas/${id}/reports`,
     );
@@ -91,6 +91,18 @@ class ApiClient {
     boundary_geojson: Polygon;
   }) {
     return this.request<any>("/avoidance_areas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async insertAvoidanceAreaReport(data: {
+    user_id: number;
+    avoidance_area_id: string;
+    title: string;
+    description?: string;
+  }) {
+    return this.request<any>(`/avoidance_areas/${data.avoidance_area_id}/reports`, {
       method: "POST",
       body: JSON.stringify(data),
     });

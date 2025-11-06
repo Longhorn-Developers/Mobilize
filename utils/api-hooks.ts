@@ -10,8 +10,8 @@ import Toast from "react-native-toast-message";
 export const queryKeys = {
   pois: ["pois"] as const,
   avoidanceAreas: ["avoidanceAreas"] as const,
-  avoidanceArea: (id: number | string) => ["avoidanceArea", id] as const,
-  avoidanceAreaReports: (id: number | string) =>
+  avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
+  avoidanceAreaReports: (id: string) =>
     ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
 };
@@ -34,19 +34,19 @@ export function useAvoidanceAreas() {
 }
 
 // fetch a single avoidance area with profile info
-export function useAvoidanceArea(id: number | string) {
+export function useAvoidanceArea(id: string) {
   return useQuery({
     queryKey: queryKeys.avoidanceArea(id),
-    queryFn: () => apiClient.getAvoidanceArea(Number(id)),
+    queryFn: () => apiClient.getAvoidanceArea(id),
     enabled: !!id,
   });
 }
 
 // fetch reports for an avoidance area
-export function useAvoidanceAreaReports(id: number | string) {
+export function useAvoidanceAreaReports(id: string) {
   return useQuery({
     queryKey: queryKeys.avoidanceAreaReports(id),
-    queryFn: () => apiClient.getAvoidanceAreaReports(Number(id)),
+    queryFn: () => apiClient.getAvoidanceAreaReports(id),
     enabled: !!id,
   });
 }
@@ -105,5 +105,31 @@ export function useInsertAvoidanceArea() {
       });
     },
 
+  });
+}
+
+// insert a new avoidance area report
+export function useInsertAvoidanceAreaReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      user_id: number;
+      avoidance_area_id: string;
+      title: string;
+      description?: string;
+    }) => apiClient.insertAvoidanceAreaReport(data),
+    onSuccess: (data) => {
+      // Locally update the avoidance area reports cache without refetching
+      queryClient.setQueryData(
+        queryKeys.avoidanceAreaReports(data[0].avoidance_area_id.toString()),
+        (oldData: any) => [...(oldData || []), data[0]],
+      );
+
+      console.log("Report added successfully", data[0].avoidance_area_id, queryKeys.avoidanceAreaReports(data[0].avoidance_area_id));
+    },
+    onError: (error) => {
+      console.error("Error adding report:", error);
+    },
   });
 }

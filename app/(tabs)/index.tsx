@@ -31,20 +31,22 @@ const initialCameraPosition = {
 };
 
 export default function Home() {
+  // hooks
   const insets = useSafeAreaInsets();
-  const bottomTabBarHeight = useBottomTabBarHeight();
   const mapIcons = useMapIcons();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
 
+  // states
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
   const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
   const [reportStep, setReportStep] = useState(0);
 
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-
+  // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: POIs } = usePOIs();
-  const insertAvoidanceAreaMutation = useInsertAvoidanceArea();
+  const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -228,8 +230,8 @@ export default function Home() {
             onSubmit={async (data) => {
               const aaPoints = [...data.aaPoints, data.aaPoints[0]];
 
-              await insertAvoidanceAreaMutation.mutateAsync({
-                user_id: 1, // Temporary user ID
+              await insertAvoidanceArea({
+                user_id: 1, // TODO: REPLACE Temporary user ID
                 name: data.description,
                 boundary_geojson: {
                   type: "Polygon",

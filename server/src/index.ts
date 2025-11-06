@@ -131,4 +131,40 @@ app.post('/avoidance_areas', async (c) => {
 	return c.json(result);
 });
 
+// POST insert new avoidance area report
+app.post('/avoidance_areas/:id/reports', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const areaId = Number(c.req.param('id'));
+
+	if (isNaN(areaId)) {
+		return c.text('Invalid Area ID', 400);
+	}
+
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+	}
+
+	const { user_id, title, description } = body;
+
+	if (!user_id || !title) {
+		return c.text('Missing required fields', 400);
+	}
+
+	const result = await db
+		.insert(avoidance_area_reports)
+		.values({
+			user_id,
+			avoidance_area_id: areaId,
+			title,
+			description
+		})
+		.returning();
+
+	return c.json(result);
+});
+
 export default app;

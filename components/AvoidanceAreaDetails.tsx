@@ -17,7 +17,11 @@ import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import * as turf from "@turf/turf";
-import { useAvoidanceArea, useAvoidanceAreaReports } from "~/utils/api-hooks";
+import {
+  useAvoidanceArea,
+  useAvoidanceAreaReports,
+  useInsertAvoidanceAreaReport,
+} from "~/utils/api-hooks";
 
 type Polygon = {
   type: "Polygon";
@@ -38,10 +42,14 @@ const commentSchema = z.object({
 type CommentFormData = z.infer<typeof commentSchema>;
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
-  // const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [polygon, setPolygon] = useState<Polygon | null>(null);
+
+  const { data: avoidanceArea, isLoading } = useAvoidanceArea(areaId);
+  const { data: reports } = useAvoidanceAreaReports(areaId);
+  const { mutateAsync: insertAvoidanceAreaReport } =
+    useInsertAvoidanceAreaReport();
 
   const {
     control,
@@ -55,10 +63,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  // Use new API hooks
-  const { data: avoidanceArea, isLoading } = useAvoidanceArea(areaId);
-  const { data: reports } = useAvoidanceAreaReports(areaId);
-
   // Effect to convert boundary_geojson to Polygon
   useEffect(() => {
     if (avoidanceArea?.boundary_geojson) {
@@ -69,19 +73,15 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     }
   }, [avoidanceArea?.boundary_geojson]);
 
-  // const { mutateAsync: addReport } = useInsertMutation(
-  //   supabase.from("avoidance_area_reports"),
-  //   ["id"],
-  //   "avoidance_area_id",
-  //   {
-  //     onSuccess: () => {
-  //       console.log("Report added successfully");
-  //     },
-  //     onError: (error) => {
-  //       console.error("Error adding report:", error);
-  //     },
-  //   },
-  // );
+  const handleAddComment = (data: CommentFormData) => {
+    insertAvoidanceAreaReport({
+      user_id: 1, // TODO: Replace with actual user ID
+      avoidance_area_id: areaId,
+      title: "User Comment",
+      description: data.content,
+    });
+    reset();
+  };
 
   const formatTimeAgo = (dateStr: string | Date) => {
     const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
@@ -102,17 +102,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     setSelectedStatus(stillPresent);
     // In real app, this would update the database
     console.log(`Status updated: ${stillPresent}`);
-  };
-
-  const handleAddComment = (data: CommentFormData) => {
-    // addReport([
-    //   {
-    //     user_id: user ? user.id : null,
-    //     avoidance_area_id: areaId,
-    //     description: data.content,
-    //   },
-    // ]);
-    reset();
   };
 
   if (isLoading) {

@@ -2,7 +2,6 @@ import colors from "~/types/colors";
 import {
   CameraPlusIcon,
   PencilSimpleLineIcon,
-  PlusCircleIcon,
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";

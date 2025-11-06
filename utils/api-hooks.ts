@@ -1,5 +1,5 @@
 // TanStack Query hooks for the Hono backend
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "./api-client";
 
 // Query Keys

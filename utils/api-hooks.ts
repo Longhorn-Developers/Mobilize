@@ -126,7 +126,7 @@ export function useInsertAvoidanceAreaReport() {
         (oldData: any) => [...(oldData || []), data[0]],
       );
 
-      console.log("Report added successfully", data[0].avoidance_area_id, queryKeys.avoidanceAreaReports(data[0].avoidance_area_id));
+      console.log("Report added successfully", queryKeys.avoidanceAreaReports(data[0].avoidance_area_id));
     },
     onError: (error) => {
       console.error("Error adding report:", error);

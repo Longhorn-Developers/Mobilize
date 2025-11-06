@@ -12,7 +12,7 @@ import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Enums, metadata_types } from "~/types/database";
-import useMapIcons from "~/hooks/useMapIcons";
+import useMapIcons from "~/utils/useMapIcons";
 import { usePOIs, useAvoidanceAreas } from "~/utils/api-hooks";
 const initialCameraPosition = {
   coordinates: {

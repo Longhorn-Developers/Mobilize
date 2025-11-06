@@ -14,7 +14,7 @@ import {
   focusManager,
   onlineManager,
 } from "@tanstack/react-query";
-import { useAppState } from "~/hooks/useAppState";
+import { useAppState } from "~/utils/useAppState";
 import { CheckIcon, XIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";

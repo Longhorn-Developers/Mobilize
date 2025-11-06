@@ -16,9 +16,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
-import { useInsertMutation } from "@supabase-cache-helpers/postgrest-react-query";
-import { supabase } from "~/utils/supabase";
-import { useAuth } from "~/utils/AuthProvider";
 import * as turf from "@turf/turf";
 import { useAvoidanceArea, useAvoidanceAreaReports } from "~/utils/api-hooks";
 
@@ -41,7 +38,7 @@ const commentSchema = z.object({
 type CommentFormData = z.infer<typeof commentSchema>;
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [polygon, setPolygon] = useState<Polygon | null>(null);
@@ -72,22 +69,21 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     }
   }, [avoidanceArea?.boundary_geojson]);
 
-  const { mutateAsync: addReport } = useInsertMutation(
-    supabase.from("avoidance_area_reports"),
-    ["id"],
-    "avoidance_area_id",
-    {
-      onSuccess: () => {
-        console.log("Report added successfully");
-      },
-      onError: (error) => {
-        console.error("Error adding report:", error);
-      },
-    },
-  );
+  // const { mutateAsync: addReport } = useInsertMutation(
+  //   supabase.from("avoidance_area_reports"),
+  //   ["id"],
+  //   "avoidance_area_id",
+  //   {
+  //     onSuccess: () => {
+  //       console.log("Report added successfully");
+  //     },
+  //     onError: (error) => {
+  //       console.error("Error adding report:", error);
+  //     },
+  //   },
+  // );
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
@@ -108,13 +104,13 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   };
 
   const handleAddComment = (data: CommentFormData) => {
-    addReport([
-      {
-        user_id: user ? user.id : null,
-        avoidance_area_id: areaId,
-        description: data.content,
-      },
-    ]);
+    // addReport([
+    //   {
+    //     user_id: user ? user.id : null,
+    //     avoidance_area_id: areaId,
+    //     description: data.content,
+    //   },
+    // ]);
     reset();
   };
 

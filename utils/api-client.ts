@@ -26,8 +26,8 @@ export type AvoidanceAreaReport = {
   user_id: number;
   description: string | null;
   title: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
   profile_display_name: string | null;
 };
 

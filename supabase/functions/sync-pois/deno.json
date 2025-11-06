@@ -1,9 +1,0 @@
-{
-  "imports": {
-    "@supabase/functions-js": "jsr:@supabase/functions-js@^2.4.5",
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.54.0",
-    "@types/geojson": "npm:@types/geojson@^7946.0.16",
-    "@xmldom/xmldom": "npm:@xmldom/xmldom@^0.9.8",
-    "@tmcw/togeojson": "npm:@tmcw/togeojson@^7.1.2"
-  }
-}

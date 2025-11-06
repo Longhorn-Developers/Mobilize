@@ -21,7 +21,7 @@ export function usePOIs() {
   return useQuery({
     queryKey: queryKeys.pois,
     queryFn: () => apiClient.getPOIs(),
-    staleTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 1000 * 60 * 60 * 24, // 24 hour
   });
 }
 

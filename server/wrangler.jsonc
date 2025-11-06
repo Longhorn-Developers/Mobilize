@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "mobilize-ut",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-11-05",
+	"compatibility_date": "2025-10-11",
 	"compatibility_flags": ["nodejs_compat"],
 	"dev": {
 		"port": 54321,

@@ -1,9 +1,8 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { AppleMaps, GoogleMaps, Coordinates } from "expo-maps";
-import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
+import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { View, Platform } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
@@ -17,6 +16,7 @@ import {
   useAvoidanceAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
+
 const initialCameraPosition = {
   coordinates: {
     // Default coordinates for UT Tower
@@ -39,8 +39,8 @@ export default function Home() {
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
-  const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
-  const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
+  const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
+  const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
 
   // query hooks
@@ -61,14 +61,14 @@ export default function Home() {
   );
 
   // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
-  const isPointValid = (point: Coordinates) => {
+  const isPointValid = (point: LatLng) => {
     if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
 
     const polygon = turf.polygon([
       [
-        ...aaPointsReport.map((p) => [p.longitude || 0, p.latitude || 0]),
-        [point.longitude || 0, point.latitude || 0],
-        [aaPointsReport[0].longitude || 0, aaPointsReport[0].latitude || 0],
+        ...aaPointsReport.map((p) => [p.longitude, p.latitude]),
+        [point.longitude, point.latitude],
+        [aaPointsReport[0].longitude, aaPointsReport[0].latitude],
       ],
     ]);
     const kinks = turf.kinks(polygon);
@@ -78,17 +78,16 @@ export default function Home() {
   };
 
   // Check if map pressed is among one of the POIs
-  const handlePOIPress = (event: { coordinates: Coordinates }) => {
+  const handlePOIPress = (coordinate: LatLng) => {
     if (!POIs) return;
 
     const CLICK_TOLERANCE = 0.0001;
     const POIclicked = POIs.find((poi) => {
       const lonDiff = Math.abs(
-        poi.location_geojson.coordinates[0] -
-          (event.coordinates.longitude ?? 0),
+        poi.location_geojson.coordinates[0] - coordinate.longitude,
       );
       const latDiff = Math.abs(
-        poi.location_geojson.coordinates[1] - (event.coordinates.latitude ?? 0),
+        poi.location_geojson.coordinates[1] - coordinate.latitude,
       );
       return lonDiff <= CLICK_TOLERANCE && latDiff <= CLICK_TOLERANCE;
     });
@@ -97,14 +96,15 @@ export default function Home() {
     }
   };
 
-  const handleMapPress = (event: { coordinates: Coordinates }) => {
+  const handleMapPress = (event: any) => {
+    const coordinate = event.nativeEvent.coordinate;
     if (isReportMode) {
       if (reportStep !== 0) return;
 
-      if (isPointValid(event.coordinates)) {
-        setClickedPoint(event.coordinates);
+      if (isPointValid(coordinate)) {
+        setClickedPoint(coordinate);
         // Add pressed coordinates to marked points
-        setAAPointsReport((prev) => [...prev, event.coordinates]);
+        setAAPointsReport((prev) => [...prev, coordinate]);
       } else {
         Toast.show({
           type: "error",
@@ -114,21 +114,21 @@ export default function Home() {
         });
       }
     } else {
-      handlePOIPress(event);
+      handlePOIPress(coordinate);
       bottomSheetRef.current?.close();
     }
   };
 
   // Handle avoidance area click
-  const handleAvoidanceAreaPress = (event: AppleMapsPolygon) => {
+  const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
-    bottomSheetRef.current?.present(event);
+    bottomSheetRef.current?.present({ id: polygonId });
   };
 
   const polygons = useMemo(
     () => [
       // Avoidance areas from the database
-      ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
+      ...(avoidanceAreas || []).map((area) => ({
         id: String(area.id),
         coordinates: area.boundary_geojson.coordinates[0].map(
           (coord: [number, number]) => ({
@@ -136,44 +136,52 @@ export default function Home() {
             latitude: coord[1],
           }),
         ),
-        color: "rgba(255, 0, 0, 0.25)",
-        lineColor: "rgba(255, 0, 0, 0.5)",
-        lineWidth: 0.1,
+        fillColor: "rgba(255, 0, 0, 0.25)",
+        strokeColor: "rgba(255, 0, 0, 0.5)",
+        strokeWidth: 0.1,
       })),
       // User selected aaPoints to report
-      {
-        coordinates: aaPointsReport.map((point) => point),
-        color: "rgba(255, 0, 0, 0.25)",
-        lineColor: "red",
-        lineWidth: 2,
-      },
+      ...(aaPointsReport.length > 0
+        ? [
+            {
+              id: "report-polygon",
+              coordinates: aaPointsReport,
+              fillColor: "rgba(255, 0, 0, 0.25)",
+              strokeColor: "red",
+              strokeWidth: 2,
+            },
+          ]
+        : []),
     ],
     [avoidanceAreas, aaPointsReport],
   );
 
-  const annotations = useMemo(
+  const markers = useMemo(
     () => [
       // User selected aaPoints to report
-      ...aaPointsReport.map((point) => ({
-        coordinates: point,
+      ...aaPointsReport.map((point, index) => ({
+        id: `report-point-${index}`,
+        coordinate: point,
         icon: mapIcons.point || undefined,
       })),
       // Clicked point
-      clickedPoint
-        ? {
-            coordinates: clickedPoint,
-            icon: mapIcons.crosshair || undefined,
-          }
-        : {
-            coordinates: { latitude: 0, longitude: 0 },
-          },
+      ...(clickedPoint
+        ? [
+            {
+              id: "clicked-point",
+              coordinate: clickedPoint,
+              icon: mapIcons.crosshair || undefined,
+            },
+          ]
+        : []),
       // POIs only show if not in report mode
       ...(!isReportMode
         ? (POIs || []).map((poi) => ({
-            coordinates: {
+            id: String(poi.id),
+            coordinate: {
               longitude: poi.location_geojson.coordinates[0],
               latitude: poi.location_geojson.coordinates[1],
-            } satisfies Coordinates,
+            } satisfies LatLng,
             icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
           }))
         : []),
@@ -188,30 +196,43 @@ export default function Home() {
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
 
-      {Platform.OS === "ios" && (
-        <AppleMaps.View
-          style={{ flex: 1 }}
-          onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event)}
-          cameraPosition={initialCameraPosition}
-          polygons={polygons}
-          annotations={annotations}
-        />
-      )}
+      <MapView
+        style={{ flex: 1 }}
+        onPress={handleMapPress}
+        initialRegion={{
+          latitude: initialCameraPosition.coordinates.latitude,
+          longitude: initialCameraPosition.coordinates.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+      >
+        {/* Render polygons */}
+        {polygons.map((polygon, index) => (
+          <Polygon
+            key={polygon.id || `polygon-${index}`}
+            coordinates={polygon.coordinates}
+            fillColor={polygon.fillColor}
+            strokeColor={polygon.strokeColor}
+            strokeWidth={polygon.strokeWidth}
+            tappable={true}
+            onPress={() => {
+              if (polygon.id && polygon.id !== "report-polygon") {
+                handleAvoidanceAreaPress(polygon.id);
+              }
+            }}
+          />
+        ))}
 
-      {Platform.OS === "android" && (
-        <GoogleMaps.View
-          style={{ flex: 1 }}
-          onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event)}
-          cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
-          polygons={polygons}
-          markers={annotations}
-          uiSettings={{
-            zoomControlsEnabled: false,
-          }}
-        />
-      )}
+        {/* Render markers */}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.id}
+            coordinate={marker.coordinate}
+            image={marker.icon}
+            anchor={{ x: 0.5, y: 0.5 }}
+          />
+        ))}
+      </MapView>
 
       {isReportMode ? (
         <>

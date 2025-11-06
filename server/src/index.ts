@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, getTableColumns } from 'drizzle-orm';
 import { avoidance_areas, pois, profiles, avoidance_area_reports } from './db/schema';
+import { syncPOIs } from './scheduled/poi-sync';
 
 export interface Env {
 	mobilize_db: D1Database;
@@ -167,4 +168,13 @@ app.post('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(result);
 });
 
-export default app;
+export default {
+	fetch: app.fetch,
+	// Scheduled handler for cron triggers
+	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+		console.log(`Cron trigger fired at ${new Date(event.scheduledTime).toISOString()}`);
+
+		// Run the POI sync
+		ctx.waitUntil(syncPOIs(env));
+	},
+};

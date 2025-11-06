@@ -9,7 +9,7 @@
 		"test": "vitest",
 		"gen": "drizzle-kit generate",
 		"types": "wrangler types",
-		"seed": "wrangler d1 execute mobilize-db --local --file=./seed.sql",
+		"seed": "wrangler d1 execute mobilize-db --local --file=./seed.sql && curl http://localhost:54321/cdn-cgi/handler/scheduled",
 		"migrate": "wrangler d1 migrations apply mobilize-db"
 	},
 	"devDependencies": {

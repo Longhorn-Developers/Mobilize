@@ -1,9 +1,66 @@
-// API Client for Hono Backend
-// Configuration for local development and production
+import type { InferSelectModel } from "drizzle-orm";
+import type {
+  profiles,
+  pois,
+  avoidance_areas,
+  avoidance_area_reports,
+} from "../server/src/db/schema";
 
-const API_BASE_URL = __DEV__
-  ? "http://localhost:1234" // Local Wrangler dev server
-  : "https://mobilize-ut.workers.dev"; // Replace with your production Worker URL
+// Use Drizzle's inferred types
+export type Profile = InferSelectModel<typeof profiles>;
+export type POIRaw = InferSelectModel<typeof pois>;
+export type AvoidanceAreaRaw = InferSelectModel<typeof avoidance_areas>;
+export type AvoidanceAreaReportRaw = InferSelectModel<
+  typeof avoidance_area_reports
+>;
+
+// Extended types for joined queries
+export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {
+  profile_display_name: string | null;
+  profile_avatar_url: string | null;
+};
+
+// TODO: CLEAN THESE UPPPPPP
+export type AvoidanceAreaReport = {
+  id: number;
+  user_id: number;
+  description: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  profile_display_name: string | null;
+};
+
+// Parsed types (with JSON objects)
+export interface POI {
+  id: number;
+  poi_type: string;
+  metadata: any;
+  location_geojson: {
+    type: string;
+    coordinates: [number, number];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AvoidanceArea {
+  id: number;
+  user_id: number;
+  name: string;
+  description: string | null;
+  boundary_geojson: {
+    type: string;
+    coordinates: [number, number][][];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AvoidanceAreaDetail extends AvoidanceArea {
+  profile_display_name: string | null;
+  profile_avatar_url: string | null;
+}
 
 class ApiClient {
   private baseUrl: string;
@@ -33,7 +90,7 @@ class ApiClient {
 
       return await response.json();
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
+      console.error(`API request failed for ${url}:`, error);
       throw error;
     }
   }
@@ -89,78 +146,7 @@ class ApiClient {
   }
 }
 
-// Type definitions based on the schema
-export interface Profile {
-  id: number;
-  display_name: string;
-  avatar_url: string | null;
-}
-
-// Raw types (as returned from API with stringified JSON)
-interface POIRaw {
-  id: number;
-  poi_type: string;
-  metadata: string | null;
-  location_geojson: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AvoidanceAreaRaw {
-  id: number;
-  user_id: number;
-  name: string;
-  description: string | null;
-  boundary_geojson: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AvoidanceAreaDetailRaw extends AvoidanceAreaRaw {
-  profile_display_name: string | null;
-  profile_avatar_url: string | null;
-}
-
-// Parsed types (with JSON objects)
-export interface POI {
-  id: number;
-  poi_type: string;
-  metadata: any;
-  location_geojson: {
-    type: string;
-    coordinates: [number, number];
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AvoidanceArea {
-  id: number;
-  user_id: number;
-  name: string;
-  description: string | null;
-  boundary_geojson: {
-    type: string;
-    coordinates: [number, number][][];
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AvoidanceAreaDetail extends AvoidanceArea {
-  profile_display_name: string | null;
-  profile_avatar_url: string | null;
-}
-
-export interface AvoidanceAreaReport {
-  id: number;
-  user_id: number;
-  description: string | null;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  profile_display_name: string | null;
-}
-
 // Export singleton instance
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient(
+  process.env.EXPO_PUBLIC_API_URL || "http://localhost:1234",
+);

@@ -11,7 +11,7 @@ export const pois = sqliteTable('pois', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	poi_type: text('poi_type').notNull(),
 	metadata: text('metadata'),
-	location_geojson: text('location_geojson').notNull(),
+	location_geojson: text('location_geojson').notNull().unique(),
 	created_at: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(unixepoch())`),

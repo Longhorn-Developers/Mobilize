@@ -20,6 +20,7 @@
 		"wrangler": "^4.45.4"
 	},
 	"dependencies": {
+		"@tmcw/togeojson": "^7.1.2",
 		"drizzle-orm": "^0.44.7",
 		"hono": "^4.10.4"
 	}

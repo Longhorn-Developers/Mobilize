@@ -26,8 +26,8 @@ export type AvoidanceAreaReport = {
   user_id: number;
   description: string | null;
   title: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
   profile_display_name: string | null;
 };
 
@@ -148,5 +148,5 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient(
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:1234",
+  process.env.EXPO_PUBLIC_API_URL || "http://localhost:54321",
 );

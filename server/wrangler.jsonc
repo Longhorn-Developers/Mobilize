@@ -9,16 +9,16 @@
 	"compatibility_date": "2025-11-05",
 	"compatibility_flags": ["nodejs_compat"],
 	"dev": {
-		"port": 1234,
+		"port": 54321,
 	},
 	"observability": {
 		"enabled": true,
 	},
 	"d1_databases": [
 		{
-			"binding": "staging_mobilize_db",
-			"database_name": "staging-mobilize-db",
-			"database_id": "07bcc44f-1564-43ee-95fc-89adba5a08f9",
+			"binding": "mobilize_db",
+			"database_name": "mobilize-db",
+			"database_id": "1e6b3463-15e0-487b-905e-cd8e848f8b47",
 		},
 	],
 	/**

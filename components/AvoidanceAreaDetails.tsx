@@ -83,7 +83,8 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   //   },
   // );
 
-  const formatTimeAgo = (date: Date) => {
+  const formatTimeAgo = (dateStr: string | Date) => {
+    const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);

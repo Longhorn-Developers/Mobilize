@@ -19,7 +19,6 @@ import { CheckIcon, XIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider } from "~/utils/AuthProvider";
 
 function onAppStateChange(status: AppStateStatus) {
   // React Query already supports in web browser refetch on window focus by default
@@ -101,16 +100,14 @@ export default function Layout() {
   useAppState(onAppStateChange);
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
-          <BottomSheetModalProvider>
-            <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <Toast config={toastConfig} />
-          </BottomSheetModalProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView>
+        <BottomSheetModalProvider>
+          <StatusBar style="auto" />
+          <Stack screenOptions={{ headerShown: false }} />
+          <Toast config={toastConfig} />
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }

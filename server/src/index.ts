@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { avoidance_areas, pois, profiles, avoidance_area_reports } from './db/schema';
 
 export interface Env {
-	staging_mobilize_db: D1Database;
+	mobilize_db: D1Database;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -16,7 +16,7 @@ app.get('/health', (c) => {
 
 // GET profiles by id
 app.get('/profiles', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const profileId = c.req.query('id');
 
 	if (!profileId) {
@@ -38,21 +38,21 @@ app.get('/profiles', async (c) => {
 
 // GET pois
 app.get('/pois', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const pois_result = await db.select().from(pois).all();
 	return c.json(pois_result);
 });
 
 // GET avoidance_areas
 app.get('/avoidance_areas', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const avoidance_areas_result = await db.select().from(avoidance_areas).all();
 	return c.json(avoidance_areas_result);
 });
 
 // GET single avoidance_area by id with profile info
 app.get('/avoidance_areas/:id', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const areaId = c.req.param('id');
 
 	if (!areaId) {
@@ -85,7 +85,7 @@ app.get('/avoidance_areas/:id', async (c) => {
 
 // GET reports for a specific avoidance area
 app.get('/avoidance_areas/:id/reports', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const areaId = c.req.param('id');
 
 	if (!areaId) {
@@ -111,7 +111,7 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 });
 
 app.post('/avoidance_areas', async (c) => {
-	const db = drizzle(c.env.staging_mobilize_db);
+	const db = drizzle(c.env.mobilize_db);
 	const body = await c.req.json();
 
 	const { user_id, name, description, boundary_geojson } = body;

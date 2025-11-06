@@ -3,12 +3,14 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
+		"deploy": "wrangler deploy",
 		"test": "vitest",
-		"cf-typegen": "wrangler types",
-		"seed": "wrangler d1 execute staging-mobilize-db --local --file=./seed.sql"
+		"gen": "drizzle-kit generate",
+		"types": "wrangler types",
+		"seed": "wrangler d1 execute mobilize-db --local --file=./seed.sql",
+		"migrate": "wrangler d1 migrations apply mobilize-db"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",

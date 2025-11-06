@@ -1,8 +1,5 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import {
-  useInsertMutation,
-  useQuery,
-} from "@supabase-cache-helpers/postgrest-react-query";
+import { useInsertMutation } from "@supabase-cache-helpers/postgrest-react-query";
 import { AppleMaps, GoogleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
@@ -19,6 +16,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
+import { usePOIs, useAvoidanceAreas } from "~/utils/api-hooks";
 const initialCameraPosition = {
   coordinates: {
     // Default coordinates for UT Tower
@@ -44,9 +42,9 @@ export default function Home() {
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
-  const { data: avoidanceAreas } = useQuery(
-    supabase.from("avoidance_areas").select("id,boundary_geojson"),
-  );
+  // Use new API hooks instead of Supabase
+  const { data: avoidanceAreas } = useAvoidanceAreas();
+  const { data: POIs } = usePOIs();
 
   const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
     supabase.from("avoidance_areas"),
@@ -69,13 +67,6 @@ export default function Home() {
           bottomOffset: bottomTabBarHeight + 50,
         });
       },
-    },
-  );
-
-  const { data: POIs } = useQuery(
-    supabase.from("pois").select("id, poi_type, metadata, location_geojson"),
-    {
-      staleTime: 1000 * 60 * 60, // 1 hour
     },
   );
 
@@ -159,11 +150,13 @@ export default function Home() {
     () => [
       // Avoidance areas from the database
       ...(avoidanceAreas || []).map<AppleMapsPolygon>((area) => ({
-        id: area.id || undefined,
-        coordinates: area.boundary_geojson.coordinates[0].map((coord) => ({
-          longitude: coord[0],
-          latitude: coord[1],
-        })),
+        id: String(area.id),
+        coordinates: area.boundary_geojson.coordinates[0].map(
+          (coord: [number, number]) => ({
+            longitude: coord[0],
+            latitude: coord[1],
+          }),
+        ),
         color: "rgba(255, 0, 0, 0.25)",
         lineColor: "rgba(255, 0, 0, 0.5)",
         lineWidth: 0.1,
@@ -202,7 +195,9 @@ export default function Home() {
               longitude: poi.location_geojson.coordinates[0],
               latitude: poi.location_geojson.coordinates[1],
             } satisfies Coordinates,
-            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+            icon:
+              getMapIcon(poi.poi_type as Enums<"poi_type">, poi.metadata) ||
+              undefined,
           }))
         : []),
     ],

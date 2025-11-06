@@ -8,6 +8,9 @@
 	"main": "src/index.ts",
 	"compatibility_date": "2025-11-05",
 	"compatibility_flags": ["nodejs_compat"],
+	"dev": {
+		"port": 1234,
+	},
 	"observability": {
 		"enabled": true,
 	},

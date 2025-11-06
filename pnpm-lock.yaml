@@ -25,10 +25,13 @@ importers:
         version: 7.1.16(react-native@0.81.4(@babel/core@7.28.0)(@types/react@19.0.14)(react@19.1.0))(react@19.1.0)
       '@supabase-cache-helpers/postgrest-react-query':
         specifier: ^1.13.5
-        version: 1.13.5(@supabase/postgrest-js@1.19.4)(@tanstack/react-query@5.81.5(react@19.1.0))(react@19.1.0)
+        version: 1.13.5(@supabase/postgrest-js@1.19.4)(@tanstack/react-query@5.90.7(react@19.1.0))(react@19.1.0)
       '@supabase/supabase-js':
         specifier: ^2.53.0
         version: 2.53.0
+      '@tanstack/react-query':
+        specifier: ^5.90.7
+        version: 5.90.7(react@19.1.0)
       '@turf/turf':
         specifier: ^7.2.0
         version: 7.2.0
@@ -1698,11 +1701,11 @@ packages:
     peerDependencies:
       eslint: ^8.57.0 || ^9.0.0
 
-  '@tanstack/query-core@5.81.5':
-    resolution: {integrity: sha512-ZJOgCy/z2qpZXWaj/oxvodDx07XcQa9BF92c0oINjHkoqUPsmm3uG08HpTaviviZ/N9eP1f9CM7mKSEkIo7O1Q==}
+  '@tanstack/query-core@5.90.7':
+    resolution: {integrity: sha512-6PN65csiuTNfBMXqQUxQhCNdtm1rV+9kC9YwWAIKcaxAauq3Wu7p18j3gQY3YIBJU70jT/wzCCZ2uqto/vQgiQ==}
 
-  '@tanstack/react-query@5.81.5':
-    resolution: {integrity: sha512-lOf2KqRRiYWpQT86eeeftAGnjuTR35myTP8MXyvHa81VlomoAWNEd8x5vkcAfQefu0qtYCvyqLropFZqgI2EQw==}
+  '@tanstack/react-query@5.90.7':
+    resolution: {integrity: sha512-wAHc/cgKzW7LZNFloThyHnV/AX9gTg3w5yAv0gvQHPZoCnepwqCMtzbuPbb2UvfvO32XZ46e8bPOYbfZhzVnnQ==}
     peerDependencies:
       react: ^18 || ^19
 
@@ -7451,11 +7454,11 @@ snapshots:
       merge-anything: 5.1.7
       xregexp: 5.1.1
 
-  '@supabase-cache-helpers/postgrest-react-query@1.13.5(@supabase/postgrest-js@1.19.4)(@tanstack/react-query@5.81.5(react@19.1.0))(react@19.1.0)':
+  '@supabase-cache-helpers/postgrest-react-query@1.13.5(@supabase/postgrest-js@1.19.4)(@tanstack/react-query@5.90.7(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@supabase-cache-helpers/postgrest-core': 0.12.2(@supabase/postgrest-js@1.19.4)
       '@supabase/postgrest-js': 1.19.4
-      '@tanstack/react-query': 5.81.5(react@19.1.0)
+      '@tanstack/react-query': 5.90.7(react@19.1.0)
       flat: 6.0.1
       react: 19.1.0
 
@@ -7510,11 +7513,11 @@ snapshots:
       - supports-color
       - typescript
 
-  '@tanstack/query-core@5.81.5': {}
+  '@tanstack/query-core@5.90.7': {}
 
-  '@tanstack/react-query@5.81.5(react@19.1.0)':
+  '@tanstack/react-query@5.90.7(react@19.1.0)':
     dependencies:
-      '@tanstack/query-core': 5.81.5
+      '@tanstack/query-core': 5.90.7
       react: 19.1.0
 
   '@turf/along@7.2.0':

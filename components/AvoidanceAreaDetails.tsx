@@ -16,14 +16,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
-import {
-  useInsertMutation,
-  useQuery,
-} from "@supabase-cache-helpers/postgrest-react-query";
+import { useInsertMutation } from "@supabase-cache-helpers/postgrest-react-query";
 import { supabase } from "~/utils/supabase";
 import { useAuth } from "~/utils/AuthProvider";
 import * as turf from "@turf/turf";
-import { Polygon } from "@types/geojson";
+import { useAvoidanceArea, useAvoidanceAreaReports } from "~/utils/api-hooks";
+
+type Polygon = {
+  type: "Polygon";
+  coordinates: number[][][];
+};
 
 const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
@@ -56,55 +58,19 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  const { data: avoidanceArea, isLoading } = useQuery(
-    supabase
-      .from("avoidance_areas")
-      .select(
-        `
-        user_id,
-        name,
-        created_at,
-        description,
-        boundary_geojson,
-        profiles (
-          display_name,
-          avatar_url
-        )
-      `,
-      )
-      .eq("id", areaId)
-      .single(),
-  );
+  // Use new API hooks
+  const { data: avoidanceArea, isLoading } = useAvoidanceArea(areaId);
+  const { data: reports } = useAvoidanceAreaReports(areaId);
 
   // Effect to convert boundary_geojson to Polygon
   useEffect(() => {
     if (avoidanceArea?.boundary_geojson) {
-      const coordinates = (
-        avoidanceArea.boundary_geojson as { coordinates: any[] }
-      ).coordinates[0];
       setPolygon({
         type: "Polygon",
-        coordinates: [coordinates],
+        coordinates: [avoidanceArea.boundary_geojson.coordinates[0]],
       });
     }
   }, [avoidanceArea?.boundary_geojson]);
-
-  const { data: reports } = useQuery(
-    supabase
-      .from("avoidance_area_reports")
-      .select(
-        `
-        id,
-        user_id,
-        description,
-        updated_at,
-        profiles (
-          display_name
-        )
-      `,
-      )
-      .eq("avoidance_area_id", areaId),
-  );
 
   const { mutateAsync: addReport } = useInsertMutation(
     supabase.from("avoidance_area_reports"),
@@ -123,9 +89,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInSeconds = Math.floor(
-      (now.getTime() - date.getTime()) / (1000),
-    );
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     const diffInHours = Math.floor(diffInMinutes / 60);
 
@@ -214,14 +178,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           <View className="flex-row items-center gap-2">
             {/* Profile Pic */}
             <View className="h-10 w-10 items-center justify-center rounded-full bg-gray-300">
-              {avoidanceArea.profiles?.avatar_url ? (
+              {avoidanceArea.profile_avatar_url ? (
                 <Image
-                  source={{ uri: avoidanceArea.profiles.avatar_url }}
+                  source={{ uri: avoidanceArea.profile_avatar_url }}
                   className="h-full w-full rounded-full"
                 />
               ) : (
                 <Text className="text-center text-gray-500">
-                  {avoidanceArea.profiles?.display_name?.[0].toLocaleUpperCase() ||
+                  {avoidanceArea.profile_display_name?.[0].toLocaleUpperCase() ||
                     "A"}
                 </Text>
               )}
@@ -229,7 +193,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
             {/* Author Username */}
             <Text className="text-lg text-gray-600">
-              @{avoidanceArea.profiles?.display_name || "anonymous"}
+              @{avoidanceArea.profile_display_name || "anonymous"}
             </Text>
 
             {/* Created At */}
@@ -311,7 +275,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="font-medium text-gray-700">
-                      @{report.profiles?.display_name || "anonymous"}
+                      @{report.profile_display_name || "anonymous"}
                     </Text>
                     <Text className="text-sm text-gray-500">
                       {formatTimeAgo(report.updated_at)}

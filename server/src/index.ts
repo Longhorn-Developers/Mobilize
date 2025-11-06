@@ -100,6 +100,7 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(reports);
 });
 
+// POST insert new avoidance area
 app.post('/avoidance_areas', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 

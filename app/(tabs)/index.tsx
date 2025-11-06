@@ -11,7 +11,6 @@ import ReportModal from "~/components/ReportModal";
 import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/utils/useMapIcons";
 import { usePOIs, useAvoidanceAreas } from "~/utils/api-hooks";
 const initialCameraPosition = {
@@ -68,7 +67,7 @@ export default function Home() {
   // );
 
   const getMapIcon = useCallback(
-    (poiType: Enums<"poi_type">, metadata: metadata_types) => {
+    (poiType: any, metadata: any) => {
       switch (poiType) {
         case "accessible_entrance":
           return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
@@ -193,9 +192,7 @@ export default function Home() {
               longitude: poi.location_geojson.coordinates[0],
               latitude: poi.location_geojson.coordinates[1],
             } satisfies Coordinates,
-            icon:
-              getMapIcon(poi.poi_type as Enums<"poi_type">, poi.metadata) ||
-              undefined,
+            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
           }))
         : []),
     ],

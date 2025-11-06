@@ -4,7 +4,9 @@ import type {
   pois,
   avoidance_areas,
   avoidance_area_reports,
-} from "../server/src/db/schema";
+} from "~/server/src/db/schema";
+
+import { Polygon, Point } from "geojson";
 
 // Use Drizzle's inferred types
 export type Profile = InferSelectModel<typeof profiles>;
@@ -20,46 +22,21 @@ export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {
   profile_avatar_url: string | null;
 };
 
-// TODO: CLEAN THESE UPPPPPP
-export type AvoidanceAreaReport = {
-  id: number;
-  user_id: number;
-  description: string | null;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  profile_display_name: string | null;
+export type AvoidanceAreaReport = InferSelectModel<
+  typeof avoidance_area_reports
+> & {
+  profile_display_name?: string | null;
+  profile_avatar_url?: string | null;
 };
 
-// Parsed types (with JSON objects)
-export interface POI {
-  id: number;
-  poi_type: string;
-  metadata: any;
-  location_geojson: {
-    type: string;
-    coordinates: [number, number];
-  };
-  created_at: string;
-  updated_at: string;
+// Parsed types (with GeoJSON fields as objects)
+export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {
+  location_geojson: Point;
+  metadata: Record<string, any> | null;
 }
 
-export interface AvoidanceArea {
-  id: number;
-  user_id: number;
-  name: string;
-  description: string | null;
-  boundary_geojson: {
-    type: string;
-    coordinates: [number, number][][];
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AvoidanceAreaDetail extends AvoidanceArea {
-  profile_display_name: string | null;
-  profile_avatar_url: string | null;
+export interface AvoidanceArea extends Omit<AvoidanceAreaRaw, "boundary_geojson"> {
+  boundary_geojson: Polygon;
 }
 
 class ApiClient {

@@ -4,8 +4,8 @@ CREATE TABLE `avoidance_area_reports` (
 	`avoidance_area_id` integer NOT NULL,
 	`title` text NOT NULL,
 	`description` text,
-	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
-	`updated_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`avoidance_area_id`) REFERENCES `avoidance_areas`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -16,8 +16,8 @@ CREATE TABLE `avoidance_areas` (
 	`name` text NOT NULL,
 	`description` text,
 	`boundary_geojson` text NOT NULL,
-	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
-	`updated_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -26,8 +26,8 @@ CREATE TABLE `pois` (
 	`poi_type` text NOT NULL,
 	`metadata` text,
 	`location_geojson` text NOT NULL,
-	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
-	`updated_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `profiles` (

@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 export const profiles = sqliteTable('profiles', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -11,8 +12,12 @@ export const pois = sqliteTable('pois', {
 	poi_type: text('poi_type').notNull(),
 	metadata: text('metadata'),
 	location_geojson: text('location_geojson').notNull(),
-	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
-	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+	created_at: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updated_at: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
 });
 
 export const avoidance_areas = sqliteTable('avoidance_areas', {
@@ -23,8 +28,12 @@ export const avoidance_areas = sqliteTable('avoidance_areas', {
 	name: text('name').notNull(),
 	description: text('description'),
 	boundary_geojson: text('boundary_geojson').notNull(),
-	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
-	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+	created_at: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updated_at: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
 });
 
 export const avoidance_area_reports = sqliteTable('avoidance_area_reports', {
@@ -37,6 +46,10 @@ export const avoidance_area_reports = sqliteTable('avoidance_area_reports', {
 		.references(() => avoidance_areas.id),
 	title: text('title').notNull(),
 	description: text('description'),
-	created_at: text('created_at').notNull().default(`CURRENT_TIMESTAMP`),
-	updated_at: text('updated_at').notNull().default(`CURRENT_TIMESTAMP`),
+	created_at: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updated_at: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
 });

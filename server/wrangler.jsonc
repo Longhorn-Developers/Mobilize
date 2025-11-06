@@ -18,8 +18,7 @@
 		{
 			"binding": "staging_mobilize_db",
 			"database_name": "staging-mobilize-db",
-			"database_id": "b08c1f3b-c3ff-442a-8380-77adae08d2f0",
-			"migrations_dir": "migrations",
+			"database_id": "07bcc44f-1564-43ee-95fc-89adba5a08f9",
 		},
 	],
 	/**

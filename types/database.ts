@@ -1,0 +1,35 @@
+import type {
+    profiles,
+    pois,
+    avoidance_areas,
+    avoidance_area_reports,
+} from "~/server/src/db/schema";
+
+import { Polygon, Point } from "geojson";
+
+// Use Drizzle's inferred types
+export type Profile = typeof profiles.$inferSelect;
+export type POIRaw = typeof pois.$inferSelect;
+export type AvoidanceAreaRaw = typeof avoidance_areas.$inferSelect;
+export type AvoidanceAreaReportRaw = typeof avoidance_area_reports.$inferSelect;
+
+// Extended types for joined queries
+export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {
+    profile_display_name: string | null;
+    profile_avatar_url: string | null;
+};
+
+export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
+    profile_display_name?: string | null;
+    profile_avatar_url?: string | null;
+};
+
+// Parsed types (with GeoJSON fields as objects)
+export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {
+    location_geojson: Point;
+    metadata: Record<string, any> | null;
+}
+
+export interface AvoidanceArea extends Omit<AvoidanceAreaRaw, "boundary_geojson"> {
+    boundary_geojson: Polygon;
+}

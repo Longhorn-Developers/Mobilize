@@ -1,43 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
-import type {
-  profiles,
-  pois,
-  avoidance_areas,
-  avoidance_area_reports,
-} from "~/server/src/db/schema";
-
-import { Polygon, Point } from "geojson";
-
-// Use Drizzle's inferred types
-export type Profile = InferSelectModel<typeof profiles>;
-export type POIRaw = InferSelectModel<typeof pois>;
-export type AvoidanceAreaRaw = InferSelectModel<typeof avoidance_areas>;
-export type AvoidanceAreaReportRaw = InferSelectModel<
-  typeof avoidance_area_reports
->;
-
-// Extended types for joined queries
-export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {
-  profile_display_name: string | null;
-  profile_avatar_url: string | null;
-};
-
-export type AvoidanceAreaReport = InferSelectModel<
-  typeof avoidance_area_reports
-> & {
-  profile_display_name?: string | null;
-  profile_avatar_url?: string | null;
-};
-
-// Parsed types (with GeoJSON fields as objects)
-export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {
-  location_geojson: Point;
-  metadata: Record<string, any> | null;
-}
-
-export interface AvoidanceArea extends Omit<AvoidanceAreaRaw, "boundary_geojson"> {
-  boundary_geojson: Polygon;
-}
+import { Profile, POIRaw, AvoidanceAreaRaw, AvoidanceAreaDetailRaw, AvoidanceAreaReport } from "~/types/database";
 
 class ApiClient {
   private baseUrl: string;

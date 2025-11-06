@@ -26,18 +26,18 @@ An Expo React Native mobile application that helps disabled students have more a
 
 4. **Setup environment variables**
 
-    .env.local
+   .env.local
 
-    ```bash
-    EXPO_PUBLIC_API_URL=http://localhost:54321
-    ```
+   ```bash
+   EXPO_PUBLIC_API_URL=http://localhost:54321
+   ```
 
-    server/.env (you can find these in cloudflare dashboard)
+   server/.env (you can find these in cloudflare dashboard)
 
-    ```bash
-    CLOUDFLARE_ACCOUNT_ID=
-    CLOUDFLARE_DATABASE_ID=
-    ```
+   ```bash
+   CLOUDFLARE_ACCOUNT_ID=
+   CLOUDFLARE_DATABASE_ID=
+   ```
 
 ## 🏃‍♂️ Running the App
 

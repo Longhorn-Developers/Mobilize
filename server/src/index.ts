@@ -110,4 +110,27 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(reports);
 });
 
+app.post('/avoidance_areas', async (c) => {
+	const db = drizzle(c.env.staging_mobilize_db);
+	const body = await c.req.json();
+
+	const { user_id, name, description, boundary_geojson } = body;
+
+	if (!user_id || !name || !boundary_geojson) {
+		return c.text('Missing required fields', 400);
+	}
+
+	const result = await db
+		.insert(avoidance_areas)
+		.values({
+			user_id,
+			name,
+			description: description || null,
+			boundary_geojson,
+		})
+		.returning();
+
+	return c.json(result);
+});
+
 export default app;

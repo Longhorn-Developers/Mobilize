@@ -1,5 +1,4 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useInsertMutation } from "@supabase-cache-helpers/postgrest-react-query";
 import { AppleMaps, GoogleMaps, Coordinates } from "expo-maps";
 import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
 import { Stack } from "expo-router";
@@ -9,11 +8,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
-import { supabase } from "~/utils/supabase";
 import * as turf from "@turf/turf";
 import Toast from "react-native-toast-message";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
 import { usePOIs, useAvoidanceAreas } from "~/utils/api-hooks";
@@ -46,29 +43,29 @@ export default function Home() {
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: POIs } = usePOIs();
 
-  const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
-    supabase.from("avoidance_areas"),
-    ["id"],
-    "",
-    {
-      onSuccess: () => {
-        Toast.show({
-          type: "success",
-          text2:
-            "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
-          topOffset: insets.top + 35,
-        });
-      },
-      onError: (error) => {
-        Toast.show({
-          type: "error",
-          text2: `Error reporting avoidance area: ${error.message}`,
-          position: "bottom",
-          bottomOffset: bottomTabBarHeight + 50,
-        });
-      },
-    },
-  );
+  // const { mutateAsync: insertAvoidanceArea } = useInsertMutation(
+  //   supabase.from("avoidance_areas"),
+  //   ["id"],
+  //   "",
+  //   {
+  //     onSuccess: () => {
+  //       Toast.show({
+  //         type: "success",
+  //         text2:
+  //           "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
+  //         topOffset: insets.top + 35,
+  //       });
+  //     },
+  //     onError: (error) => {
+  //       Toast.show({
+  //         type: "error",
+  //         text2: `Error reporting avoidance area: ${error.message}`,
+  //         position: "bottom",
+  //         bottomOffset: bottomTabBarHeight + 50,
+  //       });
+  //     },
+  //   },
+  // );
 
   const getMapIcon = useCallback(
     (poiType: Enums<"poi_type">, metadata: metadata_types) => {
@@ -100,16 +97,17 @@ export default function Home() {
   };
 
   // Check if map pressed is among one of the POIs
-  const handlePOIPress = (event: Coordinates) => {
+  const handlePOIPress = (event: { coordinates: Coordinates }) => {
     if (!POIs) return;
 
     const CLICK_TOLERANCE = 0.0001;
     const POIclicked = POIs.find((poi) => {
       const lonDiff = Math.abs(
-        poi.location_geojson.coordinates[0] - (event.longitude ?? 0),
+        poi.location_geojson.coordinates[0] -
+          (event.coordinates.longitude ?? 0),
       );
       const latDiff = Math.abs(
-        poi.location_geojson.coordinates[1] - (event.latitude ?? 0),
+        poi.location_geojson.coordinates[1] - (event.coordinates.latitude ?? 0),
       );
       return lonDiff <= CLICK_TOLERANCE && latDiff <= CLICK_TOLERANCE;
     });
@@ -118,14 +116,14 @@ export default function Home() {
     }
   };
 
-  const handleMapPress = (event: Coordinates) => {
+  const handleMapPress = (event: { coordinates: Coordinates }) => {
     if (isReportMode) {
       if (reportStep !== 0) return;
 
-      if (isPointValid(event)) {
-        setClickedPoint(event);
+      if (isPointValid(event.coordinates)) {
+        setClickedPoint(event.coordinates);
         // Add pressed coordinates to marked points
-        setAAPointsReport((prev) => [...prev, event]);
+        setAAPointsReport((prev) => [...prev, event.coordinates]);
       } else {
         Toast.show({
           type: "error",
@@ -163,7 +161,7 @@ export default function Home() {
       })),
       // User selected aaPoints to report
       {
-        coordinates: aaPointsReport,
+        coordinates: aaPointsReport.map((point) => point),
         color: "rgba(255, 0, 0, 0.25)",
         lineColor: "red",
         lineWidth: 2,
@@ -215,7 +213,7 @@ export default function Home() {
         <AppleMaps.View
           style={{ flex: 1 }}
           onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          onMapClick={(event) => handleMapPress(event)}
           cameraPosition={initialCameraPosition}
           polygons={polygons}
           annotations={annotations}
@@ -226,7 +224,7 @@ export default function Home() {
         <GoogleMaps.View
           style={{ flex: 1 }}
           onPolygonClick={handleAvoidanceAreaPress}
-          onMapClick={(event) => handleMapPress(event as Coordinates)}
+          onMapClick={(event) => handleMapPress(event)}
           cameraPosition={{ ...initialCameraPosition, zoom: 17 }}
           polygons={polygons}
           markers={annotations}
@@ -250,15 +248,18 @@ export default function Home() {
             currentStep={reportStep}
             setAAPoints={(points) => setAAPointsReport(points)}
             setCurrentStep={(index) => setReportStep(index)}
+            // onSubmit={async (data) => {
+            //   const aaPoints = [...data.aaPoints, data.aaPoints[0]];
+            //   await insertAvoidanceArea([
+            //     {
+            //       name: data.description,
+            //       boundary: coordinatesToWKT(aaPoints),
+            //       description: data.description,
+            //     },
+            //   ]);
+            // }}
             onSubmit={async (data) => {
-              const aaPoints = [...data.aaPoints, data.aaPoints[0]];
-              await insertAvoidanceArea([
-                {
-                  name: data.description,
-                  boundary: coordinatesToWKT(aaPoints),
-                  description: data.description,
-                },
-              ]);
+              console.log(data);
             }}
             onExit={() => {
               setClickedPoint(null);

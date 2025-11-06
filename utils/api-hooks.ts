@@ -12,7 +12,7 @@ export const queryKeys = {
   profile: (id: number) => ["profile", id] as const,
 };
 
-// Hook to fetch all POIs
+// fetch all POIs
 export function usePOIs() {
   return useQuery({
     queryKey: queryKeys.pois,
@@ -21,7 +21,7 @@ export function usePOIs() {
   });
 }
 
-// Hook to fetch all avoidance areas
+// fetch all avoidance areas
 export function useAvoidanceAreas() {
   return useQuery({
     queryKey: queryKeys.avoidanceAreas,
@@ -29,7 +29,7 @@ export function useAvoidanceAreas() {
   });
 }
 
-// Hook to fetch a single avoidance area with profile info
+// fetch a single avoidance area with profile info
 export function useAvoidanceArea(id: number | string) {
   return useQuery({
     queryKey: queryKeys.avoidanceArea(id),
@@ -38,7 +38,7 @@ export function useAvoidanceArea(id: number | string) {
   });
 }
 
-// Hook to fetch reports for an avoidance area
+// fetch reports for an avoidance area
 export function useAvoidanceAreaReports(id: number | string) {
   return useQuery({
     queryKey: queryKeys.avoidanceAreaReports(id),
@@ -47,7 +47,7 @@ export function useAvoidanceAreaReports(id: number | string) {
   });
 }
 
-// Hook to fetch a profile by ID
+// fetch a profile by ID
 export function useProfile(id: number) {
   return useQuery({
     queryKey: queryKeys.profile(id),
@@ -56,7 +56,7 @@ export function useProfile(id: number) {
   });
 }
 
-// Hook for health check (useful for testing connection)
+// health check
 export function useHealthCheck() {
   return useQuery({
     queryKey: ["health"],

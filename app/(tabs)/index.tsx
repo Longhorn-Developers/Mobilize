@@ -27,7 +27,7 @@ const initialCameraPosition = {
     longitude: -97.7333,
     latitude: 30.2672,
   },
-  zoom: 16,
+  zoom: 12,
 };
 
 export default function Home() {
@@ -77,25 +77,6 @@ export default function Home() {
     return kinks.features.length === 0;
   };
 
-  // Check if map pressed is among one of the POIs
-  const handlePOIPress = (coordinate: LatLng) => {
-    if (!POIs) return;
-
-    const CLICK_TOLERANCE = 0.0001;
-    const POIclicked = POIs.find((poi) => {
-      const lonDiff = Math.abs(
-        poi.location_geojson.coordinates[0] - coordinate.longitude,
-      );
-      const latDiff = Math.abs(
-        poi.location_geojson.coordinates[1] - coordinate.latitude,
-      );
-      return lonDiff <= CLICK_TOLERANCE && latDiff <= CLICK_TOLERANCE;
-    });
-    if (POIclicked) {
-      console.log(`POI CLICKED: ${POIclicked.id}`);
-    }
-  };
-
   const handleMapPress = (event: any) => {
     const coordinate = event.nativeEvent.coordinate;
     if (isReportMode) {
@@ -114,7 +95,6 @@ export default function Home() {
         });
       }
     } else {
-      handlePOIPress(coordinate);
       bottomSheetRef.current?.close();
     }
   };

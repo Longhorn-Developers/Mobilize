@@ -1,7 +1,9 @@
-import { ForwardedRef } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { ForwardedRef } from "react";
+
 import colors from "~/types/colors";
+
 import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
 
 interface PolygonData {

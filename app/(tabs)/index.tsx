@@ -1,21 +1,22 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
+import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
+
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
-import * as turf from "@turf/turf";
-import Toast from "react-native-toast-message";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import useMapIcons from "~/utils/useMapIcons";
 import {
   usePOIs,
   useAvoidanceAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
+import useMapIcons from "~/utils/useMapIcons";
 
 export default function Home() {
   // hooks
@@ -171,7 +172,6 @@ export default function Home() {
           longitude: -97.733,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
-    
         }}
       >
         {/* Render polygons */}

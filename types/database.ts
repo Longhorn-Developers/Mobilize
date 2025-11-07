@@ -1,11 +1,11 @@
+import { Polygon, Point } from "geojson";
+
 import type {
   profiles,
   pois,
   avoidance_areas,
   avoidance_area_reports,
 } from "~/server/src/db/schema";
-
-import { Polygon, Point } from "geojson";
 
 // Use Drizzle's inferred types
 export type Profile = typeof profiles.$inferSelect;

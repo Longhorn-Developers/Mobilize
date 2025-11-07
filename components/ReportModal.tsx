@@ -1,10 +1,13 @@
-import colors from "~/types/colors";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   CameraPlusIcon,
   PencilSimpleLineIcon,
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
+import { ReactNode, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import {
   View,
   Text,
@@ -12,15 +15,14 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from "react-native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Button } from "./Button";
-import { ReactNode, useEffect } from "react";
-import { ActionButtonGroup } from "./ActionButtonGroup";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z, ZodType } from "zod";
-import Toast from "react-native-toast-message";
 import { LatLng } from "react-native-maps";
+import Toast from "react-native-toast-message";
+import { z, ZodType } from "zod";
+
+import colors from "~/types/colors";
+
+import { ActionButtonGroup } from "./ActionButtonGroup";
+import { Button } from "./Button";
 
 const reportFormSchema = z.object({
   aaPoints: z

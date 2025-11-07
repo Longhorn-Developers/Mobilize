@@ -1,4 +1,6 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as turf from "@turf/turf";
 import {
   WarningIcon,
   MapPinIcon,
@@ -9,19 +11,19 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { z } from "zod";
+
 import colors from "~/types/colors";
-import { ActionButtonGroup } from "./ActionButtonGroup";
-import * as turf from "@turf/turf";
 import {
   useAvoidanceArea,
   useAvoidanceAreaReports,
   useInsertAvoidanceAreaReport,
 } from "~/utils/api-hooks";
+
+import { ActionButtonGroup } from "./ActionButtonGroup";
 
 type Polygon = {
   type: "Polygon";

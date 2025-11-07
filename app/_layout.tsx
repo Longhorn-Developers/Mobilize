@@ -1,25 +1,26 @@
 import "~/global.css";
-import { AppStateStatus, Platform, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import Toast, {
-  ErrorToast,
-  SuccessToast,
-  ToastConfig,
-} from "react-native-toast-message";
-import * as Network from "expo-network";
-import { Stack } from "expo-router";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {
   QueryClient,
   QueryClientProvider,
   focusManager,
   onlineManager,
 } from "@tanstack/react-query";
-import { useSyncQueriesExternal } from "react-query-external-sync";
-import { useAppState } from "~/utils/useAppState";
+import * as Network from "expo-network";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { CheckIcon, XIcon } from "phosphor-react-native";
-import colors from "~/types/colors";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { AppStateStatus, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Toast, {
+  ErrorToast,
+  SuccessToast,
+  ToastConfig,
+} from "react-native-toast-message";
+import { useSyncQueriesExternal } from "react-query-external-sync";
+
+import colors from "~/types/colors";
+import { useAppState } from "~/utils/useAppState";
 
 function onAppStateChange(status: AppStateStatus) {
   // React Query already supports in web browser refetch on window focus by default

@@ -32,6 +32,7 @@
     "expo-status-bar": "~3.0.8",
     "expo-system-ui": "~6.0.8",
     "expo-web-browser": "~15.0.9",
+    "geojson": "^0.5.0",
     "nativewind": "latest",
     "phosphor-react-native": "^3.0.0",
     "react": "19.1.0",

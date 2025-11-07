@@ -1,8 +1,8 @@
 import type {
-    profiles,
-    pois,
-    avoidance_areas,
-    avoidance_area_reports,
+  profiles,
+  pois,
+  avoidance_areas,
+  avoidance_area_reports,
 } from "~/server/src/db/schema";
 
 import { Polygon, Point } from "geojson";
@@ -15,21 +15,22 @@ export type AvoidanceAreaReportRaw = typeof avoidance_area_reports.$inferSelect;
 
 // Extended types for joined queries
 export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {
-    profile_display_name: string | null;
-    profile_avatar_url: string | null;
+  profile_display_name: string | null;
+  profile_avatar_url: string | null;
 };
 
 export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
-    profile_display_name?: string | null;
-    profile_avatar_url?: string | null;
+  profile_display_name?: string | null;
+  profile_avatar_url?: string | null;
 };
 
 // Parsed types (with GeoJSON fields as objects)
 export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {
-    location_geojson: Point;
-    metadata: Record<string, any> | null;
+  location_geojson: Point;
+  metadata: Record<string, any> | null;
 }
 
-export interface AvoidanceArea extends Omit<AvoidanceAreaRaw, "boundary_geojson"> {
-    boundary_geojson: Polygon;
+export interface AvoidanceArea
+  extends Omit<AvoidanceAreaRaw, "boundary_geojson"> {
+  boundary_geojson: Polygon;
 }

@@ -68,6 +68,9 @@ importers:
       expo-web-browser:
         specifier: ~15.0.9
         version: 15.0.9(expo@54.0.22)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))
+      geojson:
+        specifier: ^0.5.0
+        version: 0.5.0
       nativewind:
         specifier: latest
         version: 4.2.1(react-native-reanimated@4.1.2(@babel/core@7.28.0)(react-native-worklets@0.5.1(@babel/core@7.28.0)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-safe-area-context@5.6.1(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-svg@15.12.1(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(tailwindcss@3.4.17)
@@ -3420,6 +3423,10 @@ packages:
 
   geojson-polygon-self-intersections@1.2.1:
     resolution: {integrity: sha512-/QM1b5u2d172qQVO//9CGRa49jEmclKEsYOQmWP9ooEjj63tBM51m2805xsbxkzlEELQ2REgTf700gUhhlegxA==}
+
+  geojson@0.5.0:
+    resolution: {integrity: sha512-/Bx5lEn+qRF4TfQ5aLu6NH+UKtvIv7Lhc487y/c8BdludrCTpiWf9wyI0RTyqg49MFefIAvFDuEi5Dfd/zgNxQ==}
+    engines: {node: '>= 0.10'}
 
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
@@ -10081,6 +10088,8 @@ snapshots:
   geojson-polygon-self-intersections@1.2.1:
     dependencies:
       rbush: 2.0.2
+
+  geojson@0.5.0: {}
 
   get-caller-file@2.0.5: {}
 

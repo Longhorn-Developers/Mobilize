@@ -1,5 +1,11 @@
 import { Polygon } from "geojson";
-import { Profile, POIRaw, AvoidanceAreaRaw, AvoidanceAreaDetailRaw, AvoidanceAreaReport } from "~/types/database";
+import {
+  Profile,
+  POIRaw,
+  AvoidanceAreaRaw,
+  AvoidanceAreaDetailRaw,
+  AvoidanceAreaReport,
+} from "~/types/database";
 
 class ApiClient {
   private baseUrl: string;
@@ -102,10 +108,13 @@ class ApiClient {
     title: string;
     description?: string;
   }) {
-    return this.request<any>(`/avoidance_areas/${data.avoidance_area_id}/reports`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    return this.request<any>(
+      `/avoidance_areas/${data.avoidance_area_id}/reports`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
   }
 }
 

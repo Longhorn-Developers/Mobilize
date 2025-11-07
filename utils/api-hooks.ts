@@ -11,8 +11,7 @@ export const queryKeys = {
   pois: ["pois"] as const,
   avoidanceAreas: ["avoidanceAreas"] as const,
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
-  avoidanceAreaReports: (id: string) =>
-    ["avoidanceAreaReports", id] as const,
+  avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
 };
 
@@ -76,7 +75,6 @@ export function useInsertAvoidanceArea() {
   const insets = useSafeAreaInsets();
   const bottomTabBarHeight = useBottomTabBarHeight();
 
-
   return useMutation({
     mutationFn: (data: {
       user_id: number;
@@ -94,7 +92,6 @@ export function useInsertAvoidanceArea() {
           "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
         topOffset: insets.top + 35,
       });
-
     },
     onError: (error) => {
       Toast.show({
@@ -104,7 +101,6 @@ export function useInsertAvoidanceArea() {
         bottomOffset: bottomTabBarHeight + 50,
       });
     },
-
   });
 }
 
@@ -126,7 +122,10 @@ export function useInsertAvoidanceAreaReport() {
         (oldData: any) => [...(oldData || []), data[0]],
       );
 
-      console.log("Report added successfully", queryKeys.avoidanceAreaReports(data[0].avoidance_area_id.toString()));
+      console.log(
+        "Report added successfully",
+        queryKeys.avoidanceAreaReports(data[0].avoidance_area_id.toString()),
+      );
     },
     onError: (error) => {
       console.error("Error adding report:", error);

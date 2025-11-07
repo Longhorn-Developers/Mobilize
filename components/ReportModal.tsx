@@ -1,11 +1,13 @@
-import colors from "~/types/colors";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   CameraPlusIcon,
   PencilSimpleLineIcon,
-  PlusCircleIcon,
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
+import { ReactNode, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import {
   View,
   Text,
@@ -13,23 +15,22 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from "react-native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Button } from "./Button";
-import { ReactNode, useEffect } from "react";
-import { ActionButtonGroup } from "./ActionButtonGroup";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z, ZodType } from "zod";
+import { LatLng } from "react-native-maps";
 import Toast from "react-native-toast-message";
-import { Coordinates } from "expo-maps";
+import { z, ZodType } from "zod";
+
+import colors from "~/types/colors";
+
+import { ActionButtonGroup } from "./ActionButtonGroup";
+import { Button } from "./Button";
 
 const reportFormSchema = z.object({
   aaPoints: z
     .array(
       z.object({
-        latitude: z.number().optional(),
-        longitude: z.number().optional(),
-      }) satisfies ZodType<Coordinates>,
+        latitude: z.number(),
+        longitude: z.number(),
+      }) satisfies ZodType<LatLng>,
     )
     .min(
       3,
@@ -51,9 +52,9 @@ type ReportFormData = z.infer<typeof reportFormSchema>;
 interface ReportModeDialogProps {
   className?: string;
   style?: ViewStyle;
-  aaPoints: Coordinates[];
+  aaPoints: LatLng[];
   currentStep: number;
-  setAAPoints: (points: Coordinates[]) => void;
+  setAAPoints: (points: LatLng[]) => void;
   setCurrentStep: (index: number) => void;
   onSubmit: (data: ReportFormData) => void;
   onExit: () => void;

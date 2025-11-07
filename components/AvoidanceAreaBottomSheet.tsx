@@ -1,9 +1,14 @@
-import { ForwardedRef } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { ForwardedRef } from "react";
+
 import colors from "~/types/colors";
-import { AppleMapsPolygon } from "expo-maps/build/apple/AppleMaps.types";
+
 import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
+
+interface PolygonData {
+  id: string;
+}
 
 interface AvoidanceAreaBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
@@ -12,7 +17,7 @@ interface AvoidanceAreaBottomSheetProps {
 const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   return (
-    <BottomSheetModal<AppleMapsPolygon>
+    <BottomSheetModal<PolygonData>
       ref={ref}
       bottomInset={bottomTabBarHeight}
       backgroundStyle={{ borderRadius: 32 }}

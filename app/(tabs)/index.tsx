@@ -17,19 +17,6 @@ import {
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 
-const initialCameraPosition = {
-  coordinates: {
-    // Default coordinates for UT Tower
-    // longitude: -97.73921,
-    // latitude: 30.28565,
-
-    // Testing camera position for test avoidance area
-    longitude: -97.7333,
-    latitude: 30.2672,
-  },
-  zoom: 12,
-};
-
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
@@ -179,11 +166,12 @@ export default function Home() {
       <MapView
         style={{ flex: 1 }}
         onPress={handleMapPress}
-        initialRegion={{
-          latitude: initialCameraPosition.coordinates.latitude,
-          longitude: initialCameraPosition.coordinates.longitude,
+        region={{
+          latitude: 30.282,
+          longitude: -97.733,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
+    
         }}
       >
         {/* Render polygons */}

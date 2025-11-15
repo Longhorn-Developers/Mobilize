@@ -20,6 +20,7 @@ import useMapIcons from "~/utils/useMapIcons";
 
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
+import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
 
 export default function Home() {
   // hooks
@@ -27,6 +28,7 @@ export default function Home() {
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<BottomSheetModal>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -168,9 +170,13 @@ export default function Home() {
     address?: string;
   }) => {
     console.log("Selected location:", location);
-    // TODO: Next step - we'll implement navigation to this location
+    
+    // Close search
     setIsSearchActive(false);
     setSearchQuery("");
+    
+    // Open location details bottom sheet
+    locationBottomSheetRef.current?.present();
   };
 
   const handleSearchChange = (text: string) => {
@@ -216,6 +222,9 @@ export default function Home() {
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+
+      {/* Location Details Bottom Sheet */}
+      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}

@@ -32,11 +32,11 @@ export const SearchBar = ({
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.7}
-        className={`flex-row items-center gap-3 rounded-full bg-white px-5 py-4 shadow-lg ${className}`}
+        className={`flex-row items-center gap-3 rounded-full bg-white px-5 py-3 shadow-lg ${className}`}
         style={style}
       >
-        <MagnifyingGlassIcon size={24} color={colors.ut.gray} weight="bold" />
-        <Text className="flex-1 text-lg text-gray-400">
+        <MagnifyingGlassIcon size={20} color={colors.ut.gray} weight="bold" />
+        <Text className="flex-1 text-base text-gray-400">
           {placeholder}
         </Text>
       </TouchableOpacity>
@@ -46,12 +46,12 @@ export const SearchBar = ({
   // If editable, render with TextInput
   return (
     <View
-      className={`flex-row items-center gap-3 rounded-full bg-white px-5 py-4 shadow-lg ${className}`}
+      className={`flex-row items-center gap-3 rounded-full bg-white px-5 py-3 shadow-lg ${className}`}
       style={style}
     >
-      <MagnifyingGlassIcon size={24} color={colors.ut.gray} weight="bold" />
+      <MagnifyingGlassIcon size={20} color={colors.ut.gray} weight="bold" />
       <TextInput
-        className="flex-1 text-lg text-gray-900"
+        className="flex-1 text-base text-gray-900"
         placeholder={placeholder}
         placeholderTextColor={colors.ut.gray}
         value={value}

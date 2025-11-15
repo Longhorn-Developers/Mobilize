@@ -51,28 +51,44 @@ export const SearchDropdown = ({
     },
   ];
 
-  // Mock search results - we'll implement real search later
+  // Mock search results - filter by query
+  const allLocations: Location[] = [
+    {
+      id: "3",
+      name: "Texas Global",
+      address: "2300 Red River St",
+      type: "building",
+    },
+    {
+      id: "4",
+      name: "Texas Union Building",
+      address: "2100 Guadalupe St",
+      type: "building",
+    },
+    {
+      id: "5",
+      name: "Texas Ballroom",
+      address: "2100 Guadalupe St",
+      type: "building",
+    },
+    {
+      id: "6",
+      name: "GDC (Gates Dell Complex)",
+      address: "2317 Speedway",
+      type: "building",
+    },
+    {
+      id: "7",
+      name: "Gregory Gym",
+      address: "2101 Speedway",
+      type: "building",
+    },
+  ];
+
   const searchResults: Location[] = searchQuery.length > 0
-    ? [
-        {
-          id: "3",
-          name: "Texas Global",
-          address: "2300 Red River St",
-          type: "building",
-        },
-        {
-          id: "4",
-          name: "Texas Union Building",
-          address: "2100 Guadalupe St",
-          type: "building",
-        },
-        {
-          id: "5",
-          name: "Texas Ballroom",
-          address: "2100 Guadalupe St",
-          type: "building",
-        },
-      ]
+    ? allLocations.filter((location) =>
+        location.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : [];
 
   const displayedLocations = searchQuery.length > 0 ? searchResults : recentSearches;
@@ -111,7 +127,7 @@ export const SearchDropdown = ({
 
       {/* Dropdown Content */}
       <View
-        className="absolute left-4 right-4 rounded-2xl bg-white shadow-2xl"
+        className="absolute left-4 right-4 z-10 rounded-2xl bg-white shadow-2xl"
         style={{ top: topOffset }}
       >
         {/* Section Header */}

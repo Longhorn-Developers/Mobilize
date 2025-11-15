@@ -11,6 +11,7 @@ import Toast from "react-native-toast-message";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
+import ReviewModal from '~/components/ReviewModal';
 import {
   usePOIs,
   useAvoidanceAreas,
@@ -30,6 +31,7 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -247,6 +249,29 @@ export default function Home() {
           onPress={() => setIsReportMode(true)}
         />
       )}
+
+      
+      {isReviewMode ? (
+      <>
+        {/* Review modal overlay tint */}
+        <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
+        <ReviewModal
+          className="absolute left-10 right-10 top-1/4"
+          buildingName="Temp BLD Name"
+          onExit={() => {
+            setIsReviewMode(false);
+          }}
+        />
+      </>
+      ) : (
+        // Temp Button to open review mode
+        <Button
+          className="absolute bottom-4 left-4"
+          title={"Reviews"}
+          onPress={() => setIsReviewMode(true)}
+        />
+      )}
+
     </>
   );
 }

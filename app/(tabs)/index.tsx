@@ -20,6 +20,7 @@ import { coordinatesToWKT } from "~/utils/postgis";
 import { Enums, metadata_types } from "~/types/database";
 import useMapIcons from "~/hooks/useMapIcons";
 import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
 
 const initialCameraPosition = {
   coordinates: {
@@ -43,7 +44,8 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<Coordinates[]>([]);
   const [clickedPoint, setClickedPoint] = useState<Coordinates | null>(null);
   const [reportStep, setReportStep] = useState(0);
-  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const bottomSheetRef = useRef<BottomSheetModal>(null);
 
@@ -212,15 +214,56 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
   );
 
+  const handleSelectLocation = (location: {
+    id: string;
+    name: string;
+    address?: string;
+  }) => {
+    console.log("Selected location:", location);
+    // TODO: Next step - we'll implement navigation to this location
+    setIsSearchActive(false);
+    setSearchQuery("");
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (!isSearchActive && text.length > 0) {
+      setIsSearchActive(true);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleDismissSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery("");
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
        {/* Search Bar */}
       <SearchBar 
-        onPress={() => setIsSearchModalVisible(true)}
-        className="absolute left-4 right-4 z-10"
+        onPress={() => setIsSearchActive(true)}
+        onChangeText={handleSearchChange}
+        onClear={handleClearSearch}
+        value={searchQuery}
+        editable={isSearchActive}
+        isActive={isSearchActive}
+        className="absolute left-4 right-4 z-20"
         style={{ top: insets.top + 10 }}
+      />
+
+      {/* Search Dropdown */}
+      <SearchDropdown
+        visible={isSearchActive}
+        searchQuery={searchQuery}
+        onSelectLocation={handleSelectLocation}
+        onDismiss={handleDismissSearch}
+        topOffset={insets.top + 70} // Position below search bar
       />
 
       {/* Avoidance Area Bottom Sheet */}

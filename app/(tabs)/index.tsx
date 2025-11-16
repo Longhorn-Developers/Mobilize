@@ -11,7 +11,7 @@ import Toast from "react-native-toast-message";
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
-import ReviewModal from '~/components/ReviewModal';
+import ReviewModal from "~/components/ReviewModal";
 import {
   usePOIs,
   useAvoidanceAreas,
@@ -250,19 +250,19 @@ export default function Home() {
         />
       )}
 
-      
       {isReviewMode ? (
-      <>
-        {/* Review modal overlay tint */}
-        <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
-        <ReviewModal
-          className="absolute left-10 right-10 top-1/4"
-          buildingName="Temp BLD Name"
-          onExit={() => {
-            setIsReviewMode(false);
-          }}
-        />
-      </>
+        <>
+          {/* Review modal overlay tint */}
+          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
+          <ReviewModal
+            className="absolute left-10 right-10 top-1/4"
+            entranceName="South Entrance"
+            buildingName="Gregory Gym"
+            onExit={() => {
+              setIsReviewMode(false);
+            }}
+          />
+        </>
       ) : (
         // Temp Button to open review mode
         <Button
@@ -271,7 +271,6 @@ export default function Home() {
           onPress={() => setIsReviewMode(true)}
         />
       )}
-
     </>
   );
 }

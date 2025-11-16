@@ -1,24 +1,102 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, getTableColumns } from 'drizzle-orm';
-import { avoidance_areas, pois, profiles, avoidance_area_reports } from './db/schema';
+import { avoidance_areas, pois, profiles, avoidance_area_reports, users } from './db/schema';
 import { syncPOIs } from './scheduled/poi-sync';
+import { createAuth } from './auth';
 
 export interface Env {
 	mobilize_db: D1Database;
+	GOOGLE_CLIENT_ID: string;
+	GOOGLE_CLIENT_SECRET: string;
+	BETTER_AUTH_SECRET: string;
+	BETTER_AUTH_URL: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Initialize Better Auth
+let auth: ReturnType<typeof createAuth> | null = null;
+
+function getAuth(env: Env) {
+	if (!auth) {
+		auth = createAuth(env);
+	}
+	return auth;
+}
+
+// Mount Better Auth routes
+app.all('/api/auth/*', async (c) => {
+	const authInstance = getAuth(c.env);
+	return await authInstance.handler(c.req.raw);
+});
 
 // Health check route
 app.get('/health', (c) => {
 	return c.text('OK');
 });
 
-// GET profiles by id
-app.get('/profiles', async (c) => {
+// Auth status endpoint
+app.get('/api/auth/me', async (c) => {
+	const authInstance = getAuth(c.env);
+	const session = await authInstance.api.getSession({
+		headers: c.req.raw.headers
+	});
+	
+	if (!session) {
+		return c.json({ user: null, session: null }, 401);
+	}
+	
+	return c.json({ user: session.user, session });
+});
+
+// Authentication middleware
+async function requireAuth(c: any, next: any) {
+	const authInstance = getAuth(c.env);
+	const session = await authInstance.api.getSession({
+		headers: c.req.raw.headers
+	});
+	
+	if (!session) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+	
+	c.set('user', session.user);
+	c.set('session', session);
+	await next();
+}
+
+// Role-based middleware
+function requireRole(roles: string[]) {
+	return async (c: any, next: any) => {
+		const user = c.get('user');
+		
+		if (!user || !roles.includes(user.role)) {
+			return c.json({ error: 'Forbidden' }, 403);
+		}
+		
+		await next();
+	};
+}
+
+// GET current user's profile
+app.get('/profiles/me', requireAuth, async (c) => {
 	const db = drizzle(c.env.mobilize_db);
-	const profileId = c.req.query('id');
+	const user = c.get('user');
+
+	const profile = await db
+		.select()
+		.from(profiles)
+		.where(eq(profiles.id, user.id))
+		.get();
+
+	return c.json(profile);
+});
+
+// GET profiles by id (public read)
+app.get('/profiles/:id', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const profileId = c.req.param('id');
 
 	if (!profileId) {
 		return c.text('Profile ID is required', 400);
@@ -35,6 +113,55 @@ app.get('/profiles', async (c) => {
 	}
 
 	return c.json(profile);
+});
+
+// POST/PUT create or update profile
+app.post('/profiles', requireAuth, async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const user = c.get('user');
+	
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		return c.text('Invalid JSON body', 400);
+	}
+
+	const { full_name, avatar_url, class_year, major, bio, mobility_incline, mobility_arm_range } = body;
+
+	if (!full_name) {
+		return c.text('Full name is required', 400);
+	}
+
+	const result = await db
+		.insert(profiles)
+		.values({
+			id: user.id,
+			full_name,
+			avatar_url,
+			class_year,
+			major,
+			bio,
+			mobility_incline,
+			mobility_arm_range,
+			updated_at: new Date()
+		})
+		.onConflictDoUpdate({
+			target: profiles.id,
+			set: {
+				full_name,
+				avatar_url,
+				class_year,
+				major,
+				bio,
+				mobility_incline,
+				mobility_arm_range,
+				updated_at: new Date()
+			}
+		})
+		.returning();
+
+	return c.json(result);
 });
 
 // GET all pois
@@ -63,7 +190,7 @@ app.get('/avoidance_areas/:id', async (c) => {
 	const area = await db
 		.select({
 			...getTableColumns(avoidance_areas),
-			profile_display_name: profiles.display_name,
+			profile_full_name: profiles.full_name,
 			profile_avatar_url: profiles.avatar_url,
 
 		})
@@ -91,7 +218,7 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	const reports = await db
 		.select({
 			...getTableColumns(avoidance_area_reports),
-			profile_display_name: profiles.display_name,
+			profile_full_name: profiles.full_name,
 		})
 		.from(avoidance_area_reports)
 		.leftJoin(profiles, eq(avoidance_area_reports.user_id, profiles.id))
@@ -101,9 +228,10 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(reports);
 });
 
-// POST insert new avoidance area
-app.post('/avoidance_areas', async (c) => {
+// POST insert new avoidance area (requires student role)
+app.post('/avoidance_areas', requireAuth, requireRole(['student']), async (c) => {
 	const db = drizzle(c.env.mobilize_db);
+	const user = c.get('user');
 
 	let body;
 	try {
@@ -113,16 +241,16 @@ app.post('/avoidance_areas', async (c) => {
 		return c.text('Invalid JSON body', 400);
 	}
 
-	const { user_id, name, description, boundary_geojson } = body;
+	const { name, description, boundary_geojson } = body;
 
-	if (!user_id || !name || !boundary_geojson) {
+	if (!name || !boundary_geojson) {
 		return c.text('Missing required fields', 400);
 	}
 
 	const result = await db
 		.insert(avoidance_areas)
 		.values({
-			user_id,
+			user_id: user.id,
 			name,
 			description: description || null,
 			boundary_geojson: JSON.stringify(boundary_geojson),
@@ -132,9 +260,10 @@ app.post('/avoidance_areas', async (c) => {
 	return c.json(result);
 });
 
-// POST insert new avoidance area report
-app.post('/avoidance_areas/:id/reports', async (c) => {
+// POST insert new avoidance area report (requires student role)
+app.post('/avoidance_areas/:id/reports', requireAuth, requireRole(['student']), async (c) => {
 	const db = drizzle(c.env.mobilize_db);
+	const user = c.get('user');
 	const areaId = Number(c.req.param('id'));
 
 	if (isNaN(areaId)) {
@@ -149,16 +278,16 @@ app.post('/avoidance_areas/:id/reports', async (c) => {
 		return c.text('Invalid JSON body', 400);
 	}
 
-	const { user_id, title, description } = body;
+	const { title, description } = body;
 
-	if (!user_id || !title) {
+	if (!title) {
 		return c.text('Missing required fields', 400);
 	}
 
 	const result = await db
 		.insert(avoidance_area_reports)
 		.values({
-			user_id,
+			user_id: user.id,
 			avoidance_area_id: areaId,
 			title,
 			description

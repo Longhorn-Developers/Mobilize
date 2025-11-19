@@ -23,7 +23,7 @@ type Review = {
   author?: string | null; // user id or smth
   date: Date;
   rating: number;
-  features?: "Power-assisted doors" | "Manual doors";
+  features: string[];
   content: string;
   location_id: number;
 };
@@ -44,8 +44,26 @@ const ReviewModal = ({
   const [rating, setRating] = useState(0);
   const stars = [1, 2, 3, 4, 5];
 
+  const features = ["Power-assisted doors", "Manual doors"];
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
+    new Set<string>(),
+  );
+
+  const handleSelectFeature = (feature: string) => {
+    setSelectedFeatures((prevSelectedFeatures) => {
+      const newSelectedFeatures = new Set<string>(prevSelectedFeatures);
+      if (newSelectedFeatures?.has(feature)) {
+        newSelectedFeatures?.delete(feature);
+      } else {
+        newSelectedFeatures?.add(feature);
+      }
+      console.log(newSelectedFeatures);
+      return newSelectedFeatures;
+    });
+  };
+
   const handleSubmit = () => {
-    // Export info: review id, author, rating, date, content, entrance_id/building_id/etc
+    // Export info: review id, author, date, rating, features, content, entrance_id/building_id/etc
     onExit();
   };
 
@@ -56,23 +74,23 @@ const ReviewModal = ({
   return (
     <>
       {/* Main Modal */}
-      <View className={`gap-4 rounded-lg bg-white py-8 px-8 ${className}`}>
+      <View className={`gap-4 rounded-xl bg-white px-8 py-8 ${className}`}>
         {/* Exit Button */}
         <Button
           variant="ghost"
           title=""
           className="absolute right-0 top-8 shadow-none"
           onPress={handleClose}
-          icon={<XIcon size={28} color={colors.ut.black + "/50"} />}
+          icon={<XIcon size={28} color={colors.ut.black + "50"} />}
         />
 
         {/* Headings */}
-          <View className="gap-2">
-            <Text className="max-w-64 pt-1 text-3xl font-bold">
-              {buildingName}
-            </Text>
-            <Text className="">Leave a Review: {entranceName}</Text>
-          </View>
+        <View className="gap-2">
+          <Text className="max-w-64 pt-1 text-3xl font-bold">
+            {buildingName}
+          </Text>
+          <Text className="">Leave a Review: {entranceName}</Text>
+        </View>
 
         {/* Rating Section */}
         <View className="gap-2">
@@ -102,11 +120,26 @@ const ReviewModal = ({
           <Text className="text-slate-500">
             Select any features you noticed
           </Text>
-          <View className="flex max-w-full"></View>
+
+          {/* Feature Buttons */}
+          <View className="flex max-w-full flex-row gap-2">
+            {features.map((feature) => (
+              <TouchableOpacity
+                key={feature}
+                className={`rounded-full border-2 border-ut-black/50 px-2 py-1 
+                  ${!selectedFeatures?.has(feature) ? "bg-white" : "bg-indigo-100"}`}
+                onPress={() => {
+                  handleSelectFeature(feature);
+                }}
+              >
+                <Text className="text-sm">{feature}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
+        {/* Experience Sharing Section */}
         <View className="gap-4">
-          {/* Experience Sharing Section */}
           <Text className="text-slate-500">
             Share your experience (optional)
           </Text>

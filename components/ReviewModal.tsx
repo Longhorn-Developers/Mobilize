@@ -21,8 +21,9 @@ import { Button } from "./Button";
 type Review = {
   id: number;
   author?: string | null; // user id or smth
-  rating: number;
   date: Date;
+  rating: number;
+  features?: "Power-assisted doors" | "Manual doors";
   content: string;
   location_id: number;
 };
@@ -55,31 +56,23 @@ const ReviewModal = ({
   return (
     <>
       {/* Main Modal */}
-      <View className={`gap-4 rounded-lg bg-white py-5 pl-6 pr-4 ${className}`}>
+      <View className={`gap-4 rounded-lg bg-white py-8 px-8 ${className}`}>
         {/* Exit Button */}
         <Button
           variant="ghost"
           title=""
-          className="absolute right-0 top-10"
+          className="absolute right-0 top-8 shadow-none"
           onPress={handleClose}
-          icon={<XIcon size={28} color={colors.ut.gray} />}
+          icon={<XIcon size={28} color={colors.ut.black + "/50"} />}
         />
 
-        {/* Headings and Edit Icon */}
-        <View className="flex flex-row items-center gap-6">
-          {/* Edit Icon */}
-          <View className="flex items-center justify-center rounded-xl bg-ut-black/20 p-2">
-            <PencilSimpleLineIcon size={28} />
-          </View>
-
-          {/* Headings */}
+        {/* Headings */}
           <View className="gap-2">
             <Text className="max-w-64 pt-1 text-3xl font-bold">
-              Review {entranceName}
+              {buildingName}
             </Text>
-            <Text className="">Located at {buildingName}</Text>
+            <Text className="">Leave a Review: {entranceName}</Text>
           </View>
-        </View>
 
         {/* Rating Section */}
         <View className="gap-2">
@@ -125,7 +118,7 @@ const ReviewModal = ({
         </View>
 
         {/* Buttons */}
-        <View className="mt-2 gap-4">
+        <View className="mt-2 gap-2">
           {/* Submit Button */}
           <Button
             className="gap-2 rounded-xl shadow-none"

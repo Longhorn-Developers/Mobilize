@@ -36,9 +36,8 @@ export default function SignupScreen() {
   };
 
   const handleGoogleSignup = () => {
-    // TODO: Implement Google signup
-    console.log("Google signup");
-    router.push("./profile-setup" as any);
+    // Navigate to Google OAuth screen
+    router.push("./google-oauth" as any);
   };
 
   const handleUTEIDContinue = () => {

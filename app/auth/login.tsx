@@ -4,14 +4,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CaretLeft } from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
-import colors from "~/types/colors";
 
 export default function LoginScreen() {
   const [utEid, setUtEid] = useState("");
@@ -33,13 +32,26 @@ export default function LoginScreen() {
     Alert.alert("Forgot Password", "Forgot password functionality coming soon!");
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   return (
     <View 
       className="flex-1 bg-white px-6"
       style={{ paddingTop: insets.top }}
     >
+      {/* Back Button */}
+      <TouchableOpacity
+        onPress={handleGoBack}
+        className="mt-4 mb-4"
+        style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
+      >
+        <CaretLeft size={24} color="#000" />
+      </TouchableOpacity>
+
       {/* Header */}
-      <View className="mb-8 mt-8">
+      <View className="mb-8">
         <Text className="text-2xl font-bold text-ut-black">
           Sign up with your UT EID
         </Text>

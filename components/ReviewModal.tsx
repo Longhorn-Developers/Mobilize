@@ -1,6 +1,8 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { XIcon, StarIcon, CheckIcon } from "phosphor-react-native";
 import { useForm, useController, Control } from "react-hook-form";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
 
@@ -116,20 +118,34 @@ const ReviewModal = ({
 }: ReviewModalProps) => {
   const { control, handleSubmit } = useForm<Review>();
 
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
   const onSubmit = (data: Review) => {
     if (data.rating === 0) {
       /* TODO: Should error if no rating selected */
       console.log("[onSubmit] rating not selected!");
+      Toast.show({
+        type: "error",
+        text2: "Please select a rating.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
     } else {
       // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
       data.review_id = 1; // temp
       data.author = "Tim"; // temp
       data.location_id = `${buildingName}-${entranceName}`;
 
-      Alert.alert(JSON.stringify(data));
-    }
+      console.log(JSON.stringify(data));
+      Toast.show({
+        type: "success",
+        text2: "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight * 6,
+      });
 
-    onExit();
+      onExit();
+    }
   };
 
   const handleClose = () => {

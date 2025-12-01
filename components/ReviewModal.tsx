@@ -1,5 +1,11 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { XIcon, StarIcon, CheckIcon } from "phosphor-react-native";
+import {
+  XIcon,
+  StarIcon,
+  CheckIcon,
+  ArrowRightIcon,
+} from "phosphor-react-native";
+import { useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import Toast from "react-native-toast-message";
@@ -99,6 +105,7 @@ const ReviewContentInput = ({
       multiline={true}
       placeholder="How was the accessibility? Any specific details that would help other students?"
       onChangeText={field.onChange}
+      maxLength={280}
     />
   );
 };
@@ -117,6 +124,7 @@ const ReviewModal = ({
   onExit,
 }: ReviewModalProps) => {
   const { control, handleSubmit } = useForm<Review>();
+  const [formState, setFormState] = useState(0);
 
   const bottomTabBarHeight = useBottomTabBarHeight();
 
@@ -139,7 +147,8 @@ const ReviewModal = ({
       console.log(JSON.stringify(data));
       Toast.show({
         type: "success",
-        text2: "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        text2:
+          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
         position: "bottom",
         bottomOffset: bottomTabBarHeight * 6,
       });
@@ -170,67 +179,96 @@ const ReviewModal = ({
           <Text className="max-w-64 pt-1 text-3xl font-bold">
             {buildingName}
           </Text>
-          <Text className="">Leave a Review: {entranceName}</Text>
-        </View>
-
-        {/* Rating Section */}
-        <View className="gap-2">
-          <Text className="text-slate-500">Give a rating</Text>
-
-          {/* Star Functionality */}
-          <View className="flex flex-row gap-1">
-            <TouchableRating name="rating" control={control} />
-          </View>
-        </View>
-
-        {/* Feature Selection Section */}
-        <View className="gap-2">
-          <Text className="text-slate-500">
-            Select any features you noticed
-          </Text>
-
-          {/* Feature Buttons */}
-          <View className="flex max-w-full flex-row gap-2">
-            <FeatureButtons name="features" control={control} />
-          </View>
-        </View>
-
-        {/* Experience Sharing Section */}
-        <View className="gap-4">
-          <Text className="text-slate-500">
-            Share your experience (optional)
-          </Text>
-          <ReviewContentInput name="content" control={control} />
-        </View>
-
-        {/* Buttons */}
-        <View className="mt-2 gap-2">
-          {/* Submit Button */}
-          <Button
-            className="gap-2 rounded-xl shadow-none"
-            onPress={handleSubmit(onSubmit)}
-          >
-            <CheckIcon size={28} color="white" />
-            <Text className="text-lg font-semibold text-white">
-              Submit Review
-            </Text>
-          </Button>
-
-          {/* Cancel Button */}
-          <Button
-            className="rounded-xl shadow-none"
-            variant="gray"
-            title={"Cancel"}
-            onPress={handleClose}
-          />
-        </View>
-
-        {/* Encourage Reviews Message */}
-        <View className="flex w-full items-center">
-          <Text className="w-80 text-center color-ut-black/50">
-            Your review helps make campus more accessible for everyone.
+          <Text className="">
+            {formState === 0 ? "Reviews:" : "Leave a Review:"} {entranceName}
           </Text>
         </View>
+
+        {formState === 0 ? (
+          <>
+            {/* <ReviewsList locationId={} /> */}
+            <TouchableOpacity
+              className="w-full rounded-full bg-ut-burntorange/20"
+              onPress={() => {
+                setFormState((prevFormState: number) => {
+                  return prevFormState + 1;
+                });
+              }}
+            >
+              <View className="flex flex-row justify-between px-4 py-1">
+                <Text className="pt-1 leading-none text-ut-burntorange">
+                  Leave a Review
+                </Text>
+                <ArrowRightIcon
+                  size={20}
+                  color={colors.ut.burntorange}
+                  weight="bold"
+                />
+              </View>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {/* Rating Section */}
+            <View className="gap-2">
+              <Text className="text-slate-500">Give a rating</Text>
+
+              {/* Star Functionality */}
+              <View className="flex flex-row gap-1">
+                <TouchableRating name="rating" control={control} />
+              </View>
+            </View>
+
+            {/* Feature Selection Section */}
+            <View className="gap-2">
+              <Text className="text-slate-500">
+                Select any features you noticed
+              </Text>
+
+              {/* Feature Buttons */}
+              <View className="flex max-w-full flex-row gap-2">
+                <FeatureButtons name="features" control={control} />
+              </View>
+            </View>
+
+            {/* Experience Sharing Section */}
+            <View className="gap-4">
+              <Text className="text-slate-500">
+                Share your experience (optional)
+              </Text>
+              <ReviewContentInput name="content" control={control} />
+            </View>
+
+            {/* Buttons */}
+            <View className="mt-2 gap-2">
+              {/* Submit Button */}
+              <Button
+                className="gap-2 rounded-xl shadow-none"
+                onPress={handleSubmit(onSubmit)}
+              >
+                <CheckIcon size={28} color="white" />
+                <Text className="text-lg font-semibold text-white">
+                  Submit Review
+                </Text>
+              </Button>
+
+              {/* Cancel Button */}
+              <Button
+                className="rounded-xl shadow-none"
+                variant="gray"
+                title={"Cancel"}
+                onPress={handleClose}
+              />
+            </View>
+
+            {/* Encourage Reviews Message */}
+            <View className="flex w-full items-center">
+              <Text className="w-80 text-center color-ut-black/50">
+                Your review helps make campus more accessible for everyone.
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </>
   );

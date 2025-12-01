@@ -1,31 +1,104 @@
-import {
-  XIcon,
-  PencilSimpleLineIcon,
-  StarIcon,
-  CheckIcon,
-} from "phosphor-react-native";
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ViewStyle,
-  FlatList,
-} from "react-native";
+import { XIcon, StarIcon, CheckIcon } from "phosphor-react-native";
+import { useForm, useController, Control } from "react-hook-form";
+import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 
 import colors from "~/types/colors";
 
 import { Button } from "./Button";
 
 type Review = {
-  id: number;
-  author?: string | null; // user id or smth
-  date: Date;
+  review_id: number;
+  author: string; // user id or smth
   rating: number;
   features: string[];
   content: string;
-  location_id: number;
+  location_id: string;
+};
+
+const TouchableRating = ({
+  name,
+  control,
+}: {
+  name: "rating";
+  control: Control<Review>;
+}) => {
+  const { field } = useController({
+    control,
+    defaultValue: 0,
+    name,
+  });
+
+  const stars = [1, 2, 3, 4, 5];
+
+  return stars.map((item) => (
+    <TouchableOpacity key={item} onPress={() => field.onChange(item)}>
+      <StarIcon
+        size={24}
+        weight={item <= field.value ? "fill" : "regular"}
+        color={item <= field.value ? colors.ut.yellow : "#9CA3AF"} // tw gray-400
+      />
+    </TouchableOpacity>
+  ));
+};
+
+const FeatureButtons = ({
+  name,
+  control,
+}: {
+  name: "features";
+  control: Control<Review>;
+}) => {
+  const { field } = useController({
+    control,
+    defaultValue: [],
+    name,
+  });
+
+  const features = ["Power-assisted doors", "Manual doors"];
+
+  const handleSelectFeature = (feature: string) => {
+    const newSelectedFeatures = field.value.includes(feature)
+      ? field.value.filter((f) => f !== feature)
+      : [...field.value, feature];
+
+    field.onChange(newSelectedFeatures);
+  };
+
+  return features.map((feature) => (
+    <TouchableOpacity
+      key={feature}
+      className={`rounded-full border-2 border-ut-black/50 px-2 py-1 
+        ${!field.value.includes(feature) ? "bg-white" : "bg-indigo-100"}`}
+      onPress={() => {
+        handleSelectFeature(feature);
+      }}
+    >
+      <Text className="text-sm">{feature}</Text>
+    </TouchableOpacity>
+  ));
+};
+
+const ReviewContentInput = ({
+  name,
+  control,
+}: {
+  name: "content";
+  control: Control<Review>;
+}) => {
+  const { field } = useController({
+    control,
+    defaultValue: "",
+    name,
+  });
+
+  return (
+    <TextInput
+      className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-ut-black/50"
+      multiline={true}
+      placeholder="How was the accessibility? Any specific details that would help other students?"
+      onChangeText={field.onChange}
+    />
+  );
 };
 
 interface ReviewModalProps {
@@ -41,29 +114,21 @@ const ReviewModal = ({
   buildingName,
   onExit,
 }: ReviewModalProps) => {
-  const [rating, setRating] = useState(0);
-  const stars = [1, 2, 3, 4, 5];
+  const { control, handleSubmit } = useForm<Review>();
 
-  const features = ["Power-assisted doors", "Manual doors"];
-  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
-    new Set<string>(),
-  );
+  const onSubmit = (data: Review) => {
+    if (data.rating === 0) {
+      /* TODO: Should error if no rating selected */
+      console.log("[onSubmit] rating not selected!");
+    } else {
+      // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
+      data.review_id = 1; // temp
+      data.author = "Tim"; // temp
+      data.location_id = `${buildingName}-${entranceName}`;
 
-  const handleSelectFeature = (feature: string) => {
-    setSelectedFeatures((prevSelectedFeatures) => {
-      const newSelectedFeatures = new Set<string>(prevSelectedFeatures);
-      if (newSelectedFeatures?.has(feature)) {
-        newSelectedFeatures?.delete(feature);
-      } else {
-        newSelectedFeatures?.add(feature);
-      }
-      console.log(newSelectedFeatures);
-      return newSelectedFeatures;
-    });
-  };
+      Alert.alert(JSON.stringify(data));
+    }
 
-  const handleSubmit = () => {
-    // Export info: review id, author, date, rating, features, content, entrance_id/building_id/etc
     onExit();
   };
 
@@ -98,20 +163,7 @@ const ReviewModal = ({
 
           {/* Star Functionality */}
           <View className="flex flex-row gap-1">
-            {stars.map((item) => (
-              <TouchableOpacity
-                key={item}
-                onPress={() => {
-                  setRating(item);
-                }}
-              >
-                <StarIcon
-                  size={24}
-                  weight={item <= rating ? "fill" : "regular"}
-                  color={item <= rating ? colors.ut.yellow : "#9CA3AF"} // tw gray-400
-                />
-              </TouchableOpacity>
-            ))}
+            <TouchableRating name="rating" control={control} />
           </View>
         </View>
 
@@ -123,18 +175,7 @@ const ReviewModal = ({
 
           {/* Feature Buttons */}
           <View className="flex max-w-full flex-row gap-2">
-            {features.map((feature) => (
-              <TouchableOpacity
-                key={feature}
-                className={`rounded-full border-2 border-ut-black/50 px-2 py-1 
-                  ${!selectedFeatures?.has(feature) ? "bg-white" : "bg-indigo-100"}`}
-                onPress={() => {
-                  handleSelectFeature(feature);
-                }}
-              >
-                <Text className="text-sm">{feature}</Text>
-              </TouchableOpacity>
-            ))}
+            <FeatureButtons name="features" control={control} />
           </View>
         </View>
 
@@ -143,11 +184,7 @@ const ReviewModal = ({
           <Text className="text-slate-500">
             Share your experience (optional)
           </Text>
-          <TextInput
-            className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-ut-black/50"
-            multiline={true}
-            placeholder="How was the accessibility? Any specific details that would help other students?"
-          />
+          <ReviewContentInput name="content" control={control} />
         </View>
 
         {/* Buttons */}
@@ -155,9 +192,7 @@ const ReviewModal = ({
           {/* Submit Button */}
           <Button
             className="gap-2 rounded-xl shadow-none"
-            onPress={() => {
-              handleSubmit();
-            }}
+            onPress={handleSubmit(onSubmit)}
           >
             <CheckIcon size={28} color="white" />
             <Text className="text-lg font-semibold text-white">
@@ -170,9 +205,7 @@ const ReviewModal = ({
             className="rounded-xl shadow-none"
             variant="gray"
             title={"Cancel"}
-            onPress={() => {
-              handleClose();
-            }}
+            onPress={handleClose}
           />
         </View>
 

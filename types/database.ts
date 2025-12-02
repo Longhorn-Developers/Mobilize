@@ -5,13 +5,19 @@ import type {
   pois,
   avoidance_areas,
   avoidance_area_reports,
+  reviews
 } from "~/server/src/db/schema";
 
 // Use Drizzle's inferred types
 export type Profile = typeof profiles.$inferSelect;
+export type ReviewRaw = typeof reviews.$inferSelect;
 export type POIRaw = typeof pois.$inferSelect;
 export type AvoidanceAreaRaw = typeof avoidance_areas.$inferSelect;
 export type AvoidanceAreaReportRaw = typeof avoidance_area_reports.$inferSelect;
+
+export interface Review extends Omit<ReviewRaw, "features"> {
+  features: string[]
+}
 
 // Extended types for joined queries
 export type AvoidanceAreaDetailRaw = AvoidanceAreaRaw & {

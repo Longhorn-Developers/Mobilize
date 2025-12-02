@@ -11,17 +11,9 @@ import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
+import { Review } from "~/types/database";
 
 import { Button } from "./Button";
-
-type Review = {
-  review_id: number;
-  author: string; // user id or smth
-  rating: number;
-  features: string[];
-  content: string;
-  location_id: string;
-};
 
 const TouchableRating = ({
   name,
@@ -140,8 +132,8 @@ const ReviewModal = ({
       });
     } else {
       // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
-      data.review_id = 1; // temp
-      data.author = "Tim"; // temp
+      data.id = 1; // Won't be needed
+      data.user_id = 1; // Somehow get user from session data
       data.location_id = `${buildingName}-${entranceName}`;
 
       console.log(JSON.stringify(data));

@@ -412,10 +412,26 @@ CREATE TABLE `profiles` (
 	`avatar_url` text
 );
 INSERT INTO "profiles" VALUES(1,'Alice','https://example.com/avatars/alice.png');
+
+DROP TABLE IF EXISTS reviews;
+CREATE TABLE `reviews` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` integer NOT NULL,
+	`rating` integer NOT NULL,
+	`features` text,
+	`content` text,
+	`location_id` text NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action
+);
+INSERT INTO "reviews" VALUES(1, 1, 3, '["Power-assisted doors"]', 'yahoo!', 'Gregory Gym-South Entrance', 1762473612, 1762473612);
+
 DELETE FROM sqlite_sequence;
 INSERT INTO "sqlite_sequence" VALUES('d1_migrations',2);
 INSERT INTO "sqlite_sequence" VALUES('profiles',1);
 INSERT INTO "sqlite_sequence" VALUES('avoidance_areas',1);
 INSERT INTO "sqlite_sequence" VALUES('avoidance_area_reports',1);
 INSERT INTO "sqlite_sequence" VALUES('pois',1092);
+INSERT INTO "sqlite_sequence" VALUES('reviews',1);
 CREATE UNIQUE INDEX `pois_location_geojson_unique` ON `pois` (`location_geojson`);

@@ -6,6 +6,7 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
+  Review,
 } from "~/types/database";
 
 class ApiClient {
@@ -50,6 +51,11 @@ class ApiClient {
   // Get profile by ID
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);
+  }
+
+  // Get review by ID
+  async getReview(id: number) {
+    return this.request<Review>(`/reviews?id=${id}`);
   }
 
   // Get all POIs
@@ -116,6 +122,20 @@ class ApiClient {
         body: JSON.stringify(data),
       },
     );
+  }
+
+  async insertReview(data: {
+    user_id: number;
+    rating: number;
+    features?: string[];
+    content?: string;
+    location_id: string;
+  }) {
+    return this.request<any>("/reviews", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+    )
   }
 }
 

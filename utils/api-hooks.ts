@@ -1,6 +1,6 @@
 // TanStack Query hooks for the Hono backend
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -14,6 +14,7 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
+  review: (id: number) => ["review", id] as const,
 };
 
 // fetch all POIs
@@ -58,6 +59,15 @@ export function useProfile(id: number) {
     queryFn: () => apiClient.getProfile(id),
     enabled: !!id, // Only run if id is provided
   });
+}
+
+// fetch a review by ID
+export function useReview(id: number) {
+  return useQuery({
+    queryKey: queryKeys.review(id),
+    queryFn: () => apiClient.getReview(id),
+    enabled: !!id,
+  })
 }
 
 // health check
@@ -132,4 +142,23 @@ export function useInsertAvoidanceAreaReport() {
       console.error("Error adding report:", error);
     },
   });
+}
+
+// insert a new entrance review
+export function useInsertReview() {
+  return useMutation({
+    mutationFn: (data: {
+      user_id: number;
+      rating: number;
+      features?: string[];
+      content?: string;
+      location_id: string;
+    }) => apiClient.insertReview(data),
+    onSuccess: (data) => {
+      console.log("Successfully added review");
+    },
+    onError: (error) => {
+      console.error("Error adding review:", error);
+    }
+  })
 }

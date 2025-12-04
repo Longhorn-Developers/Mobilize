@@ -15,7 +15,13 @@ export function createAuth(env: {
 
   return betterAuth({
     database: drizzleAdapter(db, {
-      provider: "sqlite"
+      provider: "sqlite",
+      schema: {
+        user: schema.users,
+        session: schema.session,
+        account: schema.account,
+        verification: schema.verification,
+      },
     }),
     emailAndPassword: {
       enabled: false // We only want OAuth
@@ -24,50 +30,56 @@ export function createAuth(env: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
-        redirectURI: `${env.BETTER_AUTH_URL}/api/auth/callback/google`
       }
     },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     trustedOrigins: [
-      "http://localhost:8081", // Expo dev
-      "https://auth.expo.io", // Expo AuthSession
-      "mobilizeut://", // Your custom scheme
+      "http://localhost:54321",
+      "http://127.0.0.1:54321",
+      "http://localhost:8081",
+      "http://10.0.2.2:8081",
+      "https://auth.expo.io",
+      "mobilizeut://",
+      "exp://",
     ],
-    callbacks: {
-      async signIn({ user, account }: { user: any; account: any }) {
-        console.log("Sign in callback:", { user, account });
-        
-        // Determine role based on email domain
-        let role = "public";
-        if (user.email?.endsWith("@utexas.edu")) {
-          role = "student";
-        }
-
-        // Generate username from email
-        const username = user.email?.split("@")[0] || user.id;
-
-        // Update user with our custom fields
-        await db.update(schema.users)
-          .set({
-            role,
-            username,
-            auth_provider: account?.providerId || "google",
-            updated_at: new Date()
-          })
-          .where(eq(schema.users.id, user.id));
-
-        return true;
+    session: {
+      expiresIn: 60 * 60 * 24 * 7, // 7 days
+      updateAge: 60 * 60 * 24, // Update session every 24 hours
+    },
+    user: {
+      additionalFields: {
+        username: {
+          type: "string",
+          required: false,
+        },
+        role: {
+          type: "string", 
+          required: false,
+          defaultValue: "public",
+        },
       },
-      
-      async signUp({ user, account }: { user: any; account: any }) {
-        console.log("Sign up callback:", { user, account });
-        
-        // This runs after user creation but before profile setup
-        // The role and username should already be set in signIn callback
-        return true;
-      }
-    }
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            // Determine role based on email domain
+            const role = user.email?.endsWith("@utexas.edu") ? "student" : "public";
+            const username = user.email?.split("@")[0] || user.id;
+
+            // Update user with custom fields
+            await db.update(schema.users)
+              .set({
+                role,
+                username,
+                updatedAt: new Date()
+              })
+              .where(eq(schema.users.id, user.id));
+          },
+        },
+      },
+    },
   });
 }
 

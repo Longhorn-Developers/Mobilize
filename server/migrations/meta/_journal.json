@@ -15,6 +15,13 @@
       "when": 1762462119306,
       "tag": "0001_nappy_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764652440903,
+      "tag": "0002_loud_wallflower",
+      "breakpoints": true
     }
   ]
 }

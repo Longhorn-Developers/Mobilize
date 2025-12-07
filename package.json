@@ -23,6 +23,7 @@
     "@tanstack/react-query": "^5.90.7",
     "@turf/turf": "^7.2.0",
     "@types/geojson": "^7946.0.16",
+    "better-auth": "^1.4.5",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.7",
     "expo": "^54.0.23",

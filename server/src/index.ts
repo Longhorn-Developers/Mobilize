@@ -40,13 +40,53 @@ app.get("/avoidance_areas", async (c) => {
 });
 
 // ============================================
-// ADD THESE LINES - Better Auth routes
+// Custom OAuth endpoints
 // ============================================
-app.on(["GET", "POST"], "/api/auth/**", async (c) => {
-  const auth = createAuth(c.env);
-  return auth.handler(c.req.raw);
+
+// Google sign-in endpoint - generates OAuth redirect
+app.get("/api/auth/signin/google", async (c) => {
+  try {
+    const state = crypto.randomUUID();
+    
+    // Use localhost for Google's redirect URI (what's registered in Google Cloud Console)
+    const callbackURL = `${c.env.BETTER_AUTH_URL}/api/auth/callback/google`;
+    
+    const params = new URLSearchParams({
+      client_id: c.env.GOOGLE_CLIENT_ID,
+      redirect_uri: callbackURL,
+      response_type: "code",
+      scope: "openid profile email",
+      state: state,
+      access_type: "offline",
+      prompt: "consent",
+    });
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    
+    console.log("Redirecting to Google OAuth with callback:", callbackURL);
+    return c.redirect(googleAuthUrl, 302);
+  } catch (error) {
+    console.error("OAuth signin error:", error);
+    return c.json({ error: String(error) }, 500);
+  }
 });
 
+// ============================================
+// Better Auth routes - catch-all for auth
+// ============================================
+app.on(["GET", "POST"], "/api/auth/**", async (c) => {
+  console.log("Auth route hit:", c.req.path, c.req.method);
+  try {
+    const auth = createAuth(c.env);
+    console.log("Auth created");
+    const response = await auth.handler(c.req.raw);
+    console.log("Auth response status:", response.status);
+    return response;
+  } catch (error) {
+    console.error("Auth error:", error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
 
 app.get("/api/me", async (c) => {
   const auth = createAuth(c.env);

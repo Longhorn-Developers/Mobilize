@@ -30,10 +30,12 @@ export function createAuth(env: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
+        redirectURL: `${env.BETTER_AUTH_URL}/api/auth/callback/google`,
       }
     },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    basePath: "/api/auth",
     trustedOrigins: [
       "http://localhost:54321",
       "http://127.0.0.1:54321",

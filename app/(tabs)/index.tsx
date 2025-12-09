@@ -18,18 +18,25 @@ import {
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
 
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
+import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
+
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<BottomSheetModal>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -157,12 +164,67 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
   );
 
+  const handleSelectLocation = (location: {
+    id: string;
+    name: string;
+    address?: string;
+  }) => {
+    console.log("Selected location:", location);
+    
+    // Close search
+    setIsSearchActive(false);
+    setSearchQuery("");
+    
+    // Open location details bottom sheet
+    locationBottomSheetRef.current?.present();
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (!isSearchActive && text.length > 0) {
+      setIsSearchActive(true);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleDismissSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery("");
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
+      {/* Search Bar */}
+      <SearchBar 
+        onPress={() => setIsSearchActive(true)}
+        onChangeText={handleSearchChange}
+        onClear={handleClearSearch}
+        value={searchQuery}
+        editable={isSearchActive}
+        isActive={isSearchActive}
+        className="absolute left-4 right-4 z-20"
+        style={{ top: insets.top + 10 }}
+      />
+
+      {/* Search Dropdown */}
+      <SearchDropdown
+        visible={isSearchActive}
+        searchQuery={searchQuery}
+        onSelectLocation={handleSelectLocation}
+        onDismiss={handleDismissSearch}
+        topOffset={insets.top + 70}
+      />
+
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+
+      {/* Location Details Bottom Sheet */}
+      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}

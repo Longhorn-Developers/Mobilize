@@ -1,0 +1,30 @@
+{
+	"name": "server",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"test": "vitest",
+		"gen": "drizzle-kit generate",
+		"types": "wrangler types",
+		"seed": "wrangler d1 execute mobilize-db --local --file=./seed.sql && curl http://localhost:54321/cdn-cgi/handler/scheduled",
+		"migrate": "wrangler d1 migrations apply mobilize-db"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"@typescript-eslint/parser": "^8.46.3",
+		"drizzle-kit": "^0.31.6",
+		"eslint-import-resolver-typescript": "^4.4.4",
+		"eslint-plugin-import": "^2.32.0",
+		"typescript": "^5.5.2",
+		"vitest": "~3.2.0",
+		"wrangler": "^4.45.4"
+	},
+	"dependencies": {
+		"@tmcw/togeojson": "^7.1.2",
+		"drizzle-orm": "^0.44.7",
+		"hono": "^4.10.4"
+	}
+}

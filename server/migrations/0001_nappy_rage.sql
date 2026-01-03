@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `pois_location_geojson_unique` ON `pois` (`location_geojson`);

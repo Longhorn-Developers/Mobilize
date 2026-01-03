@@ -9,7 +9,7 @@
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser", "expo-maps"],
+    "plugins": ["expo-router", "expo-web-browser", "expo-font"],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
@@ -25,11 +25,14 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.astrol.mobilizeut"
+      "bundleIdentifier": "com.astrol.mobilizeut",
+      "config": {
+        "googleMapsApiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
+      }
     },
     "android": {
       "config": {
-        "googleMaps" : {
+        "googleMaps": {
           "apiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
         }
       },

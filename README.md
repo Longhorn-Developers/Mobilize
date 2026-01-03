@@ -1,221 +1,223 @@
-# Mobilize 🚀
+# MobilizeUT 🤘
 
-A student-built mobile app that uses crowdsourced data to guide users through the most accessible paths, entrances, bathrooms, and more at the University of Texas at Austin.
+An Expo React Native mobile application that helps disabled students have more accessibility around UT Campus on an interactive map, powered by Expo and Cloudflare Workers.
 
-## Description
-
-Students with mobility disabilities at UT face daily challenges with blocked paths, unsafe ramps, and inaccessible routes. Existing tools like Google Maps fall short, forcing students to leave 30+ minutes early for a 10-minute route.
-
-Mobilize solves this problem by providing real-time, crowdsourced accessibility data to help students navigate campus through the most accessible routes possible.
-
-## Tech Stack
-
-- **Frontend**: React Native with Expo
-- **Styling**: NativeWind (Tailwind CSS for React Native)
-- **Navigation**: Expo Router
-- **Queries**: TanStack Query
-- **Backend**: Supabase
-- **Language**: TypeScript
-- **Development**: Node.js, Expo CLI
-
-## Getting Started
-
-### Prerequisites
-
-- **Node.js** (v18 or higher)
-- **pnpm**: `npm install -g pnpm`
-- **Expo CLI**: `npm install -g @expo/cli`
-- **iOS Simulator** (for Mac users) or **Android Studio** (for Android development)
-- [**Docker Desktop**](https://docs.docker.com/desktop/) (for local Supabase development)
-
-### Recommended VS Code Extensions
-
-- **ES7+ React/Redux/React-Native snippets**
-- **Tailwind CSS IntelliSense**
-- **TypeScript Importer**
-- **Prettier - Code formatter**
-- **ESLint**
-- **Auto Rename Tag**
-- **Bracket Pair Colorizer**
-
-### Resources
-
-- [Expo Documentation](https://docs.expo.dev/)
-- [Supabase Documentation](https://supabase.com/docs)
-- [Supabase Local Development Documentation](https://supabase.com/docs/guides/local-development)
-- [Nativewind Documentation](https://www.nativewind.dev/)
-
-### Installation & Setting Up Dev Environment
+## 🛠️ Setup
 
 1. **Clone the repository**
 
    ```bash
    git clone https://github.com/Longhorn-Developers/Mobilize.git
-   cd mobilize
+   cd Mobilize
    ```
 
-2. **Install dependencies**
+2. **Install mobile app dependencies**
 
    ```bash
    pnpm install
    ```
 
-3. **Set up environment variables**
-   Create a `.env.local` file in the root directory:
-
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-   Should usually be these by default if local supabase development:
-
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-   ```
-
-4. **Run on your preferred platform**
-   > **Note:** Expo Go is no longer supported for this project due to the use of native modules (expo-maps). You must use a development build to run the app on a physical device or simulator.
-   - **iOS**: `pnpm ios` or press `i` in the terminal after running `pnpm start`
-   - **Android**: `pnpm android` or press `a` in the terminal after running `pnpm start`
-
----
-
-#### Set Up Local Supabase Development
-
-> **Note:** Make sure to install [Docker Desktop](https://docs.docker.com/desktop/) before doing the steps below.
-
-1. **Install Supabase CLI**
+3. **Install server dependencies**
 
    ```bash
-   pnpm install -g supabase
+   cd server
+   pnpm install
    ```
 
-2. **Initialize Supabase in your project**
+4. **Setup environment variables**
+
+   .env.local
 
    ```bash
-   pnpm supabase init
+   EXPO_PUBLIC_API_URL=http://localhost:54321
    ```
 
-3. **Start local Supabase services**
+   server/.env (you can find these in cloudflare dashboard)
 
    ```bash
-   pnpm supabase start
+   CLOUDFLARE_ACCOUNT_ID=
+   CLOUDFLARE_DATABASE_ID=
    ```
 
-   You will see a message like this in the terminal:
+## 🏃‍♂️ Running the App
 
-   ```sh
-   Started supabase local development setup.
+### Development - Mobile App
 
-         API URL: http://localhost:54321
-          DB URL: postgresql://postgres:postgres@localhost:54322/postgres
-      Studio URL: http://localhost:54323
-    Inbucket URL: http://localhost:54324
-        anon key: eyJh......
-   service_role key: eyJh......
-   ```
+**Run on iOS:**
 
-   The `API URL` and `anon key` are the environment variables you need to configure in the next step.
-
-4. **Update your `.env.local` for local development**
-
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
-   ```
-
-5. **Access local services**
-   - **Studio**: <http://localhost:54323>
-   - **API**: <http://localhost:54321>
-   - **Auth**: <http://localhost:54321/auth/v1>
-
-> Make sure to revert your .env.local file if switching back to the hosted Supabase project.
-
-## Project Structure
-
-```txt
-mobilize/
-├── app/                    # App screens and routing (Expo Router)
-│   ├── (tabs)/            # Layout for tab navigation
-│   │   ├── _layout.tsx    # Defines the tab navigator
-│   │   └── index.tsx      # Main map screen
-│   ├── _layout.tsx        # Root layout for the app
-│   ├── +html.tsx          # Custom HTML for web builds
-│   └── +not-found.tsx     # Fallback for unmatched routes
-├── assets/                 # Static assets (images, fonts, etc.)
-├── components/             # Reusable UI components
-├── docs/                   # Project documentation and guides
-├── hooks/                  # Custom React hooks
-├── supabase/               # Supabase configuration, migrations, and functions
-├── types/                  # TypeScript type definitions
-├── utils/                  # Utility functions (e.g., Supabase client)
-├── .env.local              # Local environment variables (untracked)
-├── app.json                # Expo configuration file
-├── babel.config.js         # Babel compiler configuration
-├── package.json            # Project dependencies and scripts
-├── tailwind.config.js      # Tailwind CSS configuration
-└── tsconfig.json           # TypeScript configuration
+```bash
+pnpm ios
 ```
 
-## Contributing
+**Run on Android:**
 
-We welcome contributions from developers, designers, and anyone passionate about accessibility! Here's how you can help:
+```bash
+pnpm android
+```
 
-### Getting Started as a Contributor
+### Development - Backend Server
 
-1. **Fork the repository** and create your feature branch
+**Start local development server:**
 
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
+```bash
+cd server
+pnpm dev
+```
 
-2. **Follow the coding standards**
-   - Use TypeScript for all new code
-   - Follow the existing code style and conventions
-   - Use meaningful component and function names
-   - Add proper comments for complex logic
+**Generate database migrations (from updated server/src/db/schema.ts):**
 
-3. **Run linting and formatting**
+```bash
+cd server
+pnpm gen
+```
 
-   ```bash
-   pnpm lint    # Check for issues
-   pnpm format  # Auto-fix formatting issues
-   ```
+**Apply database migrations:**
 
-4. **Test your changes**
-   - Test on both iOS and Android if possible
-   - Ensure accessibility features work correctly
-   - Test with different screen sizes
+```bash
+cd server
+pnpm migrate
+```
 
-5. **Commit your changes**
+**Regenerate types:**
 
-   ```bash
-   git commit -m 'Add some amazing feature'
-   ```
+```bash
+cd server
+pnpm types
+```
 
-6. **Push to your branch and create a Pull Request**
+**Seed the database with test profiles, avoidance_areas, and POIs:**
 
-### Code Style Guidelines
+```bash
+cd server
+pnpm seed
+```
 
-- Use **functional components** with hooks
-- Implement **TypeScript interfaces** for all props and data structures
-- Follow **NativeWind/Tailwind** conventions for styling
-- Keep components **small and focused** on single responsibilities
-- Use **descriptive variable names** and add comments for complex logic
+## 🔧 Development
 
-### Reporting Issues
+### Code Quality
 
-If you find a bug or have a feature request, please create an issue on GitHub with:
+**Lint code:**
 
-- Clear description of the problem or feature
-- Steps to reproduce (for bugs)
-- Expected vs actual behavior
-- Screenshots or screen recordings if applicable
+```bash
+pnpm lint
+```
+
+**Format code:**
+
+```bash
+pnpm format
+```
+
+### Building
+
+**Prebuild native projects:**
+
+```bash
+pnpm prebuild
+```
+
+This generates native iOS and Android projects from your Expo configuration.
+
+## 📁 Project Structure
+
+```text
+.
+├── app/                    # Expo Router pages
+│   ├── (tabs)/            # Tab navigation screens
+│   ├── _layout.tsx        # Root layout
+│   └── +not-found.tsx     # 404 page
+├── components/            # Reusable React components
+├── assets/                # Images, fonts, and other static assets
+├── types/                 # TypeScript type definitions
+├── utils/                 # Utility functions and custom hooks
+├── server/                # Cloudflare Workers backend
+│   ├── src/              # Server source code
+│   ├── migrations/       # Database migrations
+│   └── test/             # Server tests
+├── android/               # Native Android project
+├── ios/                   # Native iOS project
+└── package.json          # Project dependencies
+```
+
+## 🚢 Deployment
+
+### Deployment - Mobile App
+
+**Build for iOS:**
+
+```bash
+expo build:ios
+```
+
+**Build for Android:**
+
+```bash
+expo build:android
+```
+
+### Deployment - Backend
+
+**Deploy to Cloudflare:**
+
+```bash
+cd server
+pnpm deploy
+```
+
+## 🔑 Configuration
+
+- **App Configuration**: `app.json`
+- **TypeScript**: `tsconfig.json`
+- **Tailwind**: `tailwind.config.js`
+- **ESLint**: `eslint.config.js`
+- **Prettier**: `prettier.config.js`
+- **Server**: `server/wrangler.jsonc`
+- **Database**: `server/drizzle.config.ts`
+
+## 🚀 Tech Stack
+
+### Mobile App
+
+- **Framework**: React Native with Expo SDK 54
+- **Navigation**: Expo Router v6
+- **Styling**: NativeWind (TailwindCSS for React Native)
+- **Maps**: Expo Maps (Apple Maps for iOS, Google Maps for Android)
+- **State Management**: TanStack Query (React Query)
+- **UI Components**:
+  - React Native Gesture Handler
+  - React Native Reanimated
+  - Gorhom Bottom Sheet
+  - Phosphor React Native (Icons)
+- **Geospatial**: Turf.js
+- **Forms**: React Hook Form with Zod validation
+
+### Backend
+
+- **Runtime**: Cloudflare Workers
+- **Framework**: Hono
+- **Database**: Cloudflare D1 (SQLite)
+- **ORM**: Drizzle ORM
+- **Testing**: Vitest with Cloudflare Workers pool
+
+## 📋 Prerequisites
+
+- Node.js (v18 or higher recommended)
+- pnpm (package manager)
+- Expo CLI
+- iOS Simulator (for iOS development) or Android Studio (for Android development)
+- Cloudflare account (for backend deployment)
+
+## 🤝 Contributing
+
+1. Create a feature branch i.e. `astrol99/feat-thing`
+2. Make your changes
+3. Run linting and formatting: `pnpm format`
+4. Submit a pull request
+
+## 👥 Authors
+
+Longhorn Developers
 
 ---
 
-**Join us in making UT campus more accessible for everyone!** 🤝
-
-For questions or to get involved, reach out to the Longhorn Developers team or create an issue on this repository.
+Built with ❤️ using Expo and Cloudflare Workers

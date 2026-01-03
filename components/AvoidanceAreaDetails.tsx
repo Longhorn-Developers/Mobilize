@@ -1,4 +1,6 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as turf from "@turf/turf";
 import {
   WarningIcon,
   MapPinIcon,
@@ -9,21 +11,24 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { z } from "zod";
+
 import colors from "~/types/colors";
-import { ActionButtonGroup } from "./ActionButtonGroup";
 import {
-  useInsertMutation,
-  useQuery,
-} from "@supabase-cache-helpers/postgrest-react-query";
-import { supabase } from "~/utils/supabase";
-import { useAuth } from "~/utils/AuthProvider";
-import * as turf from "@turf/turf";
-import { Polygon } from "@types/geojson";
+  useAvoidanceArea,
+  useAvoidanceAreaReports,
+  useInsertAvoidanceAreaReport,
+} from "~/utils/api-hooks";
+
+import { ActionButtonGroup } from "./ActionButtonGroup";
+
+type Polygon = {
+  type: "Polygon";
+  coordinates: number[][][];
+};
 
 const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
@@ -39,10 +44,14 @@ const commentSchema = z.object({
 type CommentFormData = z.infer<typeof commentSchema>;
 
 const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
-  const { user } = useAuth();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [polygon, setPolygon] = useState<Polygon | null>(null);
+
+  const { data: avoidanceArea, isLoading } = useAvoidanceArea(areaId);
+  const { data: reports } = useAvoidanceAreaReports(areaId);
+  const { mutateAsync: insertAvoidanceAreaReport } =
+    useInsertAvoidanceAreaReport();
 
   const {
     control,
@@ -56,76 +65,30 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  const { data: avoidanceArea, isLoading } = useQuery(
-    supabase
-      .from("avoidance_areas")
-      .select(
-        `
-        user_id,
-        name,
-        created_at,
-        description,
-        boundary_geojson,
-        profiles (
-          display_name,
-          avatar_url
-        )
-      `,
-      )
-      .eq("id", areaId)
-      .single(),
-  );
-
   // Effect to convert boundary_geojson to Polygon
   useEffect(() => {
     if (avoidanceArea?.boundary_geojson) {
-      const coordinates = (
-        avoidanceArea.boundary_geojson as { coordinates: any[] }
-      ).coordinates[0];
       setPolygon({
         type: "Polygon",
-        coordinates: [coordinates],
+        coordinates: [avoidanceArea.boundary_geojson.coordinates[0]],
       });
     }
   }, [avoidanceArea?.boundary_geojson]);
 
-  const { data: reports } = useQuery(
-    supabase
-      .from("avoidance_area_reports")
-      .select(
-        `
-        id,
-        user_id,
-        description,
-        updated_at,
-        profiles (
-          display_name
-        )
-      `,
-      )
-      .eq("avoidance_area_id", areaId),
-  );
+  const handleAddComment = (data: CommentFormData) => {
+    insertAvoidanceAreaReport({
+      user_id: 1, // TODO: Replace with actual user ID
+      avoidance_area_id: areaId,
+      title: "User Comment",
+      description: data.content,
+    });
+    reset();
+  };
 
-  const { mutateAsync: addReport } = useInsertMutation(
-    supabase.from("avoidance_area_reports"),
-    ["id"],
-    "avoidance_area_id",
-    {
-      onSuccess: () => {
-        console.log("Report added successfully");
-      },
-      onError: (error) => {
-        console.error("Error adding report:", error);
-      },
-    },
-  );
-
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTimeAgo = (dateStr: string | Date) => {
+    const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
     const now = new Date();
-    const diffInSeconds = Math.floor(
-      (now.getTime() - date.getTime()) / (1000),
-    );
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     const diffInHours = Math.floor(diffInMinutes / 60);
 
@@ -141,17 +104,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     setSelectedStatus(stillPresent);
     // In real app, this would update the database
     console.log(`Status updated: ${stillPresent}`);
-  };
-
-  const handleAddComment = (data: CommentFormData) => {
-    addReport([
-      {
-        user_id: user ? user.id : null,
-        avoidance_area_id: areaId,
-        description: data.content,
-      },
-    ]);
-    reset();
   };
 
   if (isLoading) {
@@ -214,14 +166,14 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           <View className="flex-row items-center gap-2">
             {/* Profile Pic */}
             <View className="h-10 w-10 items-center justify-center rounded-full bg-gray-300">
-              {avoidanceArea.profiles?.avatar_url ? (
+              {avoidanceArea.profile_avatar_url ? (
                 <Image
-                  source={{ uri: avoidanceArea.profiles.avatar_url }}
+                  source={{ uri: avoidanceArea.profile_avatar_url }}
                   className="h-full w-full rounded-full"
                 />
               ) : (
                 <Text className="text-center text-gray-500">
-                  {avoidanceArea.profiles?.display_name?.[0].toLocaleUpperCase() ||
+                  {avoidanceArea.profile_display_name?.[0].toLocaleUpperCase() ||
                     "A"}
                 </Text>
               )}
@@ -229,7 +181,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
             {/* Author Username */}
             <Text className="text-lg text-gray-600">
-              @{avoidanceArea.profiles?.display_name || "anonymous"}
+              @{avoidanceArea.profile_display_name || "anonymous"}
             </Text>
 
             {/* Created At */}
@@ -311,7 +263,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="font-medium text-gray-700">
-                      @{report.profiles?.display_name || "anonymous"}
+                      @{report.profile_display_name || "anonymous"}
                     </Text>
                     <Text className="text-sm text-gray-500">
                       {formatTimeAgo(report.updated_at)}

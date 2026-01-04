@@ -3,9 +3,11 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, getTableColumns } from 'drizzle-orm';
 import { avoidance_areas, pois, profiles, avoidance_area_reports } from './db/schema';
 import { syncPOIs } from './scheduled/poi-sync';
+import { getRouteFromORS } from './services/orsService';
 
 export interface Env {
 	mobilize_db: D1Database;
+	ORS_API_KEY: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -166,6 +168,68 @@ app.post('/avoidance_areas/:id/reports', async (c) => {
 		.returning();
 
 	return c.json(result);
+});
+
+// POST route for ORS (OpenRouteService) - get directions on the routes
+app.post('/ors/route', async (c) => {
+	try {
+		const body = await c.req.json();
+		const { start, end, mode, options } = body;
+
+		// Validation
+		if (!start || !end || !Array.isArray(start) || !Array.isArray(end)) {
+			return c.json(
+				{
+					error: "Start and end must be coordinate arrays in form of [longitude, latitude]",
+				},
+				400
+			);
+		}
+
+		// Coords r valid nums
+		const isNumber = (v: any) => typeof v === "number" && Number.isFinite(v);
+		if (
+			start.length !== 2 ||
+			end.length !== 2 ||
+			!isNumber(start[0]) ||
+			!isNumber(start[1]) ||
+			!isNumber(end[0]) ||
+			!isNumber(end[1])
+		) {
+			return c.json(
+				{
+					error: "Coordinates must be arrays of [longitude, latitude] with numeric values",
+				},
+				400
+			);
+		}
+
+		// Validate transportation mode
+		const allowedProfiles = new Set([
+			"wheelchair",
+			"driving-car",
+			"foot-walking",
+			"cycling-regular",
+		]);
+		const profile = (mode || "wheelchair").toString();
+		if (!allowedProfiles.has(profile)) {
+			return c.json({ error: `Unsupported profile: ${profile}` }, 400);
+		}
+
+		// Get ORS API key from environment
+		const apiKey = c.env.ORS_API_KEY;
+		if (!apiKey) {
+			return c.json({ error: "ORS_API_KEY not configured" }, 500);
+		}
+
+		// Call ORS service
+		const routeData = await getRouteFromORS(start, end, profile, options || {}, apiKey);
+		return c.json(routeData);
+	} catch (err) {
+		console.error("Error fetching ORS route:", err);
+		const errorMessage = err instanceof Error ? err.message : "Unknown error";
+		return c.json({ error: errorMessage }, 500);
+	}
 });
 
 export default {

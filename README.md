@@ -1,3 +1,5 @@
+![CI](https://github.com/Longhorn-Devlopers/Mobilize/actions/workflows/ci.yml/badge.svg)
+
 # MobilizeUT 🤘
 
 An Expo React Native mobile application that helps disabled students have more accessibility around UT Campus on an interactive map, powered by Expo and Cloudflare Workers.

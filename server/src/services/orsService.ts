@@ -14,8 +14,8 @@ export const getRouteFromORS = async (
     mode === "wheelchair"
       ? {
           avoidSteps: true,
-          maximum_gradient: undefined, // Can be set via env or options
-          maximum_sloped_kerb: undefined,
+          maximum_gradient: undefined,
+          maximum_sloped_curb: undefined,
         }
       : undefined;
 
@@ -29,9 +29,9 @@ export const getRouteFromORS = async (
           maximum_gradient:
             options?.wheelchair?.maximum_gradient ??
             defaultWheelchair.maximum_gradient,
-          maximum_sloped_kerb:
-            options?.wheelchair?.maximum_sloped_kerb ??
-            defaultWheelchair.maximum_sloped_kerb,
+          maximum_sloped_curb:
+            options?.wheelchair?.maximum_sloped_curb ??
+            defaultWheelchair.maximum_sloped_curb,
         }
       : options?.wheelchair,
   };
@@ -52,19 +52,21 @@ export const getRouteFromORS = async (
 
   // Wheelchair-specific restrictions
   if (mode === "wheelchair") {
-    const restrictions: any = {};
-    const wc = mergedOptions.wheelchair || {};
-    if (wc.maximum_gradient !== undefined) {
-      restrictions.maximum_gradient = wc.maximum_gradient;
-    }
-    if (wc.maximum_sloped_kerb !== undefined) {
-      restrictions.maximum_sloped_kerb = wc.maximum_sloped_kerb;
-    }
+  const profileParams: any = {};
+  const wc = mergedOptions.wheelchair || {};
 
-    if (Object.keys(restrictions).length > 0) {
-      orsOptions.profile_params = { restrictions };
-    }
+  if (wc.maximum_gradient !== undefined) {
+    profileParams.maximum_incline = wc.maximum_gradient;
   }
+
+  if (wc.maximum_sloped_curb !== undefined) {
+    profileParams.maximum_curb = wc.maximum_sloped_curb;
+  }
+
+  if (Object.keys(profileParams).length > 0) {
+    orsOptions.profile_params = profileParams;
+  }
+}
 
   if (Object.keys(orsOptions).length > 0) {
     body.options = orsOptions;

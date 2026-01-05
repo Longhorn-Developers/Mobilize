@@ -1,4 +1,4 @@
-![CI](https://github.com/Longhorn-Devlopers/Mobilize/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Longhorn-Developers/Mobilize/actions/workflows/ci.yml/badge.svg)
 
 # MobilizeUT 🤘
 

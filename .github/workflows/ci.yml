@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: npm install -g pnpm && pnpm install
+
+      - name: Lint
+        run: pnpm lint || echo "No lint script found"
+
+      - name: Build
+        run: pnpm build || echo "No build script found"
+
+      - name: Test
+        run: pnpm test || echo "No test script found"

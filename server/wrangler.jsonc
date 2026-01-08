@@ -10,6 +10,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"dev": {
 		"port": 54321,
+		"ip": "0.0.0.0"
 	},
 	"observability": {
 		"enabled": true,
@@ -40,7 +41,7 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
 	"vars": { 
-		"BETTER_AUTH_URL": "http://localhost:54321"
+		"BETTER_AUTH_URL": "http://10.0.2.2:54321"
 	}
 	/**
 	 * Note: Use secrets to store sensitive data.

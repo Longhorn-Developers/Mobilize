@@ -102,15 +102,12 @@ export function useAuth(): AuthContextType {
     try {
       // Create a redirect URL for the app
       const redirectUrl = Linking.createURL("auth/callback");
-      console.log("Redirect URL:", redirectUrl);
 
       // Build the auth URL pointing to your server
       const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}`;
-      console.log("Auth URL:", authUrl);
 
       // Open the OAuth flow in a browser
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-      console.log("WebBrowser result:", result);
 
       if (result.type === "success" && result.url) {
         // Parse the callback URL

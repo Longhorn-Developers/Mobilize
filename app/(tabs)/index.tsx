@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
+import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
 import {
@@ -23,7 +24,8 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
+  const poiBottomSheetRef = useRef<BottomSheetModal>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -83,14 +85,21 @@ export default function Home() {
         });
       }
     } else {
-      bottomSheetRef.current?.close();
+      avoidanceAreaBottomSheetRef.current?.close();
+      poiBottomSheetRef.current?.close();
     }
   };
 
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
-    bottomSheetRef.current?.present({ id: polygonId });
+    avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
+  };
+
+  // Handle POI click
+  const handlePOIPress = (poi: any) => {
+    if (isReportMode) return;
+    poiBottomSheetRef.current?.present({ poi });
   };
 
   const polygons = useMemo(
@@ -125,35 +134,50 @@ export default function Home() {
   );
 
   const markers = useMemo(
-    () => [
-      // User selected aaPoints to report
-      ...aaPointsReport.map((point, index) => ({
-        id: `report-point-${index}`,
-        coordinate: point,
-        icon: mapIcons.point || undefined,
-      })),
-      // Clicked point
-      ...(clickedPoint
-        ? [
-            {
-              id: "clicked-point",
-              coordinate: clickedPoint,
-              icon: mapIcons.crosshair || undefined,
-            },
-          ]
-        : []),
-      // POIs only show if not in report mode
-      ...(!isReportMode
-        ? (POIs || []).map((poi) => ({
-            id: String(poi.id),
-            coordinate: {
-              longitude: poi.location_geojson.coordinates[0],
-              latitude: poi.location_geojson.coordinates[1],
-            } satisfies LatLng,
-            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-          }))
-        : []),
-    ],
+    () => {
+      // 📝 ADDED CONSOLE LOGGING HERE
+      if (POIs && !isReportMode) {
+        console.log("--- POI Data Check (Raw POIs) ---");
+        console.log(POIs);
+      }
+      
+      const poiMarkers = !isReportMode
+        ? (POIs || []).map((poi) => {
+            const marker = {
+              id: String(poi.id),
+              coordinate: {
+                longitude: poi.location_geojson.coordinates[0],
+                latitude: poi.location_geojson.coordinates[1],
+              } satisfies LatLng,
+              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+            };
+            // 📝 ADDED CONSOLE LOGGING HERE
+            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            return marker;
+          })
+        : [];
+
+      return [
+        // User selected aaPoints to report
+        ...aaPointsReport.map((point, index) => ({
+          id: `report-point-${index}`,
+          coordinate: point,
+          icon: mapIcons.point || undefined,
+        })),
+        // Clicked point
+        ...(clickedPoint
+          ? [
+              {
+                id: "clicked-point",
+                coordinate: clickedPoint,
+                icon: mapIcons.crosshair || undefined,
+              },
+            ]
+          : []),
+        // POIs only show if not in report mode
+        ...poiMarkers,
+      ];
+    },
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
   );
 
@@ -162,7 +186,10 @@ export default function Home() {
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+      <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
+      
+      {/* POI Bottom Sheet */}
+      <POIBottomSheet ref={poiBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}
@@ -198,6 +225,12 @@ export default function Home() {
             coordinate={marker.coordinate}
             image={marker.icon}
             anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => {
+              const poi = POIs?.find((p) => String(p.id) === marker.id);
+              if (poi) {
+                handlePOIPress(poi);
+              }
+            }}
           />
         ))}
       </MapView>

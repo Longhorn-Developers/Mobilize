@@ -1,3 +1,4 @@
+import { ClockIcon, MapPinIcon } from "phosphor-react-native";
 import {
   View,
   Text,
@@ -5,10 +6,7 @@ import {
   FlatList,
   TouchableWithoutFeedback,
 } from "react-native";
-import {
-  ClockIcon,
-  MapPinIcon,
-} from "phosphor-react-native";
+
 import colors from "~/types/colors";
 
 interface Location {
@@ -85,13 +83,15 @@ export const SearchDropdown = ({
     },
   ];
 
-  const searchResults: Location[] = searchQuery.length > 0
-    ? allLocations.filter((location) =>
-        location.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const searchResults: Location[] =
+    searchQuery.length > 0
+      ? allLocations.filter((location) =>
+          location.name.toLowerCase().includes(searchQuery.toLowerCase()),
+        )
+      : [];
 
-  const displayedLocations = searchQuery.length > 0 ? searchResults : recentSearches;
+  const displayedLocations =
+    searchQuery.length > 0 ? searchResults : recentSearches;
 
   const renderLocationItem = ({ item }: { item: Location }) => (
     <TouchableOpacity
@@ -151,7 +151,7 @@ export const SearchDropdown = ({
             searchQuery.length > 0 ? (
               <View className="items-center justify-center px-6 py-8">
                 <Text className="text-center text-base text-gray-400">
-                  No results found for "{searchQuery}"
+                  No results found for &quot;{searchQuery}&quot;
                 </Text>
               </View>
             ) : null

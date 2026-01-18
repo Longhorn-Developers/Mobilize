@@ -1,5 +1,12 @@
-import { View, Text, TextInput, TouchableOpacity, ViewStyle } from "react-native";
 import { MagnifyingGlassIcon, XIcon } from "phosphor-react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ViewStyle,
+} from "react-native";
+
 import colors from "~/types/colors";
 
 interface SearchBarProps {
@@ -14,7 +21,7 @@ interface SearchBarProps {
   isActive?: boolean;
 }
 
-export const SearchBar = ({ 
+export const SearchBar = ({
   onPress,
   onChangeText,
   onClear,
@@ -25,7 +32,6 @@ export const SearchBar = ({
   editable = false,
   isActive = false,
 }: SearchBarProps) => {
-  
   // If not editable, render as a touchable button
   if (!editable) {
     return (
@@ -36,9 +42,7 @@ export const SearchBar = ({
         style={style}
       >
         <MagnifyingGlassIcon size={20} color={colors.ut.gray} weight="bold" />
-        <Text className="flex-1 text-base text-gray-400">
-          {placeholder}
-        </Text>
+        <Text className="flex-1 text-base text-gray-400">{placeholder}</Text>
       </TouchableOpacity>
     );
   }

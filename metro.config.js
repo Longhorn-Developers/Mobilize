@@ -6,4 +6,7 @@ const { withNativeWind } = require("nativewind/metro");
 
 const config = getDefaultConfig(__dirname);
 
+// Exclude drizzle-kit from Metro bundling (it's a server-side tool)
+config.resolver.blockList = [/node_modules\/drizzle-kit\/.*/];
+
 module.exports = withNativeWind(config, { input: "./global.css" });

@@ -10,17 +10,16 @@ import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
+import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
 import ReportModal from "~/components/ReportModal";
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   usePOIs,
   useAvoidanceAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
-
-import { SearchBar } from "~/components/SearchBar";
-import { SearchDropdown } from "~/components/SearchDropdown";
-import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
 
 export default function Home() {
   // hooks
@@ -170,11 +169,11 @@ export default function Home() {
     address?: string;
   }) => {
     console.log("Selected location:", location);
-    
+
     // Close search
     setIsSearchActive(false);
     setSearchQuery("");
-    
+
     // Open location details bottom sheet
     locationBottomSheetRef.current?.present();
   };
@@ -200,7 +199,7 @@ export default function Home() {
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* Search Bar */}
-      <SearchBar 
+      <SearchBar
         onPress={() => setIsSearchActive(true)}
         onChangeText={handleSearchChange}
         onClear={handleClearSearch}

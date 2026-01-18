@@ -1,5 +1,3 @@
-import { forwardRef, Ref } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
@@ -13,7 +11,11 @@ import {
   ToiletIcon,
   DoorOpenIcon,
 } from "phosphor-react-native";
+import { forwardRef, Ref } from "react";
+import { View, Text, TouchableOpacity } from "react-native";
+
 import colors from "~/types/colors";
+
 import { Button } from "./Button";
 
 // Types for location data
@@ -42,11 +44,12 @@ interface LocationDetails {
 }
 
 // Empty props interface for now
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface LocationDetailsBottomSheetProps {}
 
 const LocationDetailsBottomSheetComponent = (
   _props: LocationDetailsBottomSheetProps,
-  ref: Ref<BottomSheetModal>
+  ref: Ref<BottomSheetModal>,
 ) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
@@ -98,7 +101,7 @@ const LocationDetailsBottomSheetComponent = (
           size={24}
           weight={i < fullStars ? "fill" : "regular"}
           color={i < fullStars ? colors.ut.yellow : colors.ut.gray}
-        />
+        />,
       );
     }
 
@@ -115,7 +118,7 @@ const LocationDetailsBottomSheetComponent = (
           className="h-10 w-10 items-center justify-center rounded-full bg-yellow-500"
         >
           <LightningIcon size={20} weight="fill" color="white" />
-        </View>
+        </View>,
       );
     }
 
@@ -126,7 +129,7 @@ const LocationDetailsBottomSheetComponent = (
           className="h-10 w-10 items-center justify-center rounded-full bg-green-600"
         >
           <WheelchairIcon size={20} weight="fill" color="white" />
-        </View>
+        </View>,
       );
     }
 
@@ -137,7 +140,7 @@ const LocationDetailsBottomSheetComponent = (
           className="h-10 w-10 items-center justify-center rounded-full bg-blue-500"
         >
           <ToiletIcon size={20} weight="fill" color="white" />
-        </View>
+        </View>,
       );
     }
 
@@ -148,7 +151,7 @@ const LocationDetailsBottomSheetComponent = (
           className="h-10 w-10 items-center justify-center rounded-full bg-ut-burntorange"
         >
           <DoorOpenIcon size={20} weight="fill" color="white" />
-        </View>
+        </View>,
       );
     }
 
@@ -297,4 +300,6 @@ const LocationDetailsBottomSheetComponent = (
   );
 };
 
-export const LocationDetailsBottomSheet = forwardRef(LocationDetailsBottomSheetComponent);
+export const LocationDetailsBottomSheet = forwardRef(
+  LocationDetailsBottomSheetComponent,
+);

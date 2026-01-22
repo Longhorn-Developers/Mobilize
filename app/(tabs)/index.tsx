@@ -32,6 +32,10 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(15);
+
+  // Minimum zoom level to show POIs (higher = more zoomed in)
+  const MIN_ZOOM_FOR_POIS = 16;
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -140,7 +144,7 @@ export default function Home() {
         console.log(POIs);
       }
       
-      const poiMarkers = !isReportMode
+      const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
         ? (POIs || []).map((poi) => {
             const marker = {
               id: String(poi.id),
@@ -177,7 +181,7 @@ export default function Home() {
         ...poiMarkers,
       ];
     },
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
+    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
   return (
@@ -198,6 +202,11 @@ export default function Home() {
           longitude: -97.733,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
+        }}
+        onRegionChangeComplete={(region) => {
+          // Calculate zoom level from latitudeDelta
+          const zoom = Math.round(Math.log(360 / region.latitudeDelta) / Math.LN2);
+          setZoomLevel(zoom);
         }}
       >
         {/* Render polygons */}

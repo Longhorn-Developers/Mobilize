@@ -135,9 +135,8 @@ export default function Home() {
 
   const markers = useMemo(
     () => {
-      // 📝 ADDED CONSOLE LOGGING HERE
       if (POIs && !isReportMode) {
-        console.log("--- POI Data Check (Raw POIs) ---");
+        console.log("Pois");
         console.log(POIs);
       }
       

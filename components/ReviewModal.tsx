@@ -4,10 +4,12 @@ import {
   StarIcon,
   CheckIcon,
   ArrowRightIcon,
+  MagnifyingGlassIcon,
+  QuestionIcon
 } from "phosphor-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image } from "react-native";
 import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
@@ -77,6 +79,55 @@ const FeatureButtons = ({
     </TouchableOpacity>
   ));
 };
+
+interface ReviewEntry {
+  id: string;
+  avatar_url: string;
+  name: string;
+}
+
+const ReviewsList = ({ location_id }: { location_id: string }) => {
+  const [reviews, setReviews] = useState<ReviewEntry[]>([]);
+
+  useEffect(() => {
+    // fetch reviews by building name/ some other location id through cloudflare worker
+    // next json then next setReviews
+    console.log(`[ReviewsList] fetching reviews for "${location_id}"`);
+  }, [location_id]);
+
+  return (
+    <View className="flex flex-row justify-center items-center min-h-20">
+      {(reviews?.length > 0) ? (
+      /* Reviews List */
+      <FlatList<ReviewEntry>
+        data={reviews}
+        keyExtractor={item => item.id}
+        renderItem={({item}) => (
+          <View>
+            <Image className="rounded-full" source={{ uri: item.avatar_url}} />
+            <Text>
+              {item.name}
+            </Text>
+
+          </View>
+        )}
+      />) : (
+        /* No Reviews */
+        <View className="flex flex-row items-center gap-4">
+          <QuestionIcon size={32} color="#64748b" />
+          <View className="flex flex-col gap-1">
+            <Text className="text-slate-500">
+              No reviews found.
+            </Text>
+            <Text className="text-slate-500">
+              Be the first to write a review!
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
 
 const ReviewContentInput = ({
   name,
@@ -178,7 +229,7 @@ const ReviewModal = ({
 
         {formState === 0 ? (
           <>
-            {/* <ReviewsList locationId={} /> */}
+            <ReviewsList location_id={buildingName} />
             <TouchableOpacity
               className="w-full rounded-full bg-ut-burntorange/20"
               onPress={() => {

@@ -1,6 +1,6 @@
 // TanStack Query hooks for the Hono backend
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -67,7 +67,7 @@ export function useReview(id: number) {
     queryKey: queryKeys.review(id),
     queryFn: () => apiClient.getReview(id),
     enabled: !!id,
-  })
+  });
 }
 
 // health check
@@ -159,6 +159,6 @@ export function useInsertReview() {
     },
     onError: (error) => {
       console.error("Error adding review:", error);
-    }
-  })
+    },
+  });
 }

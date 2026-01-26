@@ -134,8 +134,7 @@ class ApiClient {
     return this.request<any>("/reviews", {
       method: "POST",
       body: JSON.stringify(data),
-    }
-    )
+    });
   }
 }
 

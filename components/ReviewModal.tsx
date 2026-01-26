@@ -4,12 +4,18 @@ import {
   StarIcon,
   CheckIcon,
   ArrowRightIcon,
-  MagnifyingGlassIcon,
-  QuestionIcon
+  QuestionIcon,
 } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Image,
+} from "react-native";
 import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
@@ -96,38 +102,36 @@ const ReviewsList = ({ location_id }: { location_id: string }) => {
   }, [location_id]);
 
   return (
-    <View className="flex flex-row justify-center items-center min-h-20">
-      {(reviews?.length > 0) ? (
-      /* Reviews List */
-      <FlatList<ReviewEntry>
-        data={reviews}
-        keyExtractor={item => item.id}
-        renderItem={({item}) => (
-          <View>
-            <Image className="rounded-full" source={{ uri: item.avatar_url}} />
-            <Text>
-              {item.name}
-            </Text>
-
-          </View>
-        )}
-      />) : (
+    <View className="flex min-h-20 flex-row items-center justify-center">
+      {reviews?.length > 0 ? (
+        /* Reviews List */
+        <FlatList<ReviewEntry>
+          data={reviews}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View>
+              <Image
+                className="rounded-full"
+                source={{ uri: item.avatar_url }}
+              />
+              <Text>{item.name}</Text>
+            </View>
+          )}
+        />
+      ) : (
         /* No Reviews */
         <View className="flex flex-row items-center gap-4">
           <QuestionIcon size={32} color="#64748b" />
-          <View className="flex flex-col gap-1">
-            <Text className="text-slate-500">
-              No reviews found.
-            </Text>
-            <Text className="text-slate-500">
-              Be the first to write a review!
-            </Text>
-          </View>
+          <Text className="text-slate-500">
+            No reviews found.
+            {"\n"}
+            Be the first to write a review!
+          </Text>
         </View>
       )}
     </View>
-  )
-}
+  );
+};
 
 const ReviewContentInput = ({
   name,

@@ -1,5 +1,5 @@
-import { forwardRef, Ref } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { forwardRef, Ref, useImperativeHandle, useState } from "react";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
@@ -15,77 +15,57 @@ import {
 } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { Button } from "./Button";
+import type { PlaceDetails } from "~/utils/googlePlaces";
+import { formatOpeningHours } from "~/utils/googlePlaces";
+import { useRef } from "react";
 
 // Types for location data
 interface EntranceAccess {
-  hasPowerDoor?: boolean; // Yellow lightning icon
-  hasRamp?: boolean; // Green ramp icon
-  hasAccessibleRestroom?: boolean; // Blue restroom icon
-  hasAccessibleDoor?: boolean; // Orange door icon
+  hasPowerDoor?: boolean;
+  hasRamp?: boolean;
+  hasAccessibleRestroom?: boolean;
+  hasAccessibleDoor?: boolean;
 }
 
 interface Entrance {
   id: string;
-  name: string; // e.g., "North Entrance", "South Entrance"
+  name: string;
   access: EntranceAccess;
 }
 
-interface LocationDetails {
-  id: string;
-  name: string;
-  address: string;
-  rating: number; // e.g., 4.2
-  reviewCount: number; // e.g., 18
-  hours?: string; // e.g., "7 AM to 10 PM"
+interface LocationDetailsBottomSheetProps {
   distance?: string; // e.g., "2.4 Mi"
-  entrances: Entrance[];
 }
 
-// Empty props interface for now
-interface LocationDetailsBottomSheetProps {}
+export interface LocationDetailsBottomSheetRef {
+  present: (placeDetails: PlaceDetails, distance?: string) => void;
+  dismiss: () => void;
+}
 
 const LocationDetailsBottomSheetComponent = (
-  _props: LocationDetailsBottomSheetProps,
-  ref: Ref<BottomSheetModal>
+  props: LocationDetailsBottomSheetProps,
+  ref: Ref<LocationDetailsBottomSheetRef>
 ) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  
+  const [placeData, setPlaceData] = useState<PlaceDetails | null>(null);
+  const [distance, setDistance] = useState<string | undefined>(props.distance);
+  const [entrances, setEntrances] = useState<Entrance[]>([]);
 
-  // Mock data - will be replaced with actual location data
-  const mockLocation: LocationDetails = {
-    id: "1",
-    name: "Texas Global",
-    address: "2400 Nueces St",
-    rating: 4.2,
-    reviewCount: 18,
-    hours: "7 AM to 10 PM",
-    distance: "2.4 Mi",
-    entrances: [
-      {
-        id: "north",
-        name: "North Entrance",
-        access: {
-          hasPowerDoor: true,
-          hasRamp: true,
-        },
-      },
-      {
-        id: "south",
-        name: "South Entrance",
-        access: {
-          hasAccessibleDoor: true,
-          hasRamp: true,
-        },
-      },
-      {
-        id: "west",
-        name: "West Entrance",
-        access: {
-          hasRamp: true,
-          hasAccessibleRestroom: true,
-        },
-      },
-    ],
-  };
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    present: (placeDetails: PlaceDetails, dist?: string) => {
+      setPlaceData(placeDetails);
+      setDistance(dist);
+      // TODO: Fetch entrances from Cloudflare based on coordinates
+      setEntrances([]); // Empty for now
+      bottomSheetRef.current?.present();
+    },
+    dismiss: () => {
+      bottomSheetRef.current?.dismiss();
+    },
+  }));
 
   const renderStars = (rating: number) => {
     const stars = [];
@@ -155,9 +135,30 @@ const LocationDetailsBottomSheetComponent = (
     return icons;
   };
 
+  if (!placeData) {
+    return (
+      <BottomSheetModal
+        ref={bottomSheetRef}
+        bottomInset={bottomTabBarHeight}
+        backgroundStyle={{ borderRadius: 32 }}
+        enableDynamicSizing={false}
+        snapPoints={["50%", "85%"]}
+        handleIndicatorStyle={{
+          backgroundColor: colors.theme.majorgridline,
+          width: 80,
+        }}
+      >
+        <View className="flex-1 items-center justify-center p-8">
+          <ActivityIndicator size="large" color={colors.ut.burntorange} />
+          <Text className="mt-4 text-gray-500">Loading location details...</Text>
+        </View>
+      </BottomSheetModal>
+    );
+  }
+
   return (
     <BottomSheetModal
-      ref={ref}
+      ref={bottomSheetRef}
       bottomInset={bottomTabBarHeight}
       backgroundStyle={{ borderRadius: 32 }}
       enableDynamicSizing={false}
@@ -171,7 +172,7 @@ const LocationDetailsBottomSheetComponent = (
         {/* Header: Title and Action Icons */}
         <View className="mb-4 flex-row items-start justify-between">
           <Text className="flex-1 pr-4 text-3xl font-bold text-gray-900">
-            {mockLocation.name}
+            {placeData.name}
           </Text>
           <View className="flex-row gap-3">
             <TouchableOpacity
@@ -192,47 +193,47 @@ const LocationDetailsBottomSheetComponent = (
         {/* Address */}
         <View className="mb-3 flex-row items-center gap-2">
           <MapPinIcon size={20} color={colors.ut.gray} />
-          <Text className="text-lg text-gray-600">{mockLocation.address}</Text>
+          <Text className="text-lg text-gray-600">{placeData.formatted_address}</Text>
         </View>
 
         {/* Star Rating */}
-        <View className="mb-2 flex-row items-center gap-2">
-          {renderStars(mockLocation.rating)}
-          <Text className="ml-1 text-xl font-semibold text-gray-900">
-            {mockLocation.rating}
-          </Text>
-        </View>
+        {placeData.rating && (
+          <View className="mb-2 flex-row items-center gap-2">
+            {renderStars(placeData.rating)}
+            <Text className="ml-1 text-xl font-semibold text-gray-900">
+              {placeData.rating}
+            </Text>
+          </View>
+        )}
 
         {/* Reviews */}
-        <TouchableOpacity
-          className="mb-4 flex-row items-center gap-2"
-          activeOpacity={0.7}
-        >
-          <Text className="text-base text-gray-500">
-            Reviews ({mockLocation.reviewCount})
-          </Text>
-          <CaretRightIcon size={16} color={colors.ut.gray} />
-        </TouchableOpacity>
+        {placeData.user_ratings_total && (
+          <TouchableOpacity
+            className="mb-4 flex-row items-center gap-2"
+            activeOpacity={0.7}
+          >
+            <Text className="text-base text-gray-500">
+              Reviews ({placeData.user_ratings_total})
+            </Text>
+            <CaretRightIcon size={16} color={colors.ut.gray} />
+          </TouchableOpacity>
+        )}
 
         {/* Hours and Distance */}
         <View className="mb-4 flex-row gap-8">
           {/* Hours */}
           <View className="flex-1">
-            <Text className="mb-1 text-sm font-medium text-gray-500">
-              Hours
-            </Text>
+            <Text className="mb-1 text-sm font-medium text-gray-500">Hours</Text>
             <Text className="text-lg font-semibold text-gray-900">
-              {mockLocation.hours || "Not available"}
+              {formatOpeningHours(placeData.opening_hours)}
             </Text>
           </View>
 
           {/* Distance */}
           <View className="flex-1">
-            <Text className="mb-1 text-sm font-medium text-gray-500">
-              Distance
-            </Text>
+            <Text className="mb-1 text-sm font-medium text-gray-500">Distance</Text>
             <Text className="text-lg font-semibold text-gray-900">
-              {mockLocation.distance || "N/A"}
+              {distance || "Calculating..."}
             </Text>
           </View>
         </View>
@@ -240,34 +241,47 @@ const LocationDetailsBottomSheetComponent = (
         {/* Divider */}
         <View className="mb-4 h-px bg-gray-200" />
 
-        {/* Access Section */}
-        <View className="mb-6">
-          <View className="mb-3 flex-row items-center gap-2">
-            <Text className="text-lg font-semibold text-gray-900">Access</Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <View className="h-5 w-5 items-center justify-center rounded-full border border-gray-400">
-                <Text className="text-xs text-gray-600">i</Text>
-              </View>
+        {/* Access Section - Only show if we have entrance data */}
+        {entrances.length > 0 ? (
+          <View className="mb-6">
+            <View className="mb-3 flex-row items-center gap-2">
+              <Text className="text-lg font-semibold text-gray-900">Access</Text>
+              <TouchableOpacity activeOpacity={0.7}>
+                <View className="h-5 w-5 items-center justify-center rounded-full border border-gray-400">
+                  <Text className="text-xs text-gray-600">i</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Entrances */}
+            <View className="gap-3">
+              {entrances.map((entrance) => (
+                <View
+                  key={entrance.id}
+                  className="rounded-2xl border-2 border-gray-200 bg-white p-4"
+                >
+                  <Text className="mb-3 text-base font-medium text-gray-700">
+                    {entrance.name}
+                  </Text>
+                  <View className="flex-row gap-2">
+                    {renderAccessIcon(entrance.access)}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View className="mb-6 rounded-xl bg-gray-50 p-4">
+            <Text className="text-center text-gray-500">
+              No accessibility data available for this location yet.
+            </Text>
+            <TouchableOpacity className="mt-2">
+              <Text className="text-center text-ut-burntorange">
+                Add accessibility info
+              </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Entrances */}
-          <View className="gap-3">
-            {mockLocation.entrances.map((entrance) => (
-              <View
-                key={entrance.id}
-                className="rounded-2xl border-2 border-gray-200 bg-white p-4"
-              >
-                <Text className="mb-3 text-base font-medium text-gray-700">
-                  {entrance.name}
-                </Text>
-                <View className="flex-row gap-2">
-                  {renderAccessIcon(entrance.access)}
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        )}
 
         {/* Get Directions Button */}
         <Button

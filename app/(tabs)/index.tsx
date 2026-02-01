@@ -180,10 +180,11 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
   );
 
-  const handleSelectLocation = (location: {
+  const handleSelectLocation = async (location: {
     id: string;
     name: string;
     address?: string;
+    place_id?: string;
   }) => {
     console.log("Selected location:", location);
     
@@ -191,8 +192,19 @@ export default function Home() {
     setIsSearchActive(false);
     setSearchQuery("");
     
-    // Open location details bottom sheet
-    locationBottomSheetRef.current?.present();
+    // Fetch full place details
+    if (location.place_id) {
+      const placeDetails = await getPlaceDetails(location.place_id);
+      
+      if (placeDetails) {
+        // TODO: Get user's current location to calculate distance
+        // For now, using a placeholder
+        //const distance = "2.4 Mi";
+        
+        // Open location details bottom sheet with real data
+        locationBottomSheetRef.current?.present(placeDetails);
+      }
+    }
   };
 
   const handleSearchChange = (text: string) => {

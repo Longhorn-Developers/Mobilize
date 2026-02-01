@@ -2,7 +2,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { View } from "react-native";
 import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ import useMapIcons from "~/utils/useMapIcons";
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
 import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
+import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 
 export default function Home() {
   // hooks
@@ -42,6 +43,21 @@ export default function Home() {
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+
+  const testGooglePlaces = async () => {
+    console.log("Testing Google Places...");
+    const results = await searchPlaces("Texas Global");
+    console.log("Search results:", results);
+    
+    if (results.length > 0) {
+      const details = await getPlaceDetails(results[0].place_id);
+      console.log("Place details:", details);
+    }
+  };
+
+  useEffect(() => {
+    testGooglePlaces();
+  }, []);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {

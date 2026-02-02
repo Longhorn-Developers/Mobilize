@@ -2,11 +2,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   XIcon,
   StarIcon,
-  CheckIcon,
-  ArrowRightIcon,
   QuestionIcon,
 } from "phosphor-react-native";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import {
   View,
@@ -19,7 +17,8 @@ import {
 import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
-import { Review } from "~/types/database";
+import { Review, ReviewEntry } from "~/types/database";
+import { useReviews } from "~/utils/api-hooks";
 
 import { Button } from "./Button";
 
@@ -86,35 +85,36 @@ const FeatureButtons = ({
   ));
 };
 
-interface ReviewEntry {
-  id: string;
-  avatar_url: string;
-  name: string;
-}
+// interface ReviewEntry {
+//   id: number;
+//   user_id: number;
+//   poi_id: number;
+//   rating: number;
+//   features: string[];
+//   content: string | null;
+//   profile_display_name: string;
+//   profile_avatar_url: string;
+// }
 
-const ReviewsList = ({ location_id }: { location_id: string }) => {
-  const [reviews, setReviews] = useState<ReviewEntry[]>([]);
-
-  useEffect(() => {
-    // fetch reviews by building name/ some other location id through cloudflare worker
-    // next json then next setReviews
-    console.log(`[ReviewsList] fetching reviews for "${location_id}"`);
-  }, [location_id]);
+const ReviewsList = ({ poi_id }: { poi_id: number }) => {
+  // query reviews from db
+  const { data: reviews = [], isLoading } = useReviews(poi_id);
+  console.log(`[ReviewsList] fetching reviews for "${poi_id}"`);
 
   return (
     <View className="flex min-h-20 flex-row items-center justify-center">
       {reviews?.length > 0 ? (
-        /* Reviews List */
+        /* Scrollable Reviews List */
         <FlatList<ReviewEntry>
           data={reviews}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
             <View>
               <Image
                 className="rounded-full"
-                source={{ uri: item.avatar_url }}
+                source={{ uri: item.profile_avatar_url }}
               />
-              <Text>{item.name}</Text>
+              <Text>{item.profile_display_name}</Text>
             </View>
           )}
         />
@@ -148,7 +148,7 @@ const ReviewContentInput = ({
 
   return (
     <TextInput
-      className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-ut-black/50"
+      className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-[#616467]"
       multiline={true}
       placeholder="How was the accessibility? Any specific details that would help other students?"
       onChangeText={field.onChange}
@@ -159,6 +159,7 @@ const ReviewContentInput = ({
 
 interface ReviewModalProps {
   className?: string;
+  poi_id: number;
   entranceName: string;
   buildingName: string;
   onExit: () => void;
@@ -166,6 +167,7 @@ interface ReviewModalProps {
 
 const ReviewModal = ({
   className,
+  poi_id,
   entranceName,
   buildingName,
   onExit,
@@ -189,7 +191,7 @@ const ReviewModal = ({
       // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
       data.id = 1; // Won't be needed
       data.user_id = 1; // Somehow get user from session data
-      data.location_id = `${buildingName}-${entranceName}`;
+      data.poi_id = 1;
 
       console.log(JSON.stringify(data));
       Toast.show({
@@ -197,7 +199,7 @@ const ReviewModal = ({
         text2:
           "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
         position: "bottom",
-        bottomOffset: bottomTabBarHeight * 6,
+        bottomOffset: bottomTabBarHeight,
       });
 
       onExit();
@@ -226,39 +228,28 @@ const ReviewModal = ({
           <Text className="max-w-64 pt-1 text-3xl font-bold">
             {buildingName}
           </Text>
-          <Text className="">
-            {formState === 0 ? "Reviews:" : "Leave a Review:"} {entranceName}
-          </Text>
+          <Text className="color-[#616467]">{entranceName}</Text>
         </View>
 
         {formState === 0 ? (
           <>
-            <ReviewsList location_id={buildingName} />
-            <TouchableOpacity
-              className="w-full rounded-full bg-ut-burntorange/20"
+            <ReviewsList poi_id={poi_id} />
+            <Button
+              className="rounded-xl shadow-none"
+              title="Leave a Review"
               onPress={() => {
+                // query previously submitted review from user id
                 setFormState((prevFormState: number) => {
                   return prevFormState + 1;
                 });
               }}
-            >
-              <View className="flex flex-row justify-between px-4 py-1">
-                <Text className="pt-1 leading-none text-ut-burntorange">
-                  Leave a Review
-                </Text>
-                <ArrowRightIcon
-                  size={20}
-                  color={colors.ut.burntorange}
-                  weight="bold"
-                />
-              </View>
-            </TouchableOpacity>
+            />
           </>
         ) : (
           <>
             {/* Rating Section */}
             <View className="gap-2">
-              <Text className="text-slate-500">Give a rating</Text>
+              <Text className="">Give a rating</Text>
 
               {/* Star Functionality */}
               <View className="flex flex-row gap-1">
@@ -268,7 +259,7 @@ const ReviewModal = ({
 
             {/* Feature Selection Section */}
             <View className="gap-2">
-              <Text className="text-slate-500">
+              <Text className="">
                 Select any features you noticed
               </Text>
 
@@ -280,7 +271,7 @@ const ReviewModal = ({
 
             {/* Experience Sharing Section */}
             <View className="gap-4">
-              <Text className="text-slate-500">
+              <Text className="">
                 Share your experience (optional)
               </Text>
               <ReviewContentInput name="content" control={control} />
@@ -292,17 +283,19 @@ const ReviewModal = ({
               <Button
                 className="gap-2 rounded-xl shadow-none"
                 onPress={handleSubmit(onSubmit)}
-              >
-                <CheckIcon size={28} color="white" />
-                <Text className="text-lg font-semibold text-white">
-                  Submit Review
-                </Text>
-              </Button>
+                title={"Submit"}
+              />
+              {// >
+              //   <Text className="text-lg font-semibold text-white">
+              //     Submit Review
+              //   </Text>
+              // </Button>
+              }
 
               {/* Cancel Button */}
               <Button
                 className="rounded-xl shadow-none"
-                variant="gray"
+                variant="secondary"
                 title={"Cancel"}
                 onPress={handleClose}
               />
@@ -310,7 +303,7 @@ const ReviewModal = ({
 
             {/* Encourage Reviews Message */}
             <View className="flex w-full items-center">
-              <Text className="w-80 text-center color-ut-black/50">
+              <Text className="w-80 text-center color-[#616467]">
                 Your review helps make campus more accessible for everyone.
               </Text>
             </View>

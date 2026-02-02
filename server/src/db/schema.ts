@@ -9,7 +9,9 @@ export const reviews = sqliteTable('reviews', {
 	rating: integer('rating').notNull(),
 	features: text('features'),
 	content: text('content'),
-	location_id: text('location_id').notNull(),
+	poi_id: integer('poi_id')
+		.notNull()
+		.references(() => pois.id),
 	created_at: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(unixepoch())`),

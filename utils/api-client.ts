@@ -6,7 +6,7 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
-  Review,
+  ReviewEntry,
 } from "~/types/database";
 
 class ApiClient {
@@ -53,9 +53,9 @@ class ApiClient {
     return this.request<Profile>(`/profiles?id=${id}`);
   }
 
-  // Get review by ID
-  async getReview(id: number) {
-    return this.request<Review>(`/reviews?id=${id}`);
+  // Get reviews list by POI ID
+  async getReviews(poi_id: number) {
+    return this.request<ReviewEntry[]>(`/reviews?poi_id=${poi_id}`);
   }
 
   // Get all POIs

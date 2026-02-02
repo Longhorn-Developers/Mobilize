@@ -30,6 +30,11 @@ export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
   profile_avatar_url?: string | null;
 };
 
+export type ReviewEntry = Review & {
+  profile_display_name: string | null;
+  profile_avatar_url: string;
+};
+
 // Parsed types (with GeoJSON fields as objects)
 export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {
   location_geojson: Point;

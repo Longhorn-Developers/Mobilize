@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1762401636458,
-      "tag": "0000_wakeful_gambit",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1762462119306,
-      "tag": "0001_nappy_rage",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1769154394236,
-      "tag": "0002_left_hairball",
+      "when": 1769996934732,
+      "tag": "0000_material_sleeper",
       "breakpoints": true
     }
   ]

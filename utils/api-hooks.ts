@@ -14,7 +14,7 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
-  review: (id: number) => ["review", id] as const,
+  review: (poi_id: number) => ["review", poi_id] as const,
 };
 
 // fetch all POIs
@@ -61,12 +61,12 @@ export function useProfile(id: number) {
   });
 }
 
-// fetch a review by ID
-export function useReview(id: number) {
+// fetch reviews list by POI ID
+export function useReviews(poi_id: number) {
   return useQuery({
-    queryKey: queryKeys.review(id),
-    queryFn: () => apiClient.getReview(id),
-    enabled: !!id,
+    queryKey: queryKeys.review(poi_id),
+    queryFn: () => apiClient.getReviews(poi_id),
+    enabled: !!poi_id,
   });
 }
 

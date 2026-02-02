@@ -14,6 +14,7 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
+  reviews: ["reviews"] as const,
   review: (poi_id: number) => ["review", poi_id] as const,
 };
 
@@ -67,6 +68,8 @@ export function useReviews(poi_id: number) {
     queryKey: queryKeys.review(poi_id),
     queryFn: () => apiClient.getReviews(poi_id),
     enabled: !!poi_id,
+    refetchOnMount: false, // Fetch if data is stale
+    staleTime: 1000 * 60 * 5, // Refresh data after 5 min if necessary
   });
 }
 
@@ -144,21 +147,39 @@ export function useInsertAvoidanceAreaReport() {
   });
 }
 
-// insert a new entrance review
+// insert a new review
 export function useInsertReview() {
+  const queryClient = useQueryClient();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
   return useMutation({
     mutationFn: (data: {
       user_id: number;
+      poi_id: number;
       rating: number;
-      features?: string[];
+      features?: string;
       content?: string;
-      location_id: string;
     }) => apiClient.insertReview(data),
-    onSuccess: (data) => {
+    onSuccess: () => {
       console.log("Successfully added review");
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews }); // refetch reviews
+
+      Toast.show({
+        type: "success",
+        text2:
+          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
     },
     onError: (error) => {
       console.error("Error adding review:", error);
+      Toast.show({
+        type: "error",
+        text2: `Error submitting review: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
     },
   });
 }

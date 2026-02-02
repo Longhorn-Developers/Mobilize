@@ -195,7 +195,7 @@ app.post('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(result);
 });
 
-// POST insert new entrance review
+// POST insert new review
 app.post('/reviews', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	
@@ -217,10 +217,10 @@ app.post('/reviews', async (c) => {
 		.insert(reviews)
 		.values({
 			user_id,
+			poi_id,
 			rating,
 			features,
 			content,
-			poi_id
 		})
 		.returning();
 

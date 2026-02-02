@@ -255,9 +255,9 @@ export default function Home() {
           {/* Review modal overlay tint */}
           <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
           <ReviewModal
-            className="absolute left-10 right-10 top-safe-offset-40"
+            className="top-safe-offset-40 absolute left-10 right-10"
             poi_id={1}
-            entranceName="South Entrance" // based on bottom sheet selection 
+            entranceName="South Entrance" // based on bottom sheet selection
             buildingName="Gregory Gym" // from bottom sheet/places api
             onExit={() => {
               // insert into db somehow

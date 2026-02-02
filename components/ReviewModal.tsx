@@ -1,9 +1,5 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import {
-  XIcon,
-  StarIcon,
-  QuestionIcon,
-} from "phosphor-react-native";
+import { XIcon, StarIcon, QuestionIcon } from "phosphor-react-native";
 import { useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import {
@@ -18,7 +14,7 @@ import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
-import { useReviews } from "~/utils/api-hooks";
+import { useInsertReview, useReviews } from "~/utils/api-hooks";
 
 import { Button } from "./Button";
 
@@ -84,17 +80,6 @@ const FeatureButtons = ({
     </TouchableOpacity>
   ));
 };
-
-// interface ReviewEntry {
-//   id: number;
-//   user_id: number;
-//   poi_id: number;
-//   rating: number;
-//   features: string[];
-//   content: string | null;
-//   profile_display_name: string;
-//   profile_avatar_url: string;
-// }
 
 const ReviewsList = ({ poi_id }: { poi_id: number }) => {
   // query reviews from db
@@ -177,6 +162,8 @@ const ReviewModal = ({
 
   const bottomTabBarHeight = useBottomTabBarHeight();
 
+  const { mutateAsync: insertReview } = useInsertReview();
+
   const onSubmit = (data: Review) => {
     if (data.rating === 0) {
       /* TODO: Should error if no rating selected */
@@ -189,19 +176,18 @@ const ReviewModal = ({
       });
     } else {
       // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
-      data.id = 1; // Won't be needed
+      // data.id = 1; // Won't be needed
       data.user_id = 1; // Somehow get user from session data
       data.poi_id = 1;
 
       console.log(JSON.stringify(data));
-      Toast.show({
-        type: "success",
-        text2:
-          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
-        position: "bottom",
-        bottomOffset: bottomTabBarHeight,
+      insertReview({
+        user_id: data.user_id,
+        poi_id: poi_id,
+        rating: data.rating,
+        features: data?.features.toString() ?? undefined,
+        content: data?.content ?? undefined,
       });
-
       onExit();
     }
   };
@@ -259,9 +245,7 @@ const ReviewModal = ({
 
             {/* Feature Selection Section */}
             <View className="gap-2">
-              <Text className="">
-                Select any features you noticed
-              </Text>
+              <Text className="">Select any features you noticed</Text>
 
               {/* Feature Buttons */}
               <View className="flex max-w-full flex-row gap-2">
@@ -271,9 +255,7 @@ const ReviewModal = ({
 
             {/* Experience Sharing Section */}
             <View className="gap-4">
-              <Text className="">
-                Share your experience (optional)
-              </Text>
+              <Text className="">Share your experience (optional)</Text>
               <ReviewContentInput name="content" control={control} />
             </View>
 
@@ -285,12 +267,6 @@ const ReviewModal = ({
                 onPress={handleSubmit(onSubmit)}
                 title={"Submit"}
               />
-              {// >
-              //   <Text className="text-lg font-semibold text-white">
-              //     Submit Review
-              //   </Text>
-              // </Button>
-              }
 
               {/* Cancel Button */}
               <Button

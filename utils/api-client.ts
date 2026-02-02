@@ -126,10 +126,10 @@ class ApiClient {
 
   async insertReview(data: {
     user_id: number;
+    poi_id: number;
     rating: number;
-    features?: string[];
+    features?: string;
     content?: string;
-    location_id: string;
   }) {
     return this.request<any>("/reviews", {
       method: "POST",

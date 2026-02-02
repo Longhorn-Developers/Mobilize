@@ -31,7 +31,7 @@ export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
 };
 
 export type ReviewEntry = Review & {
-  profile_display_name: string | null;
+  profile_display_name: string;
   profile_avatar_url: string;
 };
 

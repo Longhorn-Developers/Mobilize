@@ -30,9 +30,13 @@ export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
   profile_avatar_url?: string | null;
 };
 
-export type ReviewEntry = Review & {
+export type ReviewEntryRaw = ReviewRaw & {
   profile_display_name: string;
   profile_avatar_url: string;
+};
+
+export interface ReviewEntry extends Omit<ReviewEntryRaw, "features"> {
+  features: string[];
 };
 
 // Parsed types (with GeoJSON fields as objects)

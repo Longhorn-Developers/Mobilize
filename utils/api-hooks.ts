@@ -68,7 +68,6 @@ export function useReviews(poi_id: number) {
     queryKey: queryKeys.review(poi_id),
     queryFn: () => apiClient.getReviews(poi_id),
     enabled: !!poi_id,
-    staleTime: 1000 * 60 * 5, // Refresh data after 5 min if necessary
   });
 }
 

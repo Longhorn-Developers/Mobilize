@@ -24,14 +24,16 @@ import { Button } from "./Button";
 
 const TouchableRating = ({
   name,
+  defaultValue,
   control,
 }: {
   name: "rating";
+  defaultValue: number;
   control: Control<Review>;
 }) => {
   const { field } = useController({
     control,
-    defaultValue: 0,
+    defaultValue: defaultValue,
     name,
   });
 
@@ -48,16 +50,19 @@ const TouchableRating = ({
   ));
 };
 
+// Features - power-assisted doors, manual doors, etc
 const FeatureButtons = ({
   name,
+  defaultValue,
   control,
 }: {
   name: "features";
+  defaultValue: string[];
   control: Control<Review>;
 }) => {
   const { field } = useController({
     control,
-    defaultValue: [],
+    defaultValue: defaultValue,
     name,
   });
 
@@ -120,14 +125,16 @@ const ReviewsList = ({ reviews }: { reviews: ReviewEntry[] }) => {
 
 const ReviewContentInput = ({
   name,
+  defaultValue,
   control,
 }: {
   name: "content";
+  defaultValue: string;
   control: Control<Review>;
 }) => {
   const { field } = useController({
     control,
-    defaultValue: "",
+    defaultValue: defaultValue,
     name,
   });
 
@@ -136,6 +143,7 @@ const ReviewContentInput = ({
       className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-[#616467]"
       multiline={true}
       placeholder="How was the accessibility? Any specific details that would help other students?"
+      value={field.value ?? undefined}
       onChangeText={field.onChange}
       maxLength={280}
     />
@@ -171,14 +179,13 @@ const ReviewModal = ({
 
   const user_id = 1; // Somehow get user from session data woohoo gerard
   const existingReview = reviews.find(
-    (review) => review.user_id === user_id && review.user_id === poi_id,
+    review => review.user_id === user_id,
   );
   const isEditMode = !!existingReview;
 
-  const onSubmit = (data: Review) => {
+  const onSubmit = async (data: Review) => {
     if (data.rating === 0) {
-      /* TODO: Should error if no rating selected */
-      console.log("[onSubmit] rating not selected!");
+      // Warning if no rating selected
       Toast.show({
         type: "error",
         text2: "Please select a rating.",
@@ -195,7 +202,7 @@ const ReviewModal = ({
         updateReview({
           id: existingReview.id,
           rating: data.rating,
-          features: data?.features.toString() ?? undefined,
+          features: JSON.stringify(data.features),
           content: data?.content ?? undefined,
         });
       } else {
@@ -203,7 +210,7 @@ const ReviewModal = ({
           user_id: data.user_id,
           poi_id: data.poi_id,
           rating: data.rating,
-          features: data?.features.toString() ?? undefined,
+          features: JSON.stringify(data.features),
           content: data?.content ?? undefined,
         });
       }
@@ -259,7 +266,7 @@ const ReviewModal = ({
 
               {/* Star Functionality */}
               <View className="flex flex-row gap-1">
-                <TouchableRating name="rating" control={control} />
+                <TouchableRating name="rating" defaultValue={existingReview?.rating || 0} control={control} />
               </View>
             </View>
 
@@ -269,14 +276,14 @@ const ReviewModal = ({
 
               {/* Feature Buttons */}
               <View className="flex max-w-full flex-row gap-2">
-                <FeatureButtons name="features" control={control} />
+                <FeatureButtons name="features" defaultValue={existingReview?.features || []} control={control} />
               </View>
             </View>
 
             {/* Experience Sharing Section */}
             <View className="gap-4">
               <Text className="">Share your experience (optional)</Text>
-              <ReviewContentInput name="content" control={control} />
+              <ReviewContentInput name="content" defaultValue={existingReview?.content || ""} control={control} />
             </View>
 
             {/* Buttons */}

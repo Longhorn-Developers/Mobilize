@@ -6,6 +6,7 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
+  ReviewEntryRaw,
   ReviewEntry,
 } from "~/types/database";
 
@@ -55,7 +56,12 @@ class ApiClient {
 
   // Get reviews list by POI ID
   async getReviews(poi_id: number) {
-    return this.request<ReviewEntry[]>(`/reviews?poi_id=${poi_id}`);
+    const reviews = await this.request<ReviewEntryRaw[]>(`/reviews?poi_id=${poi_id}`);
+    
+    return reviews.map(review => ({
+      ...review,
+      features: review.features ? JSON.parse(review.features) : []
+    })) as ReviewEntry[];
   }
 
   // Get all POIs

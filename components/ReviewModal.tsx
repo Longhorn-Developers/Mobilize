@@ -14,7 +14,11 @@ import Toast from "react-native-toast-message";
 
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
-import { useInsertReview, useReviews } from "~/utils/api-hooks";
+import {
+  useInsertReview,
+  useReviews,
+  useUpdateReview,
+} from "~/utils/api-hooks";
 
 import { Button } from "./Button";
 
@@ -81,11 +85,7 @@ const FeatureButtons = ({
   ));
 };
 
-const ReviewsList = ({ poi_id }: { poi_id: number }) => {
-  // query reviews from db
-  const { data: reviews = [], isLoading } = useReviews(poi_id);
-  console.log(`[ReviewsList] fetching reviews for "${poi_id}"`);
-
+const ReviewsList = ({ reviews }: { reviews: ReviewEntry[] }) => {
   return (
     <View className="flex min-h-20 flex-row items-center justify-center">
       {reviews?.length > 0 ? (
@@ -163,6 +163,17 @@ const ReviewModal = ({
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   const { mutateAsync: insertReview } = useInsertReview();
+  const { mutateAsync: updateReview } = useUpdateReview();
+
+  // query reviews from db
+  const { data: reviews = [], isLoading } = useReviews(poi_id);
+  console.log(`[ReviewsList] fetching reviews for "${poi_id}"`);
+
+  const user_id = 1; // Somehow get user from session data woohoo gerard
+  const existingReview = reviews.find(
+    (review) => review.user_id === user_id && review.user_id === poi_id,
+  );
+  const isEditMode = !!existingReview;
 
   const onSubmit = (data: Review) => {
     if (data.rating === 0) {
@@ -175,19 +186,28 @@ const ReviewModal = ({
         bottomOffset: bottomTabBarHeight + 50,
       });
     } else {
-      // Insert info: review id, author, rating, features, content, entrance_id/building_id/etc
-      // data.id = 1; // Won't be needed
-      data.user_id = 1; // Somehow get user from session data
-      data.poi_id = 1;
+      // Post review (insert)
+      data.user_id = user_id;
+      data.poi_id = poi_id;
 
-      console.log(JSON.stringify(data));
-      insertReview({
-        user_id: data.user_id,
-        poi_id: poi_id,
-        rating: data.rating,
-        features: data?.features.toString() ?? undefined,
-        content: data?.content ?? undefined,
-      });
+      // If review exists, edit existing review; otherwise, post new review
+      if (isEditMode) {
+        updateReview({
+          id: existingReview.id,
+          rating: data.rating,
+          features: data?.features.toString() ?? undefined,
+          content: data?.content ?? undefined,
+        });
+      } else {
+        insertReview({
+          user_id: data.user_id,
+          poi_id: data.poi_id,
+          rating: data.rating,
+          features: data?.features.toString() ?? undefined,
+          content: data?.content ?? undefined,
+        });
+      }
+
       onExit();
     }
   };
@@ -219,7 +239,7 @@ const ReviewModal = ({
 
         {formState === 0 ? (
           <>
-            <ReviewsList poi_id={poi_id} />
+            <ReviewsList reviews={reviews} />
             <Button
               className="rounded-xl shadow-none"
               title="Leave a Review"

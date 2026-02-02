@@ -207,7 +207,7 @@ app.post('/reviews', async (c) => {
 		return c.text('Invalid JSON body', 400);
 	}
 
-	const { user_id, rating, features, content, poi_id } = body;
+	const { user_id, poi_id, rating, features, content } = body;
 
 	if (!user_id || !rating || !poi_id) {
 		return c.text("Missing required fields", 400);
@@ -222,6 +222,44 @@ app.post('/reviews', async (c) => {
 			features,
 			content,
 		})
+		.returning();
+
+	return c.json(result);
+});
+
+// PUT update single existing review
+app.put('/reviews/:id', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const reviewId = Number(c.req.param('id'));
+
+	console.log(reviewId);
+
+	if (isNaN(reviewId)) {
+		return c.text('Invalid review ID', 400);
+	}
+	
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+	}
+
+	const { rating, features, content } = body;
+
+	if (!rating) {
+		return c.text("Missing required fields", 400);
+	}
+
+	const result = await db
+		.update(reviews)
+		.set({
+			rating,
+			features,
+			content
+		})
+		.where(eq(reviews.id, reviewId))
 		.returning();
 
 	return c.json(result);

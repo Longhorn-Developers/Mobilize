@@ -124,6 +124,7 @@ class ApiClient {
     );
   }
 
+  // Create a new review
   async insertReview(data: {
     user_id: number;
     poi_id: number;
@@ -133,6 +134,21 @@ class ApiClient {
   }) {
     return this.request<any>("/reviews", {
       method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update an existing review
+  async updateReview(
+    id: number,
+    data: {
+      rating: number;
+      features?: string;
+      content?: string;
+    },
+  ) {
+    return this.request<any>(`/reviews/${id}`, {
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }

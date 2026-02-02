@@ -17,7 +17,8 @@ export const reviews = sqliteTable('reviews', {
 		.default(sql`(unixepoch())`),
 	updated_at: integer('updated_at', { mode: 'timestamp' })
 		.notNull()
-		.default(sql`(unixepoch())`),
+		.default(sql`(unixepoch())`)
+		.$onUpdate(() => new Date()),
 });
 
 export const profiles = sqliteTable('profiles', {

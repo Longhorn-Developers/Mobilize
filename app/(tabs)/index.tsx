@@ -99,6 +99,7 @@ export default function Home() {
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
+    if (polygonId[0] == 'C') return; // construction areas
     bottomSheetRef.current?.present({ id: polygonId });
   };
 

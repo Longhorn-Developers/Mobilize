@@ -1,5 +1,10 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { XIcon, StarIcon, QuestionIcon } from "phosphor-react-native";
+import {
+  XIcon,
+  StarIcon,
+  QuestionIcon,
+  DotsThreeIcon,
+} from "phosphor-react-native";
 import { useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import {
@@ -79,8 +84,8 @@ const FeatureButtons = ({
   return features.map((feature) => (
     <TouchableOpacity
       key={feature}
-      className={`rounded-full border-2 border-ut-black/50 px-2 py-1 
-        ${!field.value.includes(feature) ? "bg-white" : "bg-indigo-100"}`}
+      className={`rounded-full border-2 px-2 py-1 
+        ${!field.value.includes(feature) ? " border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
       onPress={() => {
         handleSelectFeature(feature);
       }}
@@ -88,39 +93,6 @@ const FeatureButtons = ({
       <Text className="text-sm">{feature}</Text>
     </TouchableOpacity>
   ));
-};
-
-const ReviewsList = ({ reviews }: { reviews: ReviewEntry[] }) => {
-  return (
-    <View className="flex min-h-20 flex-row items-center justify-center">
-      {reviews?.length > 0 ? (
-        /* Scrollable Reviews List */
-        <FlatList<ReviewEntry>
-          data={reviews}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <View>
-              <Image
-                className="rounded-full"
-                source={{ uri: item.profile_avatar_url }}
-              />
-              <Text>{item.profile_display_name}</Text>
-            </View>
-          )}
-        />
-      ) : (
-        /* No Reviews */
-        <View className="flex flex-row items-center gap-4">
-          <QuestionIcon size={32} color="#64748b" />
-          <Text className="text-slate-500">
-            No reviews found.
-            {"\n"}
-            Be the first to write a review!
-          </Text>
-        </View>
-      )}
-    </View>
-  );
 };
 
 const ReviewContentInput = ({
@@ -150,6 +122,122 @@ const ReviewContentInput = ({
   );
 };
 
+const Rating = ({ rating, size }: { rating: number; size: number }) => {
+  const stars = [1, 2, 3, 4, 5];
+
+  return (
+    <View className="flex flex-row">
+      {stars.map((item) => (
+        <StarIcon
+          key={item}
+          size={size}
+          weight={item <= rating ? "fill" : "regular"}
+          color={item <= rating ? colors.ut.yellow : "#9CA3AF"} // tw gray-400
+        />
+      ))}
+    </View>
+  );
+};
+
+const ReviewsList = ({
+  reviews,
+  setFormState,
+}: {
+  reviews: ReviewEntry[];
+  setFormState: (state: number) => void;
+}) => {
+  const [isMenuActive, setIsMenuActive] = useState(false);
+
+  const ReviewCard = ({ review }: { review: ReviewEntry }) => {
+    // Consider using grid instead of a nested views
+    return (
+      <>
+        <View className="flex flex-col gap-3">
+          <View className="flex flex-row justify-between">
+            <View className="flex flex-row items-center gap-2">
+              {/* Profile Image */}
+              <Image
+                className="h-6 w-6 rounded-full bg-slate-300"
+                source={{ uri: review.profile_avatar_url }}
+              />
+              {/* Profle Name */}
+              <Text className="color-[#3C4145]">
+                {review.profile_display_name}
+              </Text>
+            </View>
+            <View className="flex flex-row items-center gap-2">
+              {/* Rating */}
+              <Rating rating={review.rating} size={18} />
+              {/* How Recent (Time) */}
+              {/* TODO: elapsed time sys */}
+              <Text className="color-slate-400">12h ago</Text>
+              {/* Options (current user's review) */}
+              <TouchableOpacity
+                className="pl-4"
+                onPress={() => setIsMenuActive((prev) => !prev)}
+              >
+                <DotsThreeIcon size={28} weight="bold" color="black" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {/* Review Content */}
+          <Text className="max-w-full">{review.content}</Text>
+        </View>
+      </>
+    );
+  };
+
+  const Menu = () => {
+    return (
+      <View className="z-40 flex flex-col gap-2 rounded-md bg-white px-4 py-3 shadow-md shadow-black/20">
+        {/* Edit Button */}
+        <TouchableOpacity
+          onPress={() => {
+            setIsMenuActive((prev) => !prev);
+            setFormState(1);
+          }}
+        >
+          <Text className="text-lg color-gray-500">Edit</Text>
+        </TouchableOpacity>
+        {/* Divider */}
+        <View className="border-t border-slate-600" />
+        {/* Delete Button -> this should probably just change visibility instead of "DELETE" */}
+        <TouchableOpacity onPress={() => {}}>
+          <Text className="text-lg color-red-700">Delete</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <>
+      <View className="flex min-h-20 flex-row items-center justify-center">
+        {reviews?.length > 0 ? (
+          /* Scrollable Reviews List */
+          <FlatList<ReviewEntry>
+            data={reviews}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <ReviewCard review={item} />}
+          />
+        ) : (
+          /* No Reviews */
+          <View className="flex flex-row items-center gap-4">
+            <QuestionIcon size={32} color="#64748b" />
+            <Text className="text-slate-500">
+              No reviews found.
+              {"\n"}
+              Be the first to write a review!
+            </Text>
+          </View>
+        )}
+      </View>
+      <View className="absolute right-12">
+        {isMenuActive ? <Menu /> : <View></View>}
+      </View>
+    </>
+  );
+};
+
 interface ReviewModalProps {
   className?: string;
   poi_id: number;
@@ -174,13 +262,11 @@ const ReviewModal = ({
   const { mutateAsync: updateReview } = useUpdateReview();
 
   // query reviews from db
-  const { data: reviews = [], isLoading } = useReviews(poi_id);
+  const { data: reviews = [], isLoading } = useReviews(poi_id); // determine most efficient way to 
   console.log(`[ReviewsList] fetching reviews for "${poi_id}"`);
 
   const user_id = 1; // Somehow get user from session data woohoo gerard
-  const existingReview = reviews.find(
-    review => review.user_id === user_id,
-  );
+  const existingReview = reviews.find((review) => review.user_id === user_id);
   const isEditMode = !!existingReview;
 
   const onSubmit = async (data: Review) => {
@@ -245,19 +331,18 @@ const ReviewModal = ({
         </View>
 
         {formState === 0 ? (
-          <>
-            <ReviewsList reviews={reviews} />
+          // Reviews List Section
+          <View className="gap-6">
+            <ReviewsList reviews={reviews} setFormState={setFormState} />
             <Button
               className="rounded-xl shadow-none"
               title="Leave a Review"
               onPress={() => {
                 // query previously submitted review from user id
-                setFormState((prevFormState: number) => {
-                  return prevFormState + 1;
-                });
+                setFormState(1);
               }}
             />
-          </>
+          </View>
         ) : (
           <>
             {/* Rating Section */}
@@ -266,7 +351,11 @@ const ReviewModal = ({
 
               {/* Star Functionality */}
               <View className="flex flex-row gap-1">
-                <TouchableRating name="rating" defaultValue={existingReview?.rating || 0} control={control} />
+                <TouchableRating
+                  name="rating"
+                  defaultValue={existingReview?.rating || 0}
+                  control={control}
+                />
               </View>
             </View>
 
@@ -276,14 +365,22 @@ const ReviewModal = ({
 
               {/* Feature Buttons */}
               <View className="flex max-w-full flex-row gap-2">
-                <FeatureButtons name="features" defaultValue={existingReview?.features || []} control={control} />
+                <FeatureButtons
+                  name="features"
+                  defaultValue={existingReview?.features || []}
+                  control={control}
+                />
               </View>
             </View>
 
             {/* Experience Sharing Section */}
             <View className="gap-4">
               <Text className="">Share your experience (optional)</Text>
-              <ReviewContentInput name="content" defaultValue={existingReview?.content || ""} control={control} />
+              <ReviewContentInput
+                name="content"
+                defaultValue={existingReview?.content || ""}
+                control={control}
+              />
             </View>
 
             {/* Buttons */}

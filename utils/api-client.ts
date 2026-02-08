@@ -56,11 +56,13 @@ class ApiClient {
 
   // Get reviews list by POI ID
   async getReviews(poi_id: number) {
-    const reviews = await this.request<ReviewEntryRaw[]>(`/reviews?poi_id=${poi_id}`);
-    
-    return reviews.map(review => ({
+    const reviews = await this.request<ReviewEntryRaw[]>(
+      `/reviews?poi_id=${poi_id}`,
+    );
+
+    return reviews.map((review) => ({
       ...review,
-      features: review.features ? JSON.parse(review.features) : []
+      features: review.features ? JSON.parse(review.features) : [],
     })) as ReviewEntry[];
   }
 

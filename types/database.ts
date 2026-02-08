@@ -37,7 +37,7 @@ export type ReviewEntryRaw = ReviewRaw & {
 
 export interface ReviewEntry extends Omit<ReviewEntryRaw, "features"> {
   features: string[];
-};
+}
 
 // Parsed types (with GeoJSON fields as objects)
 export interface POI extends Omit<POIRaw, "location_geojson" | "metadata"> {

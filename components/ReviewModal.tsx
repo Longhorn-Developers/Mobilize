@@ -149,6 +149,21 @@ const ReviewsList = ({
   const [isMenuActive, setIsMenuActive] = useState(false);
 
   const ReviewCard = ({ review }: { review: ReviewEntry }) => {
+    const elapsed_seconds: number = (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
+    let elapsed_time_msg: string = "";
+
+    if (elapsed_seconds < 60) {
+      elapsed_time_msg = Math.round(elapsed_seconds) + "s";
+    } else if (elapsed_seconds < 3600) {
+      elapsed_time_msg = Math.round(elapsed_seconds / 60) + "m";
+    } else if (elapsed_seconds < 86400) {
+      elapsed_time_msg = Math.round(elapsed_seconds / 3600) + "h";
+    } else if (elapsed_seconds < 31536000) {
+      elapsed_time_msg = Math.round(elapsed_seconds / 86400) + "d";
+    } else {
+      elapsed_time_msg = ">365d";
+    }
+
     // Consider using grid instead of a nested views
     return (
       <>
@@ -170,7 +185,7 @@ const ReviewsList = ({
               <Rating rating={review.rating} size={18} />
               {/* How Recent (Time) */}
               {/* TODO: elapsed time sys */}
-              <Text className="color-slate-400">12h ago</Text>
+              <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
               {/* Options (current user's review) */}
               <TouchableOpacity
                 className="pl-4"

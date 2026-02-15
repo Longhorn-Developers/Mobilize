@@ -16,6 +16,15 @@ export const queryKeys = {
   profile: (id: number) => ["profile", id] as const,
 };
 
+
+// get route between two points
+// export function getRoute() {
+//   return useQuery({
+    
+//   });
+// }
+
+
 // fetch all POIs
 export function usePOIs() {
   return useQuery({

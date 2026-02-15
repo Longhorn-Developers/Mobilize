@@ -140,15 +140,15 @@ const Rating = ({ rating, size }: { rating: number; size: number }) => {
   );
 };
 
-
 const ReviewCard = ({
   review,
-  actionFn
+  actionFn,
 }: {
-  review: ReviewEntry,
-  actionFn: () => void
+  review: ReviewEntry;
+  actionFn: () => void;
 }) => {
-  const elapsed_seconds: number = (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
+  const elapsed_seconds: number =
+    (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
   let elapsed_time_msg: string = "";
 
   if (elapsed_seconds < 60) {
@@ -160,7 +160,7 @@ const ReviewCard = ({
   } else if (elapsed_seconds < 31536000) {
     elapsed_time_msg = Math.round(elapsed_seconds / 86400) + "d";
   } else {
-    elapsed_time_msg = ">365d";
+    elapsed_time_msg = ">1y";
   }
 
   // Consider using grid instead of a nested views
@@ -184,13 +184,9 @@ const ReviewCard = ({
             {/* Rating */}
             <Rating rating={review.rating} size={18} />
             {/* How Recent (Time) */}
-            {/* TODO: elapsed time sys */}
             <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
             {/* Options (current user's review) */}
-            <TouchableOpacity
-              className="pl-4"
-              onPress={actionFn}
-            >
+            <TouchableOpacity className="pl-4" onPress={actionFn}>
               <DotsThreeIcon size={28} weight="bold" color="black" />
             </TouchableOpacity>
           </View>
@@ -202,11 +198,10 @@ const ReviewCard = ({
   );
 };
 
-
 const ReviewsList = ({
   reviews,
   userHasReview,
-  setMenuState
+  setMenuState,
 }: {
   reviews: ReviewEntry[];
   userHasReview: boolean;
@@ -220,7 +215,9 @@ const ReviewsList = ({
           <FlatList<ReviewEntry>
             data={reviews}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => <ReviewCard review={item} actionFn={setMenuState} />}
+            renderItem={({ item }) => (
+              <ReviewCard review={item} actionFn={setMenuState} />
+            )}
           />
         ) : (
           /* No Reviews */
@@ -266,9 +263,11 @@ const ReviewModal = ({
   const { mutateAsync: deleteReview } = useDeleteReview();
 
   // query reviews from db
-  const { data: reviews = [], isLoading } = useReviews(poi_id); // determine most efficient way to 
+  const { data: reviews = [], isLoading } = useReviews(poi_id); // determine most efficient way to
 
-  const existingReview = reviews.find((review) => review.user_id === activeUserId);
+  const existingReview = reviews.find(
+    (review) => review.user_id === activeUserId,
+  );
   const isEditMode = !!existingReview;
 
   const onSubmit = async (data: Review) => {
@@ -336,14 +335,14 @@ const ReviewModal = ({
           // Reviews List Section
           <View className="gap-6">
             {/* Active User Review Card */}
-            {existingReview &&
+            {existingReview && (
               <ReviewCard
                 review={existingReview}
-                actionFn={() => setIsMenuActive(prev => !prev)}
+                actionFn={() => setIsMenuActive((prev) => !prev)}
               />
-            }
+            )}
             {/* Edit/Delete Menu */}
-            {existingReview && isMenuActive &&
+            {existingReview && isMenuActive && (
               <View className="absolute right-12">
                 <View className="z-40 flex flex-col gap-2 rounded-md bg-white px-4 py-3 shadow-md shadow-black/20">
                   {/* Edit Button */}
@@ -362,7 +361,7 @@ const ReviewModal = ({
                     onPress={async () => {
                       await deleteReview({
                         id: existingReview.id,
-                        poi_id: existingReview.poi_id
+                        poi_id: existingReview.poi_id,
                       });
                       setIsMenuActive(false);
                     }}
@@ -371,13 +370,15 @@ const ReviewModal = ({
                   </TouchableOpacity>
                 </View>
               </View>
-            }
+            )}
 
             {/* List of Reviews for a given POI */}
             <ReviewsList
-              reviews={reviews.filter(review => review.user_id !== activeUserId)}
+              reviews={reviews.filter(
+                (review) => review.user_id !== activeUserId,
+              )}
               userHasReview={!!existingReview}
-              setMenuState={() => setIsMenuActive(prev => !prev)}
+              setMenuState={() => setIsMenuActive((prev) => !prev)}
             />
             <Button
               className="rounded-xl shadow-none"

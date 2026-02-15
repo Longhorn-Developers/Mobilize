@@ -224,10 +224,8 @@ export function useDeleteReview() {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return useMutation({
-    mutationFn: (data: {
-      id: number,
-      poi_id: number
-    }) => apiClient.deleteReview(data.id),
+    mutationFn: (data: { id: number; poi_id: number }) =>
+      apiClient.deleteReview(data.id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.review(variables.poi_id),
@@ -235,8 +233,7 @@ export function useDeleteReview() {
 
       Toast.show({
         type: "success",
-        text2:
-          "Review deleted successfully!",
+        text2: "Review deleted successfully!",
         position: "bottom",
         bottomOffset: bottomTabBarHeight,
       });

@@ -165,7 +165,7 @@ class ApiClient {
   async deleteReview(id: number) {
     return this.request<any>(`/reviews/${id}/delete`, {
       method: "PUT",
-    })
+    });
   }
 }
 

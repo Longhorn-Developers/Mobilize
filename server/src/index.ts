@@ -38,10 +38,27 @@ app.get('/profiles', async (c) => {
 });
 
 // GET all pois
+// GET all pois
 app.get('/pois', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
-	const pois_result = await db.select().from(pois).all();
-	return c.json(pois_result);
+    const db = drizzle(c.env.mobilize_db);
+    const pois_result = await db.select().from(pois).all();
+    console.log(`[API] GET /pois - Returning ${pois_result.length} POIs`);
+    return c.json(pois_result);
+});
+
+// POST manually trigger POI sync (for debugging/testing)
+app.post('/pois/sync', async (c) => {
+    try {
+        console.log('[API] POST /pois/sync - Starting manual POI sync');
+        await syncPOIs(c.env);
+        return c.json({ success: true, message: 'POI sync completed' });
+    } catch (error) {
+        console.error('[API] Error syncing POIs:', error);
+        return c.json({ 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, 500);
+    }
 });
 
 // GET all avoidance_areas

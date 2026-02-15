@@ -160,6 +160,13 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // Soft delete an existing review
+  async deleteReview(id: number) {
+    return this.request<any>(`/reviews/${id}/delete`, {
+      method: "PUT",
+    })
+  }
 }
 
 // Export singleton instance

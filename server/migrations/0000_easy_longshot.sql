@@ -46,6 +46,9 @@ CREATE TABLE `reviews` (
 	`poi_id` integer NOT NULL,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`deleted_at` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE no action
 );
+--> statement-breakpoint
+CREATE INDEX `poi_deleted_idx` ON `reviews` (`poi_id`,`deleted_at`);

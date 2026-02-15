@@ -217,3 +217,37 @@ export function useUpdateReview() {
     },
   });
 }
+
+// soft delete an existing review
+export function useDeleteReview() {
+  const queryClient = useQueryClient();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
+  return useMutation({
+    mutationFn: (data: {
+      id: number,
+      poi_id: number
+    }) => apiClient.deleteReview(data.id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.review(variables.poi_id),
+      }); // refetch reviews
+
+      Toast.show({
+        type: "success",
+        text2:
+          "Review deleted successfully!",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error deleting review: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+  });
+}

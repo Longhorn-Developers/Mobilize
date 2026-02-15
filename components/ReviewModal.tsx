@@ -20,6 +20,7 @@ import Toast from "react-native-toast-message";
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
 import {
+  useDeleteReview,
   useInsertReview,
   useReviews,
   useUpdateReview,
@@ -139,104 +140,91 @@ const Rating = ({ rating, size }: { rating: number; size: number }) => {
   );
 };
 
-const ReviewsList = ({
-  reviews,
-  setFormState,
+
+const ReviewCard = ({
+  review,
+  actionFn
 }: {
-  reviews: ReviewEntry[];
-  setFormState: (state: number) => void;
+  review: ReviewEntry,
+  actionFn: () => void
 }) => {
-  const [isMenuActive, setIsMenuActive] = useState(false);
+  const elapsed_seconds: number = (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
+  let elapsed_time_msg: string = "";
 
-  const ReviewCard = ({ review }: { review: ReviewEntry }) => {
-    const elapsed_seconds: number = (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
-    let elapsed_time_msg: string = "";
+  if (elapsed_seconds < 60) {
+    elapsed_time_msg = Math.round(elapsed_seconds) + "s";
+  } else if (elapsed_seconds < 3600) {
+    elapsed_time_msg = Math.round(elapsed_seconds / 60) + "m";
+  } else if (elapsed_seconds < 86400) {
+    elapsed_time_msg = Math.round(elapsed_seconds / 3600) + "h";
+  } else if (elapsed_seconds < 31536000) {
+    elapsed_time_msg = Math.round(elapsed_seconds / 86400) + "d";
+  } else {
+    elapsed_time_msg = ">365d";
+  }
 
-    if (elapsed_seconds < 60) {
-      elapsed_time_msg = Math.round(elapsed_seconds) + "s";
-    } else if (elapsed_seconds < 3600) {
-      elapsed_time_msg = Math.round(elapsed_seconds / 60) + "m";
-    } else if (elapsed_seconds < 86400) {
-      elapsed_time_msg = Math.round(elapsed_seconds / 3600) + "h";
-    } else if (elapsed_seconds < 31536000) {
-      elapsed_time_msg = Math.round(elapsed_seconds / 86400) + "d";
-    } else {
-      elapsed_time_msg = ">365d";
-    }
-
-    // Consider using grid instead of a nested views
-    return (
-      <>
-        <View className="flex flex-col gap-3">
-          <View className="flex flex-row justify-between">
-            <View className="flex flex-row items-center gap-2">
-              {/* Profile Image */}
-              <Image
-                className="h-6 w-6 rounded-full bg-slate-300"
-                source={{ uri: review.profile_avatar_url }}
-              />
-              {/* Profle Name */}
-              <Text className="color-[#3C4145]">
-                {review.profile_display_name}
-              </Text>
-            </View>
-            <View className="flex flex-row items-center gap-2">
-              {/* Rating */}
-              <Rating rating={review.rating} size={18} />
-              {/* How Recent (Time) */}
-              {/* TODO: elapsed time sys */}
-              <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
-              {/* Options (current user's review) */}
-              <TouchableOpacity
-                className="pl-4"
-                onPress={() => setIsMenuActive((prev) => !prev)}
-              >
-                <DotsThreeIcon size={28} weight="bold" color="black" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          {/* Review Content */}
-          <Text className="max-w-full">{review.content}</Text>
-        </View>
-      </>
-    );
-  };
-
-  const Menu = () => {
-    return (
-      <View className="z-40 flex flex-col gap-2 rounded-md bg-white px-4 py-3 shadow-md shadow-black/20">
-        {/* Edit Button */}
-        <TouchableOpacity
-          onPress={() => {
-            setIsMenuActive((prev) => !prev);
-            setFormState(1);
-          }}
-        >
-          <Text className="text-lg color-gray-500">Edit</Text>
-        </TouchableOpacity>
-        {/* Divider */}
-        <View className="border-t border-slate-600" />
-        {/* Delete Button -> this should probably just change visibility instead of "DELETE" */}
-        <TouchableOpacity onPress={() => {}}>
-          <Text className="text-lg color-red-700">Delete</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
+  // Consider using grid instead of a nested views
   return (
     <>
-      <View className="flex min-h-20 flex-row items-center justify-center">
-        {reviews?.length > 0 ? (
+      {/* Review Card */}
+      <View className="flex flex-col gap-3">
+        <View className="flex flex-row justify-between">
+          <View className="flex flex-row items-center gap-2">
+            {/* Profile Image */}
+            <Image
+              className="h-6 w-6 rounded-full bg-slate-300"
+              source={{ uri: review.profile_avatar_url }}
+            />
+            {/* Profle Name */}
+            <Text className="color-[#3C4145]">
+              {review.profile_display_name}
+            </Text>
+          </View>
+          <View className="flex flex-row items-center gap-2">
+            {/* Rating */}
+            <Rating rating={review.rating} size={18} />
+            {/* How Recent (Time) */}
+            {/* TODO: elapsed time sys */}
+            <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
+            {/* Options (current user's review) */}
+            <TouchableOpacity
+              className="pl-4"
+              onPress={actionFn}
+            >
+              <DotsThreeIcon size={28} weight="bold" color="black" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* Review Content */}
+        <Text className="max-w-full">{review.content}</Text>
+      </View>
+    </>
+  );
+};
+
+
+const ReviewsList = ({
+  reviews,
+  userHasReview,
+  setMenuState
+}: {
+  reviews: ReviewEntry[];
+  userHasReview: boolean;
+  setMenuState: () => void;
+}) => {
+  return (
+    <>
+      <View className="flex flex-row items-center justify-center">
+        {reviews?.length > 0 || userHasReview ? (
           /* Scrollable Reviews List */
           <FlatList<ReviewEntry>
             data={reviews}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => <ReviewCard review={item} />}
+            renderItem={({ item }) => <ReviewCard review={item} actionFn={setMenuState} />}
           />
         ) : (
           /* No Reviews */
-          <View className="flex flex-row items-center gap-4">
+          <View className="flex flex-row items-center gap-4 py-4">
             <QuestionIcon size={32} color="#64748b" />
             <Text className="text-slate-500">
               No reviews found.
@@ -245,9 +233,6 @@ const ReviewsList = ({
             </Text>
           </View>
         )}
-      </View>
-      <View className="absolute right-12">
-        {isMenuActive ? <Menu /> : <View></View>}
       </View>
     </>
   );
@@ -258,6 +243,7 @@ interface ReviewModalProps {
   poi_id: number;
   entranceName: string;
   buildingName: string;
+  activeUserId: number;
   onExit: () => void;
 }
 
@@ -266,22 +252,23 @@ const ReviewModal = ({
   poi_id,
   entranceName,
   buildingName,
+  activeUserId,
   onExit,
 }: ReviewModalProps) => {
   const { control, handleSubmit } = useForm<Review>();
   const [formState, setFormState] = useState(0);
+  const [isMenuActive, setIsMenuActive] = useState(false);
 
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
+  const { mutateAsync: deleteReview } = useDeleteReview();
 
   // query reviews from db
   const { data: reviews = [], isLoading } = useReviews(poi_id); // determine most efficient way to 
-  console.log(`[ReviewsList] fetching reviews for "${poi_id}"`);
 
-  const user_id = 1; // Somehow get user from session data woohoo gerard
-  const existingReview = reviews.find((review) => review.user_id === user_id);
+  const existingReview = reviews.find((review) => review.user_id === activeUserId);
   const isEditMode = !!existingReview;
 
   const onSubmit = async (data: Review) => {
@@ -295,7 +282,7 @@ const ReviewModal = ({
       });
     } else {
       // Post review (insert)
-      data.user_id = user_id;
+      data.user_id = activeUserId;
       data.poi_id = poi_id;
 
       // If review exists, edit existing review; otherwise, post new review
@@ -348,7 +335,50 @@ const ReviewModal = ({
         {formState === 0 ? (
           // Reviews List Section
           <View className="gap-6">
-            <ReviewsList reviews={reviews} setFormState={setFormState} />
+            {/* Active User Review Card */}
+            {existingReview &&
+              <ReviewCard
+                review={existingReview}
+                actionFn={() => setIsMenuActive(prev => !prev)}
+              />
+            }
+            {/* Edit/Delete Menu */}
+            {existingReview && isMenuActive &&
+              <View className="absolute right-12">
+                <View className="z-40 flex flex-col gap-2 rounded-md bg-white px-4 py-3 shadow-md shadow-black/20">
+                  {/* Edit Button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setIsMenuActive(false);
+                      setFormState(1);
+                    }}
+                  >
+                    <Text className="text-lg color-gray-500">Edit</Text>
+                  </TouchableOpacity>
+                  {/* Divider */}
+                  <View className="border-t border-slate-600" />
+                  {/* Delete Button (current functionality: soft delete-change update deleted_at field) */}
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await deleteReview({
+                        id: existingReview.id,
+                        poi_id: existingReview.poi_id
+                      });
+                      setIsMenuActive(false);
+                    }}
+                  >
+                    <Text className="text-lg color-red-700">Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            }
+
+            {/* List of Reviews for a given POI */}
+            <ReviewsList
+              reviews={reviews.filter(review => review.user_id !== activeUserId)}
+              userHasReview={!!existingReview}
+              setMenuState={() => setIsMenuActive(prev => !prev)}
+            />
             <Button
               className="rounded-xl shadow-none"
               title="Leave a Review"

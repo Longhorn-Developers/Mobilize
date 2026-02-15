@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c2c5a4ce-4af7-46d9-8a6d-d432a842d4a3",
+  "id": "0d431e7b-c52e-4125-9c7f-71c456a3e536",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "avoidance_area_reports": {
@@ -320,9 +320,25 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch())"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "poi_deleted_idx": {
+          "name": "poi_deleted_idx",
+          "columns": [
+            "poi_id",
+            "deleted_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "reviews_user_id_profiles_id_fk": {
           "name": "reviews_user_id_profiles_id_fk",

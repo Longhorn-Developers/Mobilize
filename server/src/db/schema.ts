@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const reviews = sqliteTable('reviews', {
@@ -19,7 +19,11 @@ export const reviews = sqliteTable('reviews', {
 		.notNull()
 		.default(sql`(unixepoch())`)
 		.$onUpdate(() => new Date()),
-});
+	deleted_at: integer('deleted_at', { mode: 'timestamp' })
+},
+(table) => [
+	index('poi_deleted_idx').on(table.poi_id, table.deleted_at)
+]);
 
 export const profiles = sqliteTable('profiles', {
 	id: integer('id').primaryKey({ autoIncrement: true }),

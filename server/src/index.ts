@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, getTableColumns } from 'drizzle-orm';
+import { eq, getTableColumns, sql, and, isNull } from 'drizzle-orm';
 import { avoidance_areas, pois, profiles, avoidance_area_reports, reviews } from './db/schema';
 import { syncPOIs } from './scheduled/poi-sync';
 
@@ -101,7 +101,7 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(reports);
 });
 
-// GET reviews by poi id
+// GET non-deleted reviews by poi id
 app.get('/reviews', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const poiId = Number(c.req.query('poi_id'));
@@ -118,7 +118,12 @@ app.get('/reviews', async (c) => {
 		})
 		.from(reviews)
 		.leftJoin(profiles, eq(reviews.user_id, profiles.id))
-		.where(eq(reviews.poi_id, poiId))
+		.where(
+			and(
+				eq(reviews.poi_id, poiId),
+				isNull(reviews.deleted_at)
+			)
+		)
 		.all();
 
 	if (!reviewsList) {
@@ -232,8 +237,6 @@ app.put('/reviews/:id', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const reviewId = Number(c.req.param('id'));
 
-	console.log(reviewId);
-
 	if (isNaN(reviewId)) {
 		return c.text('Invalid review ID', 400);
 	}
@@ -258,6 +261,30 @@ app.put('/reviews/:id', async (c) => {
 			rating,
 			features,
 			content
+		})
+		.where(eq(reviews.id, reviewId))
+		.returning();
+
+	return c.json(result);
+});
+
+// PUT soft delete review
+app.put('/reviews/:id/delete', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const reviewId = Number(c.req.param('id'));
+
+	console.log("Step 1");
+
+	if (isNaN(reviewId)) {
+		return c.text('Invalid review ID', 400);
+	}
+
+	console.log("Step 2");
+
+	const result = await db
+		.update(reviews)
+		.set({
+			deleted_at: sql`(unixepoch())`
 		})
 		.where(eq(reviews.id, reviewId))
 		.returning();

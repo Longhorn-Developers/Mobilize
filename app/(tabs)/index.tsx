@@ -259,8 +259,8 @@ export default function Home() {
             poi_id={1}
             entranceName="South Entrance" // based on bottom sheet selection
             buildingName="Gregory Gym" // from bottom sheet/places api
+            activeUserId={1}
             onExit={() => {
-              // insert into db somehow
               setIsReviewMode(false);
             }}
           />

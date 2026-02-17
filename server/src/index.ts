@@ -124,7 +124,7 @@ app.get('/reviews', async (c) => {
 				isNull(reviews.deleted_at)
 			)
 		)
-		.all();
+		.all(); // Order by difference between upvotes and downvotes
 
 	if (!reviewsList) {
 		return c.text('Review not found', 404);
@@ -273,13 +273,9 @@ app.put('/reviews/:id/delete', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
 	const reviewId = Number(c.req.param('id'));
 
-	console.log("Step 1");
-
 	if (isNaN(reviewId)) {
 		return c.text('Invalid review ID', 400);
 	}
-
-	console.log("Step 2");
 
 	const result = await db
 		.update(reviews)

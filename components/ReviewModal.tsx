@@ -4,6 +4,8 @@ import {
   StarIcon,
   QuestionIcon,
   DotsThreeIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
 } from "phosphor-react-native";
 import { useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
@@ -142,9 +144,11 @@ const Rating = ({ rating, size }: { rating: number; size: number }) => {
 
 const ReviewCard = ({
   review,
+  activeUserId,
   actionFn,
 }: {
   review: ReviewEntry;
+  activeUserId: number;
   actionFn: () => void;
 }) => {
   const elapsed_seconds: number =
@@ -167,32 +171,58 @@ const ReviewCard = ({
   return (
     <>
       {/* Review Card */}
-      <View className="flex flex-col gap-3">
-        <View className="flex flex-row justify-between">
-          <View className="flex flex-row items-center gap-2">
-            {/* Profile Image */}
-            <Image
-              className="h-6 w-6 rounded-full bg-slate-300"
-              source={{ uri: review.profile_avatar_url }}
-            />
-            {/* Profle Name */}
-            <Text className="color-[#3C4145]">
-              {review.profile_display_name}
-            </Text>
+      <View className="flex flex-row">
+        <View className="flex flex-col gap-3">
+          <View className="flex flex-row gap-16">
+            <View className="flex flex-row items-center gap-2">
+              {/* Profile Image */}
+              <Image
+                className="h-6 w-6 rounded-full bg-slate-300"
+                source={{ uri: review.profile_avatar_url }}
+              />
+              {/* Profle Name */}
+              <Text className="color-[#3C4145]">
+                {review.profile_display_name}
+              </Text>
+            </View>
+            <View className="flex flex-row items-center gap-2">
+              {/* Rating */}
+              <Rating rating={review.rating} size={18} />
+              {/* How Recent (Time) */}
+              <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
+
+              {/* HERE */}
+            </View>
           </View>
-          <View className="flex flex-row items-center gap-2">
-            {/* Rating */}
-            <Rating rating={review.rating} size={18} />
-            {/* How Recent (Time) */}
-            <Text className="color-slate-400">{elapsed_time_msg} ago</Text>
-            {/* Options (current user's review) */}
-            <TouchableOpacity className="pl-4" onPress={actionFn}>
-              <DotsThreeIcon size={28} weight="bold" color="black" />
+          {/* Review Content */}
+          <Text className="max-w-xs">{review.content}</Text>
+        </View>
+        {activeUserId === review.user_id ? (
+          /* Options (current user's review) */
+          <TouchableOpacity className="pl-4" onPress={actionFn}>
+            <DotsThreeIcon size={28} weight="bold" color="black" />
+          </TouchableOpacity>
+        ) : (
+          /* Upvote / Downvote (other users' reviews) */
+          <View className="flex flex-col justify-center pl-4">
+            <TouchableOpacity
+              className=""
+              onPress={() => {
+                // Upvote api hook
+              }}
+            >
+              <ArrowUpIcon size={22} weight="bold" color="black" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className=""
+              onPress={() => {
+                // Downvote api hook
+              }}
+            >
+              <ArrowDownIcon size={22} weight="bold" color="black" />
             </TouchableOpacity>
           </View>
-        </View>
-        {/* Review Content */}
-        <Text className="max-w-full">{review.content}</Text>
+        )}
       </View>
     </>
   );
@@ -200,12 +230,12 @@ const ReviewCard = ({
 
 const ReviewsList = ({
   reviews,
+  activeUserId,
   userHasReview,
-  setMenuState,
 }: {
   reviews: ReviewEntry[];
+  activeUserId: number;
   userHasReview: boolean;
-  setMenuState: () => void;
 }) => {
   return (
     <>
@@ -216,7 +246,13 @@ const ReviewsList = ({
             data={reviews}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
-              <ReviewCard review={item} actionFn={setMenuState} />
+              <ReviewCard
+                review={item}
+                activeUserId={activeUserId}
+                actionFn={() => {
+                  // Update review's vote
+                }}
+              />
             )}
           />
         ) : (
@@ -338,6 +374,7 @@ const ReviewModal = ({
             {existingReview && (
               <ReviewCard
                 review={existingReview}
+                activeUserId={activeUserId}
                 actionFn={() => setIsMenuActive((prev) => !prev)}
               />
             )}
@@ -377,8 +414,8 @@ const ReviewModal = ({
               reviews={reviews.filter(
                 (review) => review.user_id !== activeUserId,
               )}
+              activeUserId={activeUserId}
               userHasReview={!!existingReview}
-              setMenuState={() => setIsMenuActive((prev) => !prev)}
             />
             <Button
               className="rounded-xl shadow-none"

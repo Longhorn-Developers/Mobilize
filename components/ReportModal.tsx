@@ -246,7 +246,7 @@ const ReportModal = ({
           </View>
 
           {/* Heading and subheading */}
-          <View className="flex-1">
+          <View className="flex-1 pr-8">
             {currentStep === 1 ? (
               <Controller
                 control={control}

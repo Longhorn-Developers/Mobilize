@@ -1,15 +1,14 @@
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
-const PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
-const PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
+const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
 
 // UT Austin coordinates for biasing search results
 const UT_AUSTIN_LOCATION = {
-  lat: 30.2849,
-  lng: -97.7341,
+  latitude: 30.2849,
+  longitude: -97.7341,
 };
 const SEARCH_RADIUS = 2000; // 2km radius around UT campus
 
-// Types for Google Places API responses
+// Types for Google Places API (New) responses
 export interface PlaceAutocompletePrediction {
   place_id: string;
   description: string;
@@ -44,7 +43,7 @@ export interface PlaceDetails {
 }
 
 /**
- * Search for places using Google Places Autocomplete
+ * Search for places using Google Places Autocomplete (New API)
  * Biased towards UT Austin campus area
  */
 export const searchPlaces = async (
@@ -60,17 +59,44 @@ export const searchPlaces = async (
   }
 
   try {
-    const url = `${PLACES_AUTOCOMPLETE_URL}?input=${encodeURIComponent(query)}&location=${UT_AUSTIN_LOCATION.lat},${UT_AUSTIN_LOCATION.lng}&radius=${SEARCH_RADIUS}&key=${GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(
+      `${PLACES_API_BASE_URL}/places:autocomplete`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+        },
+        body: JSON.stringify({
+          input: query,
+          locationBias: {
+            circle: {
+              center: {
+                latitude: UT_AUSTIN_LOCATION.latitude,
+                longitude: UT_AUSTIN_LOCATION.longitude,
+              },
+              radius: SEARCH_RADIUS,
+            },
+          },
+        }),
+      }
+    );
 
-    const response = await fetch(url);
     const data = await response.json();
 
-    if (data.status === "OK") {
-      return data.predictions || [];
-    } else if (data.status === "ZERO_RESULTS") {
-      return [];
+    if (response.ok && data.suggestions) {
+      return data.suggestions.map((suggestion: any) => ({
+        place_id: suggestion.placePrediction?.placeId || "",
+        description: suggestion.placePrediction?.text?.text || "",
+        structured_formatting: {
+          main_text: suggestion.placePrediction?.text?.text || "",
+          secondary_text:
+            suggestion.placePrediction?.structuredFormat?.secondaryText?.text ||
+            "",
+        },
+      }));
     } else {
-      console.error("Places Autocomplete error:", data.status, data.error_message);
+      console.error("Places Autocomplete error:", data);
       return [];
     }
   } catch (error) {
@@ -80,7 +106,7 @@ export const searchPlaces = async (
 };
 
 /**
- * Get detailed information about a specific place
+ * Get detailed information about a specific place using the new API
  */
 export const getPlaceDetails = async (
   placeId: string
@@ -95,28 +121,60 @@ export const getPlaceDetails = async (
   }
 
   try {
-    // Request specific fields to minimize API costs
-    const fields = [
-      "place_id",
-      "name",
-      "formatted_address",
-      "geometry",
+    // fieldMask is required for the new Places API v1
+    const fieldMask = [
+      "id",
+      "displayName",
+      "formattedAddress",
+      "location",
       "rating",
-      "user_ratings_total",
-      "opening_hours",
+      "userRatingCount",
+      "currentOpeningHours",
       "photos",
       "types",
     ].join(",");
 
-    const url = `${PLACE_DETAILS_URL}?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(
+      `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+        },
+      }
+    );
 
-    const response = await fetch(url);
     const data = await response.json();
 
-    if (data.status === "OK") {
-      return data.result;
+    if (response.ok && data) {
+      return {
+        place_id: data.id || placeId,
+        name: data.displayName?.text || "",
+        formatted_address: data.formattedAddress || "",
+        geometry: {
+          location: {
+            lat: data.location?.latitude || 0,
+            lng: data.location?.longitude || 0,
+          },
+        },
+        rating: data.rating,
+        user_ratings_total: data.userRatingCount,
+        opening_hours: data.currentOpeningHours
+          ? {
+              weekday_text: data.currentOpeningHours.weekdayDescriptions || [],
+              open_now: data.currentOpeningHours.openNow || false,
+            }
+          : undefined,
+        photos: data.photos?.map((photo: any) => ({
+          photo_reference: photo.name,
+          height: photo.heightPx,
+          width: photo.widthPx,
+        })),
+        types: data.types,
+      };
     } else {
-      console.error("Place Details error:", data.status, data.error_message);
+      console.error("Place Details error:", data);
       return null;
     }
   } catch (error) {

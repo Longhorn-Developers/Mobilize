@@ -224,10 +224,11 @@ export default function Home() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: "Home", headerShown: false }} />
+  <>
+    <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
-      {/* Search Bar */}
+    {/* Search Bar - hide in report mode */}
+    {!isReportMode && (
       <SearchBar 
         onPress={() => setIsSearchActive(true)}
         onChangeText={handleSearchChange}
@@ -238,8 +239,10 @@ export default function Home() {
         className="absolute left-4 right-4 z-20"
         style={{ top: insets.top + 10 }}
       />
+    )}
 
-      {/* Search Dropdown */}
+    {/* Search Dropdown - hide in report mode */}
+    {!isReportMode && (
       <SearchDropdown
         visible={isSearchActive}
         searchQuery={searchQuery}
@@ -247,12 +250,13 @@ export default function Home() {
         onDismiss={handleDismissSearch}
         topOffset={insets.top + 70}
       />
+    )}
 
-      {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+    {/* Avoidance Area Bottom Sheet */}
+    <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
 
-      {/* Location Details Bottom Sheet */}
-      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
+    {/* Location Details Bottom Sheet */}
+    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}

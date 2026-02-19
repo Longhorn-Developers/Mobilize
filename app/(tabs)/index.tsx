@@ -15,9 +15,14 @@ import ReportModal from "~/components/ReportModal";
 import {
   usePOIs,
   useAvoidanceAreas,
+  useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
+
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
+import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
 
 export default function Home() {
   // hooks
@@ -26,6 +31,8 @@ export default function Home() {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<BottomSheetModal>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -36,9 +43,12 @@ export default function Home() {
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
   const MIN_ZOOM_FOR_POIS = 16;
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
+  const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
@@ -104,6 +114,8 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
+    if (polygonId[0] == 'C') return; // construction areas
+    bottomSheetRef.current?.present({ id: polygonId });
   };
 
   const polygons = useMemo(
@@ -133,8 +145,21 @@ export default function Home() {
             },
           ]
         : []),
+      //Construction zones
+      ...(constructionAreas || []).map((area) => ({
+        id: String("C" + area.id),
+        coordinates: area.points.map(
+          (coord: [number, number]) => ({
+            longitude: coord[1],
+            latitude: coord[0],
+          }),
+        ),
+        fillColor: "rgba(255, 153, 0, 0.4)",
+        strokeColor: "rgba(255, 123, 0, 0.7)",
+        strokeWidth: 0.1,
+      })),
     ],
-    [avoidanceAreas, aaPointsReport],
+    [avoidanceAreas, aaPointsReport, constructionAreas]
   );
 
   const markers = useMemo(
@@ -184,15 +209,70 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
+  const handleSelectLocation = (location: {
+    id: string;
+    name: string;
+    address?: string;
+  }) => {
+    console.log("Selected location:", location);
+    
+    // Close search
+    setIsSearchActive(false);
+    setSearchQuery("");
+    
+    // Open location details bottom sheet
+    locationBottomSheetRef.current?.present();
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (!isSearchActive && text.length > 0) {
+      setIsSearchActive(true);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleDismissSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery("");
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
+
+      {/* Search Bar */}
+      <SearchBar 
+        onPress={() => setIsSearchActive(true)}
+        onChangeText={handleSearchChange}
+        onClear={handleClearSearch}
+        value={searchQuery}
+        editable={isSearchActive}
+        isActive={isSearchActive}
+        className="absolute left-4 right-4 z-20"
+        style={{ top: insets.top + 10 }}
+      />
+
+      {/* Search Dropdown */}
+      <SearchDropdown
+        visible={isSearchActive}
+        searchQuery={searchQuery}
+        onSelectLocation={handleSelectLocation}
+        onDismiss={handleDismissSearch}
+        topOffset={insets.top + 70}
+      />
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+
+      {/* Location Details Bottom Sheet */}
+      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}

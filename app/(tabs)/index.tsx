@@ -192,7 +192,7 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} />
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
 
       <MapView
         style={{ flex: 1 }}

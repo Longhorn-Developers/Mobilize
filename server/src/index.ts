@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, getTableColumns } from 'drizzle-orm';
-import { avoidance_areas, pois, profiles, avoidance_area_reports } from './db/schema';
+import { eq, getTableColumns, sql, and, isNull } from 'drizzle-orm';
+import { avoidance_areas, pois, profiles, avoidance_area_reports, reviews } from './db/schema';
 import { syncPOIs } from './scheduled/poi-sync';
 
 export interface Env {
@@ -118,6 +118,38 @@ app.get('/avoidance_areas/:id/reports', async (c) => {
 	return c.json(reports);
 });
 
+// GET non-deleted reviews by poi id
+app.get('/reviews', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const poiId = Number(c.req.query('poi_id'));
+
+	if (!poiId) {
+		return c.text('POI ID is required', 400);
+	}
+
+	const reviewsList = await db
+		.select({
+			...getTableColumns(reviews),
+			profile_display_name: profiles.display_name,
+			profile_avatar_url: profiles.avatar_url
+		})
+		.from(reviews)
+		.leftJoin(profiles, eq(reviews.user_id, profiles.id))
+		.where(
+			and(
+				eq(reviews.poi_id, poiId),
+				isNull(reviews.deleted_at)
+			)
+		)
+		.all(); // Order by difference between upvotes and downvotes
+
+	if (!reviewsList) {
+		return c.text('Review not found', 404);
+	}
+
+	return c.json(reviewsList);
+});
+
 // POST insert new avoidance area
 app.post('/avoidance_areas', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
@@ -180,6 +212,94 @@ app.post('/avoidance_areas/:id/reports', async (c) => {
 			title,
 			description
 		})
+		.returning();
+
+	return c.json(result);
+});
+
+// POST insert new review
+app.post('/reviews', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+	}
+
+	const { user_id, poi_id, rating, features, content } = body;
+
+	if (!user_id || !rating || !poi_id) {
+		return c.text("Missing required fields", 400);
+	}
+
+	const result = await db
+		.insert(reviews)
+		.values({
+			user_id,
+			poi_id,
+			rating,
+			features,
+			content,
+		})
+		.returning();
+
+	return c.json(result);
+});
+
+// PUT update single existing review
+app.put('/reviews/:id', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const reviewId = Number(c.req.param('id'));
+
+	if (isNaN(reviewId)) {
+		return c.text('Invalid review ID', 400);
+	}
+	
+	let body;
+	try {
+		body = await c.req.json();
+	} catch (e) {
+		console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+	}
+
+	const { rating, features, content } = body;
+
+	if (!rating) {
+		return c.text("Missing required fields", 400);
+	}
+
+	const result = await db
+		.update(reviews)
+		.set({
+			rating,
+			features,
+			content
+		})
+		.where(eq(reviews.id, reviewId))
+		.returning();
+
+	return c.json(result);
+});
+
+// PUT soft delete review
+app.put('/reviews/:id/delete', async (c) => {
+	const db = drizzle(c.env.mobilize_db);
+	const reviewId = Number(c.req.param('id'));
+
+	if (isNaN(reviewId)) {
+		return c.text('Invalid review ID', 400);
+	}
+
+	const result = await db
+		.update(reviews)
+		.set({
+			deleted_at: sql`(unixepoch())`
+		})
+		.where(eq(reviews.id, reviewId))
 		.returning();
 
 	return c.json(result);

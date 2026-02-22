@@ -1,5 +1,29 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+
+export const reviews = sqliteTable('reviews', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	user_id: integer('user_id')
+		.notNull()
+		.references(() => profiles.id),
+	rating: integer('rating').notNull(),
+	features: text('features'),
+	content: text('content'),
+	poi_id: integer('poi_id')
+		.notNull()
+		.references(() => pois.id),
+	created_at: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updated_at: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`)
+		.$onUpdate(() => new Date()),
+	deleted_at: integer('deleted_at', { mode: 'timestamp' })
+},
+(table) => [
+	index('poi_deleted_idx').on(table.poi_id, table.deleted_at)
+]);
 
 export const profiles = sqliteTable('profiles', {
 	id: integer('id').primaryKey({ autoIncrement: true }),

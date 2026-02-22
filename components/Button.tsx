@@ -9,7 +9,7 @@ import {
 type ButtonProps = {
   title?: string;
   children?: ReactNode;
-  variant?: "primary" | "disabled" | "ghost" | "gray";
+  variant?: "primary" | "secondary" | "disabled" | "ghost" | "gray";
   icon?: ReactNode;
 } & TouchableOpacityProps;
 
@@ -23,6 +23,8 @@ export const Button = forwardRef<View, ButtonProps>(
           return styles.ghostButton;
         case "gray":
           return styles.grayButton;
+        case "secondary":
+          return styles.secondaryButton;
         default:
           return styles.primaryButton;
       }
@@ -36,6 +38,8 @@ export const Button = forwardRef<View, ButtonProps>(
           return styles.ghostButtonText;
         case "gray":
           return styles.grayButtonText;
+        case "secondary":
+          return styles.ghostButtonText;
         default:
           return styles.primaryButtonText;
       }
@@ -63,6 +67,7 @@ Button.displayName = "Button";
 const styles = {
   button: "flex-row justify-center items-center rounded-md shadow-md py-2 px-4",
   primaryButton: "bg-ut-burntorange",
+  secondaryButton: "border-ut-burntorange border-2",
   disabledButton: "bg-ut-black/20",
   ghostButton: "bg-transparent",
   grayButton: "bg-ut-black/20",

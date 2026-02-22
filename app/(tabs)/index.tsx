@@ -2,41 +2,76 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { View } from "react-native";
 import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
+import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
 import ReviewModal from "~/components/ReviewModal";
 import {
   usePOIs,
   useAvoidanceAreas,
+  useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
+
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
+import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
+  const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(15);
+
+  // Minimum zoom level to show POIs (higher = more zoomed in)
+  const MIN_ZOOM_FOR_POIS = 16;
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isReviewMode, setIsReviewMode] = useState(false);
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
+  const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+
+  const testGooglePlaces = async () => {
+    console.log("Testing Google Places...");
+    const results = await searchPlaces("Texas Global");
+    console.log("Search results:", results);
+    
+    if (results.length > 0) {
+      const details = await getPlaceDetails(results[0].place_id);
+      console.log("Place details:", details);
+    }
+  };
+
+  useEffect(() => {
+    testGooglePlaces();
+  }, []);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -85,13 +120,22 @@ export default function Home() {
         });
       }
     } else {
-      bottomSheetRef.current?.close();
+      avoidanceAreaBottomSheetRef.current?.close();
+      poiBottomSheetRef.current?.close();
     }
   };
 
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
+    avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
+  };
+
+  // Handle POI click
+  const handlePOIPress = (poi: any) => {
+    if (isReportMode) return;
+    poiBottomSheetRef.current?.present({ poi });
+    if (polygonId[0] == 'C') return; // construction areas
     bottomSheetRef.current?.present({ id: polygonId });
   };
 
@@ -122,49 +166,150 @@ export default function Home() {
             },
           ]
         : []),
+      //Construction zones
+      ...(constructionAreas || []).map((area) => ({
+        id: String("C" + area.id),
+        coordinates: area.points.map(
+          (coord: [number, number]) => ({
+            longitude: coord[1],
+            latitude: coord[0],
+          }),
+        ),
+        fillColor: "rgba(255, 153, 0, 0.4)",
+        strokeColor: "rgba(255, 123, 0, 0.7)",
+        strokeWidth: 0.1,
+      })),
     ],
-    [avoidanceAreas, aaPointsReport],
+    [avoidanceAreas, aaPointsReport, constructionAreas]
   );
 
   const markers = useMemo(
-    () => [
-      // User selected aaPoints to report
-      ...aaPointsReport.map((point, index) => ({
-        id: `report-point-${index}`,
-        coordinate: point,
-        icon: mapIcons.point || undefined,
-      })),
-      // Clicked point
-      ...(clickedPoint
-        ? [
-            {
-              id: "clicked-point",
-              coordinate: clickedPoint,
-              icon: mapIcons.crosshair || undefined,
-            },
-          ]
-        : []),
-      // POIs only show if not in report mode
-      ...(!isReportMode
-        ? (POIs || []).map((poi) => ({
-            id: String(poi.id),
-            coordinate: {
-              longitude: poi.location_geojson.coordinates[0],
-              latitude: poi.location_geojson.coordinates[1],
-            } satisfies LatLng,
-            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-          }))
-        : []),
-    ],
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
+    () => {
+      if (POIs && !isReportMode) {
+        console.log("Pois");
+        console.log(POIs);
+      }
+      
+      const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
+        ? (POIs || []).map((poi) => {
+            const marker = {
+              id: String(poi.id),
+              coordinate: {
+                longitude: poi.location_geojson.coordinates[0],
+                latitude: poi.location_geojson.coordinates[1],
+              } satisfies LatLng,
+              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+            };
+            // 📝 ADDED CONSOLE LOGGING HERE
+            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            return marker;
+          })
+        : [];
+
+      return [
+        // User selected aaPoints to report
+        ...aaPointsReport.map((point, index) => ({
+          id: `report-point-${index}`,
+          coordinate: point,
+          icon: mapIcons.point || undefined,
+        })),
+        // Clicked point
+        ...(clickedPoint
+          ? [
+              {
+                id: "clicked-point",
+                coordinate: clickedPoint,
+                icon: mapIcons.crosshair || undefined,
+              },
+            ]
+          : []),
+        // POIs only show if not in report mode
+        ...poiMarkers,
+      ];
+    },
+    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
+  const handleSelectLocation = async (location: {
+    id: string;
+    name: string;
+    address?: string;
+    place_id?: string;
+  }) => {
+    console.log("Selected location:", location);
+    
+    // Close search
+    setIsSearchActive(false);
+    setSearchQuery("");
+    
+    // Fetch full place details
+    if (location.place_id) {
+      const placeDetails = await getPlaceDetails(location.place_id);
+      
+      if (placeDetails) {
+        // TODO: Get user's current location to calculate distance
+        // For now, using a placeholder
+        //const distance = "2.4 Mi";
+        
+        // Open location details bottom sheet with real data
+        locationBottomSheetRef.current?.present(placeDetails);
+      }
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (!isSearchActive && text.length > 0) {
+      setIsSearchActive(true);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleDismissSearch = () => {
+    setIsSearchActive(false);
+    setSearchQuery("");
+  };
+
   return (
-    <>
-      <Stack.Screen options={{ title: "Home", headerShown: false }} />
+  <>
+    <Stack.Screen options={{ title: "Home", headerShown: false }} />
+
+    {/* Search Bar - hide in report mode */}
+    {!isReportMode && (
+      <SearchBar 
+        onPress={() => setIsSearchActive(true)}
+        onChangeText={handleSearchChange}
+        onClear={handleClearSearch}
+        value={searchQuery}
+        editable={isSearchActive}
+        isActive={isSearchActive}
+        className="absolute left-4 right-4 z-20"
+        style={{ top: insets.top + 10 }}
+      />
+    )}
+
+    {/* Search Dropdown - hide in report mode */}
+    {!isReportMode && (
+      <SearchDropdown
+        visible={isSearchActive}
+        searchQuery={searchQuery}
+        onSelectLocation={handleSelectLocation}
+        onDismiss={handleDismissSearch}
+        topOffset={insets.top + 70}
+      />
+    )}
 
       {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+      <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
+      
+      {/* POI Bottom Sheet */}
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+
+    {/* Location Details Bottom Sheet */}
+    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}
@@ -174,6 +319,11 @@ export default function Home() {
           longitude: -97.733,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
+        }}
+        onRegionChangeComplete={(region) => {
+          // Calculate zoom level from latitudeDelta
+          const zoom = Math.round(Math.log(360 / region.latitudeDelta) / Math.LN2);
+          setZoomLevel(zoom);
         }}
       >
         {/* Render polygons */}
@@ -200,6 +350,12 @@ export default function Home() {
             coordinate={marker.coordinate}
             image={marker.icon}
             anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => {
+              const poi = POIs?.find((p) => String(p.id) === marker.id);
+              if (poi) {
+                handlePOIPress(poi);
+              }
+            }}
           />
         ))}
       </MapView>

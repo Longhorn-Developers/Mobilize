@@ -79,12 +79,115 @@ class ApiClient {
 
   // Get all avoidance areas
   async getAvoidanceAreas() {
-    const areas = await this.request<AvoidanceAreaRaw[]>("/avoidance_areas");
+    const areas = await this.request<AvoidanceAreaRaw[]>(
+      "/avoidance_areas", 
+      { headers: { "Accept": "application/json" } }
+    );
+
     // Parse the boundary_geojson string to JSON
     return areas.map((area) => ({
       ...area,
       boundary_geojson: JSON.parse(area.boundary_geojson),
     }));
+  }
+
+
+  // fetch construction areas
+  async getConstructionAreas() {
+    const FEATURE_URL = "https://services9.arcgis.com/w9x0fkENXvuWZY26/arcgis/rest/services/Closed_Areas_view_new/FeatureServer/0/query";
+    const TOKEN = process.env.ARCGIS_TOKEN || null;
+    const PAGE_SIZE = 8000;
+
+    function buildUrl(offset = 0) {
+      const u = new URL(FEATURE_URL);
+      const p = u.searchParams;
+      p.set("f", "json"); 
+      p.set("where", "1=1");
+      p.set("returnGeometry", "true");
+      p.set("outFields", "OBJECTID");
+      p.set("orderByFields", "OBJECTID ASC");
+      p.set("outSR", "4326"); 
+      p.set("resultOffset", String(offset));
+      p.set("resultRecordCount", String(PAGE_SIZE));
+      p.set("cacheHint", "true");
+      if (TOKEN) p.set("token", TOKEN);
+      return u.toString();
+    }
+
+    async function fetchPage(offset: number) {
+      const url = buildUrl(offset);
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      const json = await res.json();
+      if (json.error) throw new Error(`UH OHH ARCGIS ERROR: ${JSON.stringify(json.error)}`);
+      return json;
+    }
+
+    async function fetchAll() {
+      let offset = 0;
+      const all = [];
+      for (;;) {
+        const page = await fetchPage(offset);
+        const feats = page.features ?? [];
+        all.push(...feats);
+        const more = page.exceededTransferLimit === true || feats.length === PAGE_SIZE;
+        if (!more || feats.length === 0) break;
+        offset += feats.length;
+      }
+      return all;
+    }
+
+    function convertFeature(f: any, idx: number) {
+      const attrs = f.attributes ?? {};
+      const id = attrs.OBJECTID ?? f.objectId ?? idx;
+
+      const g = f.geometry ?? {};
+      if (Array.isArray(g.rings) && g.rings.length) {
+        const ring = g.rings[0]; 
+        const pts = ring
+          .map(([x, y]: [number, number]) => [Number(y), Number(x)]) 
+          .filter(([lat, lon]: [number, number]) =>
+            Number.isFinite(lat) && Number.isFinite(lon) &&
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+          );
+        if (pts.length >= 2) return { id, points: pts };
+        return null;
+      }
+
+      if (Array.isArray(g.paths) && g.paths.length) {
+        const path = g.paths[0];
+        const pts = path
+          .map(([x, y]: [number, number]) => [Number(y), Number(x)])
+          .filter(([lat, lon]: [number, number]) =>
+            Number.isFinite(lat) && Number.isFinite(lon) &&
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+          );
+        if (pts.length >= 2) return { id, points: pts };
+        return null;
+      }
+
+      if (Number.isFinite(g.x) && Number.isFinite(g.y)) {
+        const lat = Number(g.y), lon = Number(g.x);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        }
+      }
+      return null;
+    }
+
+
+    try {
+      const feats = await fetchAll();
+      const rows = [];
+      for (let i = 0; i < feats.length; i++) {
+        const rec = convertFeature(feats[i], i);
+        if (rec) rows.push(rec);
+      }
+      return rows;
+    } catch (err: any) {
+      console.error("UH OHHH UNHANDLED PARSING ERROR", err.message);
+    }
+
+    
   }
 
   // Get single avoidance area by ID with profile info
@@ -97,6 +200,8 @@ class ApiClient {
       boundary_geojson: JSON.parse(area.boundary_geojson),
     };
   }
+
+  
 
   // Get reports for a specific avoidance area
   async getAvoidanceAreaReports(id: string) {

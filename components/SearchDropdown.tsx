@@ -4,18 +4,22 @@ import {
   TouchableOpacity,
   FlatList,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from "react-native";
 import {
   ClockIcon,
   MapPinIcon,
 } from "phosphor-react-native";
 import colors from "~/types/colors";
+import { useEffect, useState } from "react";
+import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/googlePlaces";
 
 interface Location {
   id: string;
   name: string;
   address?: string;
   type?: "building" | "classroom" | "entrance" | "recent";
+  place_id?: string;
 }
 
 interface SearchDropdownProps {
@@ -33,9 +37,10 @@ export const SearchDropdown = ({
   onDismiss,
   topOffset,
 }: SearchDropdownProps) => {
-  if (!visible) return null;
+  const [googleResults, setGoogleResults] = useState<PlaceAutocompletePrediction[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Mock data - we'll replace this with real data later
+  // Recent searches - hardcoded for now, will be replaced with local storage later
   const recentSearches: Location[] = [
     {
       id: "1",
@@ -51,47 +56,38 @@ export const SearchDropdown = ({
     },
   ];
 
-  // Mock search results - filter by query
-  const allLocations: Location[] = [
-    {
-      id: "3",
-      name: "Texas Global",
-      address: "2300 Red River St",
-      type: "building",
-    },
-    {
-      id: "4",
-      name: "Texas Union Building",
-      address: "2100 Guadalupe St",
-      type: "building",
-    },
-    {
-      id: "5",
-      name: "Texas Ballroom",
-      address: "2100 Guadalupe St",
-      type: "building",
-    },
-    {
-      id: "6",
-      name: "GDC (Gates Dell Complex)",
-      address: "2317 Speedway",
-      type: "building",
-    },
-    {
-      id: "7",
-      name: "Gregory Gym",
-      address: "2101 Speedway",
-      type: "building",
-    },
-  ];
+  // Fetch Google Places results when search query changes
+  useEffect(() => {
+    const fetchPlaces = async () => {
+      if (searchQuery.length < 2) {
+        setGoogleResults([]);
+        return;
+      }
 
-  const searchResults: Location[] = searchQuery.length > 0
-    ? allLocations.filter((location) =>
-        location.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+      setIsLoading(true);
+      const results = await searchPlaces(searchQuery);
+      setGoogleResults(results);
+      setIsLoading(false);
+    };
+
+    // Debounce: wait 300ms after user stops typing
+    const timeoutId = setTimeout(fetchPlaces, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Convert Google Places predictions to Location format
+  const searchResults: Location[] = googleResults.map((prediction) => ({
+    id: prediction.place_id,
+    name: prediction.structured_formatting.main_text,
+    address: prediction.structured_formatting.secondary_text,
+    type: "building" as const,
+    place_id: prediction.place_id,
+  }));
 
   const displayedLocations = searchQuery.length > 0 ? searchResults : recentSearches;
+
+  if (!visible) return null;
 
   const renderLocationItem = ({ item }: { item: Location }) => (
     <TouchableOpacity
@@ -139,24 +135,32 @@ export const SearchDropdown = ({
           </View>
         )}
 
-        {/* Results List */}
-        <FlatList
-          data={displayedLocations}
-          renderItem={renderLocationItem}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          scrollEnabled={displayedLocations.length > 5}
-          style={{ maxHeight: 300 }}
-          ListEmptyComponent={
-            searchQuery.length > 0 ? (
-              <View className="items-center justify-center px-6 py-8">
-                <Text className="text-center text-base text-gray-400">
-                  No results found for "{searchQuery}"
-                </Text>
-              </View>
-            ) : null
-          }
-        />
+        {/* Loading State */}
+        {isLoading ? (
+          <View className="items-center justify-center py-8">
+            <ActivityIndicator size="small" color={colors.ut.burntorange} />
+            <Text className="mt-2 text-sm text-gray-500">Searching...</Text>
+          </View>
+        ) : (
+          /* Results List */
+          <FlatList
+            data={displayedLocations}
+            renderItem={renderLocationItem}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={displayedLocations.length > 5}
+            style={{ maxHeight: 300 }}
+            ListEmptyComponent={
+              searchQuery.length > 0 ? (
+                <View className="items-center justify-center px-6 py-8">
+                  <Text className="text-center text-base text-gray-400">
+                    No results found for "{searchQuery}"
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
+        )}
       </View>
     </>
   );

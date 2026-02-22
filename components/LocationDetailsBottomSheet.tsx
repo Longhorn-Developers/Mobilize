@@ -253,7 +253,6 @@ const LocationDetailsBottomSheetComponent = (
               </TouchableOpacity>
             </View>
 
-            {/* Entrances */}
             <View className="gap-3">
               {entrances.map((entrance) => (
                 <View

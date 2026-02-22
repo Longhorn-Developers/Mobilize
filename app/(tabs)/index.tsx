@@ -14,13 +14,17 @@ import ReportModal from "~/components/ReportModal";
 import {
   usePOIs,
   useAvoidanceAreas,
+  useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
 
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
-import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 
 export default function Home() {
@@ -29,7 +33,7 @@ export default function Home() {
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const locationBottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -41,6 +45,7 @@ export default function Home() {
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
+  const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
@@ -113,6 +118,7 @@ export default function Home() {
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
+    if (polygonId[0] == 'C') return; // construction areas
     bottomSheetRef.current?.present({ id: polygonId });
   };
 
@@ -143,8 +149,21 @@ export default function Home() {
             },
           ]
         : []),
+      //Construction zones
+      ...(constructionAreas || []).map((area) => ({
+        id: String("C" + area.id),
+        coordinates: area.points.map(
+          (coord: [number, number]) => ({
+            longitude: coord[1],
+            latitude: coord[0],
+          }),
+        ),
+        fillColor: "rgba(255, 153, 0, 0.4)",
+        strokeColor: "rgba(255, 123, 0, 0.7)",
+        strokeWidth: 0.1,
+      })),
     ],
-    [avoidanceAreas, aaPointsReport],
+    [avoidanceAreas, aaPointsReport, constructionAreas]
   );
 
   const markers = useMemo(

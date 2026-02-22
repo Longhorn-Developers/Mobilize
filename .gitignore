@@ -9,6 +9,8 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+pnpm-lock.yaml
+
 # expo router
 expo-env.d.ts
 

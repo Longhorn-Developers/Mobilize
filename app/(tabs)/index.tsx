@@ -2,7 +2,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { View } from "react-native";
 import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,7 +22,11 @@ import useMapIcons from "~/utils/useMapIcons";
 
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
-import { LocationDetailsBottomSheet } from "~/components/LocationDetailsBottomSheet";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
+import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 
 export default function Home() {
   // hooks
@@ -32,7 +36,7 @@ export default function Home() {
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const locationBottomSheetRef = useRef<BottomSheetModal>(null);
+  const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -51,6 +55,21 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+
+  const testGooglePlaces = async () => {
+    console.log("Testing Google Places...");
+    const results = await searchPlaces("Texas Global");
+    console.log("Search results:", results);
+    
+    if (results.length > 0) {
+      const details = await getPlaceDetails(results[0].place_id);
+      console.log("Place details:", details);
+    }
+  };
+
+  useEffect(() => {
+    testGooglePlaces();
+  }, []);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -209,10 +228,11 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
-  const handleSelectLocation = (location: {
+  const handleSelectLocation = async (location: {
     id: string;
     name: string;
     address?: string;
+    place_id?: string;
   }) => {
     console.log("Selected location:", location);
     
@@ -220,8 +240,19 @@ export default function Home() {
     setIsSearchActive(false);
     setSearchQuery("");
     
-    // Open location details bottom sheet
-    locationBottomSheetRef.current?.present();
+    // Fetch full place details
+    if (location.place_id) {
+      const placeDetails = await getPlaceDetails(location.place_id);
+      
+      if (placeDetails) {
+        // TODO: Get user's current location to calculate distance
+        // For now, using a placeholder
+        //const distance = "2.4 Mi";
+        
+        // Open location details bottom sheet with real data
+        locationBottomSheetRef.current?.present(placeDetails);
+      }
+    }
   };
 
   const handleSearchChange = (text: string) => {
@@ -241,10 +272,11 @@ export default function Home() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: "Home", headerShown: false }} />
+  <>
+    <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
-      {/* Search Bar */}
+    {/* Search Bar - hide in report mode */}
+    {!isReportMode && (
       <SearchBar 
         onPress={() => setIsSearchActive(true)}
         onChangeText={handleSearchChange}
@@ -255,8 +287,10 @@ export default function Home() {
         className="absolute left-4 right-4 z-20"
         style={{ top: insets.top + 10 }}
       />
+    )}
 
-      {/* Search Dropdown */}
+    {/* Search Dropdown - hide in report mode */}
+    {!isReportMode && (
       <SearchDropdown
         visible={isSearchActive}
         searchQuery={searchQuery}
@@ -264,6 +298,7 @@ export default function Home() {
         onDismiss={handleDismissSearch}
         topOffset={insets.top + 70}
       />
+    )}
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
@@ -271,8 +306,8 @@ export default function Home() {
       {/* POI Bottom Sheet */}
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
 
-      {/* Location Details Bottom Sheet */}
-      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
+    {/* Location Details Bottom Sheet */}
+    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
         style={{ flex: 1 }}

@@ -47,6 +47,29 @@ class ApiClient {
     return await response.text();
   }
 
+
+  async getRoute(pointData: string) {
+    const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
+    const TOKEN = process.env.OPENROUTE_API_KEY || "";
+
+    let res = await fetch(
+      FEATURE_URL,
+      {
+        method: "post",
+        headers: {
+          'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+          'Authorization': TOKEN,
+          'Content-Type': 'application/json; charset=utf-8'
+        },
+        body: pointData
+      }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    const json = await res.json();
+    return json;
+  }
+
+
   // Get profile by ID
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);

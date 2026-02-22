@@ -14,15 +14,18 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
+  routes: ["routes"] as const,
 };
 
 
-// get route between two points
-// export function getRoute() {
-//   return useQuery({
-    
-//   });
-// }
+// get route between 2+ points
+export function getRoute(pointData: string) {
+  // TODO implement caching later
+  return useQuery({
+    queryKey: queryKeys.routes,
+    queryFn: () => apiClient.getRoute(pointData),
+  });
+}
 
 
 // fetch all POIs

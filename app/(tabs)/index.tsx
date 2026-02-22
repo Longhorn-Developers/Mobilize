@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
+import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
 import ReportModal from "~/components/ReportModal";
 import {
@@ -32,6 +33,8 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
+  const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 
@@ -40,6 +43,10 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(15);
+
+  // Minimum zoom level to show POIs (higher = more zoomed in)
+  const MIN_ZOOM_FOR_POIS = 16;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -111,13 +118,21 @@ export default function Home() {
         });
       }
     } else {
-      bottomSheetRef.current?.close();
+      avoidanceAreaBottomSheetRef.current?.close();
+      poiBottomSheetRef.current?.close();
     }
   };
 
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
+    avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
+  };
+
+  // Handle POI click
+  const handlePOIPress = (poi: any) => {
+    if (isReportMode) return;
+    poiBottomSheetRef.current?.present({ poi });
     if (polygonId[0] == 'C') return; // construction areas
     bottomSheetRef.current?.present({ id: polygonId });
   };
@@ -167,36 +182,50 @@ export default function Home() {
   );
 
   const markers = useMemo(
-    () => [
-      // User selected aaPoints to report
-      ...aaPointsReport.map((point, index) => ({
-        id: `report-point-${index}`,
-        coordinate: point,
-        icon: mapIcons.point || undefined,
-      })),
-      // Clicked point
-      ...(clickedPoint
-        ? [
-            {
-              id: "clicked-point",
-              coordinate: clickedPoint,
-              icon: mapIcons.crosshair || undefined,
-            },
-          ]
-        : []),
-      // POIs only show if not in report mode
-      ...(!isReportMode
-        ? (POIs || []).map((poi) => ({
-            id: String(poi.id),
-            coordinate: {
-              longitude: poi.location_geojson.coordinates[0],
-              latitude: poi.location_geojson.coordinates[1],
-            } satisfies LatLng,
-            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-          }))
-        : []),
-    ],
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint],
+    () => {
+      if (POIs && !isReportMode) {
+        console.log("Pois");
+        console.log(POIs);
+      }
+      
+      const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
+        ? (POIs || []).map((poi) => {
+            const marker = {
+              id: String(poi.id),
+              coordinate: {
+                longitude: poi.location_geojson.coordinates[0],
+                latitude: poi.location_geojson.coordinates[1],
+              } satisfies LatLng,
+              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+            };
+            // 📝 ADDED CONSOLE LOGGING HERE
+            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            return marker;
+          })
+        : [];
+
+      return [
+        // User selected aaPoints to report
+        ...aaPointsReport.map((point, index) => ({
+          id: `report-point-${index}`,
+          coordinate: point,
+          icon: mapIcons.point || undefined,
+        })),
+        // Clicked point
+        ...(clickedPoint
+          ? [
+              {
+                id: "clicked-point",
+                coordinate: clickedPoint,
+                icon: mapIcons.crosshair || undefined,
+              },
+            ]
+          : []),
+        // POIs only show if not in report mode
+        ...poiMarkers,
+      ];
+    },
+    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
   const handleSelectLocation = async (location: {
@@ -271,8 +300,11 @@ export default function Home() {
       />
     )}
 
-    {/* Avoidance Area Bottom Sheet */}
-    <AvoidanceAreaBottomSheet ref={bottomSheetRef} />
+      {/* Avoidance Area Bottom Sheet */}
+      <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
+      
+      {/* POI Bottom Sheet */}
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -285,6 +317,11 @@ export default function Home() {
           longitude: -97.733,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
+        }}
+        onRegionChangeComplete={(region) => {
+          // Calculate zoom level from latitudeDelta
+          const zoom = Math.round(Math.log(360 / region.latitudeDelta) / Math.LN2);
+          setZoomLevel(zoom);
         }}
       >
         {/* Render polygons */}
@@ -311,6 +348,12 @@ export default function Home() {
             coordinate={marker.coordinate}
             image={marker.icon}
             anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => {
+              const poi = POIs?.find((p) => String(p.id) === marker.id);
+              if (poi) {
+                handlePOIPress(poi);
+              }
+            }}
           />
         ))}
       </MapView>

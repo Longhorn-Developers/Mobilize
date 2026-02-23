@@ -9,24 +9,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
-import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
+import POIBottomSheet from "~/components/POIBottomSheet";
 import ReportModal from "~/components/ReportModal";
+import ReviewModal from "~/components/ReviewModal";
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   usePOIs,
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
-import useMapIcons from "~/utils/useMapIcons";
-
-import { SearchBar } from "~/components/SearchBar";
-import { SearchDropdown } from "~/components/SearchDropdown";
-import {
-  LocationDetailsBottomSheet,
-  type LocationDetailsBottomSheetRef,
-} from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import useMapIcons from "~/utils/useMapIcons";
 
 export default function Home() {
   // hooks
@@ -49,6 +49,7 @@ export default function Home() {
   const MIN_ZOOM_FOR_POIS = 16;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -133,8 +134,8 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
+    if (poi[0] === 'C') return; // construction areas
+    bottomSheetRef.current?.present({ id: poi });
   };
 
   const polygons = useMemo(
@@ -401,6 +402,30 @@ export default function Home() {
           className="absolute bottom-4 right-4"
           title={"Report"}
           onPress={() => setIsReportMode(true)}
+        />
+      )}
+
+      {isReviewMode ? (
+        <>
+          {/* Review modal overlay tint */}
+          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
+          <ReviewModal
+            className="top-safe-offset-40 absolute left-10 right-10"
+            poi_id={1}
+            entranceName="South Entrance" // based on bottom sheet selection
+            buildingName="Gregory Gym" // from bottom sheet/places api
+            activeUserId={1}
+            onExit={() => {
+              setIsReviewMode(false);
+            }}
+          />
+        </>
+      ) : (
+        // Temp Button to open review mode
+        <Button
+          className="absolute bottom-4 left-4"
+          title={"Reviews"}
+          onPress={() => setIsReviewMode(true)}
         />
       )}
     </>

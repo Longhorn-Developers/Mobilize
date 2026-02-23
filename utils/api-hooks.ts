@@ -15,6 +15,8 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
+  review: (poi_id: number) => ["review", poi_id] as const,
+  reviewById: (id: number) => ["reviewById", id] as const,
 };
 
 // fetch all POIs
@@ -68,6 +70,15 @@ export function useProfile(id: number) {
     queryKey: queryKeys.profile(id),
     queryFn: () => apiClient.getProfile(id),
     enabled: !!id, // Only run if id is provided
+  });
+}
+
+// fetch reviews list by POI ID
+export function useReviews(poi_id: number) {
+  return useQuery({
+    queryKey: queryKeys.review(poi_id),
+    queryFn: () => apiClient.getReviews(poi_id),
+    enabled: !!poi_id,
   });
 }
 
@@ -141,6 +152,110 @@ export function useInsertAvoidanceAreaReport() {
     },
     onError: (error) => {
       console.error("Error adding report:", error);
+    },
+  });
+}
+
+// insert a new review
+export function useInsertReview() {
+  const queryClient = useQueryClient();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
+  return useMutation({
+    mutationFn: (data: {
+      user_id: number;
+      poi_id: number;
+      rating: number;
+      features?: string;
+      content?: string;
+    }) => apiClient.insertReview(data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.review(variables.poi_id),
+      }); // refetch reviews
+
+      Toast.show({
+        type: "success",
+        text2:
+          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error submitting review: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+  });
+}
+
+// update an existing review
+export function useUpdateReview() {
+  const queryClient = useQueryClient();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
+  return useMutation({
+    mutationFn: (data: {
+      id: number;
+      rating: number;
+      features?: string;
+      content?: string;
+    }) => apiClient.updateReview(data.id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reviewById(variables.id),
+      }); // refetch reviews
+
+      Toast.show({
+        type: "success",
+        text2:
+          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error modifying review: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+  });
+}
+
+// soft delete an existing review
+export function useDeleteReview() {
+  const queryClient = useQueryClient();
+  const bottomTabBarHeight = useBottomTabBarHeight();
+
+  return useMutation({
+    mutationFn: (data: { id: number; poi_id: number }) =>
+      apiClient.deleteReview(data.id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.review(variables.poi_id),
+      }); // refetch reviews
+
+      Toast.show({
+        type: "success",
+        text2: "Review deleted successfully!",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error deleting review: ${error.message}`,
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight,
+      });
     },
   });
 }

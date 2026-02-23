@@ -9,25 +9,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
-import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
+import POIBottomSheet from "~/components/POIBottomSheet";
 import ReportModal from "~/components/ReportModal";
 import ReviewModal from "~/components/ReviewModal";
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   usePOIs,
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
-import useMapIcons from "~/utils/useMapIcons";
-
-import { SearchBar } from "~/components/SearchBar";
-import { SearchDropdown } from "~/components/SearchDropdown";
-import {
-  LocationDetailsBottomSheet,
-  type LocationDetailsBottomSheetRef,
-} from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import useMapIcons from "~/utils/useMapIcons";
 
 export default function Home() {
   // hooks
@@ -135,8 +134,8 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
+    if (poi[0] === 'C') return; // construction areas
+    bottomSheetRef.current?.present({ id: poi });
   };
 
   const polygons = useMemo(

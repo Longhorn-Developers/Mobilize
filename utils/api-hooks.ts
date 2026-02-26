@@ -19,11 +19,11 @@ export const queryKeys = {
 
 
 // get route between 2+ points
-export function getRoute(pointData: string) {
+export function getRoute(waypoints: any[], avoiding: any[]) {
   // TODO implement caching later
   return useQuery({
     queryKey: queryKeys.routes,
-    queryFn: () => apiClient.getRoute(pointData),
+    queryFn: () => apiClient.getRoute(waypoints, avoiding),
   });
 }
 

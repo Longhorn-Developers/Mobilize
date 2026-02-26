@@ -48,7 +48,7 @@ class ApiClient {
   }
 
 
-  async getRoute(pointData: string) {
+  async getRoute(waypoints: any[], avoiding: any[]) {
     const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
     const TOKEN = process.env.OPENROUTE_API_KEY || "";
 
@@ -61,7 +61,17 @@ class ApiClient {
           'Authorization': TOKEN,
           'Content-Type': 'application/json; charset=utf-8'
         },
-        body: pointData
+        body: JSON.stringify(
+          {"coordinates":JSON.stringify(waypoints),
+            "options":{
+              "avoid_polygons":{
+                "type":"MultiPolygon",
+                "coordinates":JSON.stringify(avoiding)
+              }
+            }
+          }
+        )
+
       }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);

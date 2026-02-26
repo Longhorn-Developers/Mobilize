@@ -17,6 +17,7 @@ import {
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
+  getRoute
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
 
@@ -55,6 +56,7 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+  // getRoute([[-97.733785,30.282635],[-97.733731,30.285145]], [[[-97.734269,30.284691],[-97.733454,30.284654],[-97.733669,30.283366],[-97.734708,30.283932],[-97.734269,30.284691]]]);
 
   const testGooglePlaces = async () => {
     console.log("Testing Google Places...");
@@ -70,6 +72,7 @@ export default function Home() {
   useEffect(() => {
     testGooglePlaces();
   }, []);
+
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -125,6 +128,7 @@ export default function Home() {
 
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
+    if (polygonId[0] == 'C') return; // construction areas
     if (isReportMode) return;
     avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
   };
@@ -133,8 +137,6 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
   };
 
   const polygons = useMemo(
@@ -184,8 +186,8 @@ export default function Home() {
   const markers = useMemo(
     () => {
       if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
+        // console.log("Pois");
+        // console.log(POIs);
       }
       
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
@@ -199,7 +201,7 @@ export default function Home() {
               icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
             };
             // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            // console.log(`POI Marker for ID ${marker.id}:`, marker);
             return marker;
           })
         : [];

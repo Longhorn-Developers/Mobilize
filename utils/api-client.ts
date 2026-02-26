@@ -50,7 +50,9 @@ class ApiClient {
 
   async getRoute(waypoints: any[], avoiding: any[]) {
     const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
-    const TOKEN = process.env.OPENROUTE_API_KEY || "";
+    const TOKEN = process.env.EXPO_PUBLIC_OPENROUTE_KEY || "";
+
+    // multipoly format reference: https://en.wikipedia.org/wiki/GeoJSON
 
     let res = await fetch(
       FEATURE_URL,
@@ -62,11 +64,11 @@ class ApiClient {
           'Content-Type': 'application/json; charset=utf-8'
         },
         body: JSON.stringify(
-          {"coordinates":JSON.stringify(waypoints),
+          {"coordinates":waypoints,
             "options":{
               "avoid_polygons":{
                 "type":"MultiPolygon",
-                "coordinates":JSON.stringify(avoiding)
+                "coordinates":avoiding.map((poly) => [poly])
               }
             }
           }
@@ -74,8 +76,10 @@ class ApiClient {
 
       }
     );
+    console.log(res);
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const json = await res.json();
+    console.log(json);
     return json;
   }
 

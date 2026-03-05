@@ -2,6 +2,9 @@
   "name": "mobilizeut",
   "version": "1.0.0",
   "main": "expo-router/entry",
+  "overrides": {
+    "cosmiconfig": "7.1.0"
+  },
   "scripts": {
     "start": "expo start",
     "prebuild": "expo prebuild",
@@ -20,6 +23,7 @@
     "@tanstack/react-query": "^5.90.7",
     "@turf/turf": "^7.2.0",
     "@types/geojson": "^7946.0.16",
+    "better-auth": "^1.4.5",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.7",
     "expo": "54.0.23",
@@ -61,7 +65,8 @@
     "@tanstack/eslint-plugin-query": "^5.81.2",
     "@types/react": "~19.1.17",
     "@typescript-eslint/parser": "^8.46.3",
-    "drizzle-kit": "^0.31.7",
+    "cosmiconfig": "7.1.0",
+    "drizzle-kit": "^0.31.6",
     "eslint": "^9.32.0",
     "eslint-config-expo": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",

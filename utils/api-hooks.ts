@@ -11,6 +11,7 @@ import { apiClient } from "./api-client";
 export const queryKeys = {
   pois: ["pois"] as const,
   avoidanceAreas: ["avoidanceAreas"] as const,
+  constructionAreas: ["constructionAreas"] as const,
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
@@ -30,6 +31,16 @@ export function useAvoidanceAreas() {
   return useQuery({
     queryKey: queryKeys.avoidanceAreas,
     queryFn: () => apiClient.getAvoidanceAreas(),
+  });
+}
+
+
+// fetch all construction areas
+export function useConstructionAreas() {
+  // just fetch every time for now, not caching
+  return useQuery({
+    queryKey: queryKeys.constructionAreas,
+    queryFn: () => apiClient.getConstructionAreas(),
   });
 }
 

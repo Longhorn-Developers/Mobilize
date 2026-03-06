@@ -4,7 +4,7 @@ import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { View } from "react-native";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
+import MapView, { Polygon, Marker, LatLng, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -45,6 +45,7 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
+  const [Route, setRoute] = useState([]);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
   const MIN_ZOOM_FOR_POIS = 16;
@@ -230,6 +231,18 @@ export default function Home() {
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
+
+  const getDirections = (target: any[]) => {
+    const UT_TOWER = [-97.73942, 30.28614];
+    // let res = getRoute([UT_TOWER, target], 
+    //   polygons.map((poly) => [poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude])])
+    // )
+    console.log(polygons)
+
+    // console.log(res);
+  }
+
+
   const handleSelectLocation = async (location: {
     id: string;
     name: string;
@@ -306,7 +319,7 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} getDirections={getDirections} />
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -342,6 +355,17 @@ export default function Home() {
             }}
           />
         ))}
+
+        {/* Render Polylines */}
+        {(Route.length !== 0) && (
+          <Polyline
+            key="RouteLine"
+            coordinates={[]}
+            strokeColor="#000"
+            fillColor="rgba(255,0,0,0.5)"
+            strokeWidth={1}
+          />
+        )}
 
         {/* Render markers */}
         {markers.map((marker) => (

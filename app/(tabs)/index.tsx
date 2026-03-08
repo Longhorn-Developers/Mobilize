@@ -28,6 +28,7 @@ import {
   type LocationDetailsBottomSheetRef,
 } from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import decode from "~/utils/decode_polyline";
 
 export default function Home() {
   // hooks
@@ -45,7 +46,7 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [Route, setRoute] = useState([]);
+  const [Route, setRoute] = useState<LatLng[] | null>(null);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
   const MIN_ZOOM_FOR_POIS = 16;
@@ -234,10 +235,22 @@ export default function Home() {
 
   const getDirections = (target: any[]) => {
     const UT_TOWER = [-97.73942, 30.28614];
-    // let res = getRoute([UT_TOWER, target], 
-    //   polygons.map((poly) => [poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude])])
-    // )
-    console.log(polygons)
+    let res = getRoute([UT_TOWER, target.slice(0, 2)], 
+      polygons.map((poly) => poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude]))
+    )
+
+    // console.log(decode({value: res.routes.geometry}));
+    res.then((result) => {
+      // console.log(decode(result.routes[0].geometry));
+      setRoute(decode(result.routes[0].geometry).map(
+        (coord) => ({
+          latitude: coord[1],
+          longitude: coord[0]
+        })
+      ));
+    });
+    // console.log(target.slice(0, 2));
+    // console.log(polygons.map((poly) => poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude])))
 
     // console.log(res);
   }
@@ -357,13 +370,13 @@ export default function Home() {
         ))}
 
         {/* Render Polylines */}
-        {(Route.length !== 0) && (
+        {(Route !== null) && (
           <Polyline
             key="RouteLine"
-            coordinates={[]}
-            strokeColor="#000"
+            coordinates={Route}
+            strokeColor="#50df49"
             fillColor="rgba(255,0,0,0.5)"
-            strokeWidth={1}
+            strokeWidth={4}
           />
         )}
 

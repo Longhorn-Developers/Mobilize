@@ -17,7 +17,7 @@ const RouteContent = ({ route } : RouteContentProps) => {
 
 
 
-interface RouteBottomSheetProps {
+interface RouteOverlaySheetProps {
   ref: ForwardedRef<BottomSheetModal>;
 }
 
@@ -25,7 +25,7 @@ interface RouteData {
     route: any;
 }
 
-const RouteBottomSheet = ({ ref }: RouteBottomSheetProps) => {
+const RouteOverlaySheet = ({ ref }: RouteOverlaySheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return (
@@ -46,4 +46,4 @@ const RouteBottomSheet = ({ ref }: RouteBottomSheetProps) => {
   );
 };
 
-export default RouteBottomSheet;
+export default RouteOverlaySheet;

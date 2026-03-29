@@ -334,6 +334,9 @@ export default function Home() {
       {/* POI Bottom Sheet */}
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} getDirections={getDirections} />
 
+      {/* Routing Mode Overlay */}
+      {/* </> */}
+
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 

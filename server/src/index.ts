@@ -199,59 +199,59 @@ app.get("/api/auth/callback/google", async (c) => {
 // GET all avoidance_areas
 app.get('/avoidance_areas', async (c) => {
 	const db = drizzle(c.env.mobilize_db);
-	const avoidance_areas_result = await db.select().from(avoidance_areas).all();
+	const avoidance_areas_result = await db.select().from(schema.avoidance_areas).all();
 	return c.json(avoidance_areas_result);
 });
 
-// GET single avoidance_area by id with profile info
-app.get('/avoidance_areas/:id', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
-	const areaId = Number(c.req.param('id'));
+// // GET single avoidance_area by id with profile info
+// app.get('/avoidance_areas/:id', async (c) => {
+// 	const db = drizzle(c.env.mobilize_db);
+// 	const areaId = Number(c.req.param('id'));
 
-	if (isNaN(areaId)) {
-		return c.text('Invalid Area ID', 400);
-	}
+// 	if (isNaN(areaId)) {
+// 		return c.text('Invalid Area ID', 400);
+// 	}
 
-	const area = await db
-		.select({
-			...getTableColumns(avoidance_areas),
-			profile_display_name: profiles.display_name,
-			profile_avatar_url: profiles.avatar_url,
+// 	const area = await db
+// 		.select({
+// 			...getTableColumns(schema.avoidance_areas),
+// 			profile_display_name: schema.profiles.display_name,
+// 			profile_avatar_url: schema.profiles.avatar_url,
 
-		})
-		.from(avoidance_areas)
-		.leftJoin(profiles, eq(avoidance_areas.user_id, profiles.id))
-		.where(eq(avoidance_areas.id, areaId))
-		.get();
+// 		})
+// 		.from(schema.avoidance_areas)
+// 		.leftJoin(schema.profiles, eq(schema.avoidance_areas.user_id, schema.profiles.id))
+// 		.where(eq(schema.avoidance_areas.id, areaId))
+// 		.get();
 
-	if (!area) {
-		return c.text('Area not found', 404);
-	}
+// 	if (!area) {
+// 		return c.text('Area not found', 404);
+// 	}
 
-	return c.json(area);
-});
+// 	return c.json(area);
+// });
 
-// GET reports for a specific avoidance area id
-app.get('/avoidance_areas/:id/reports', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
-	const areaId = c.req.param('id');
+// // GET reports for a specific avoidance area id
+// app.get('/avoidance_areas/:id/reports', async (c) => {
+// 	const db = drizzle(c.env.mobilize_db);
+// 	const areaId = c.req.param('id');
 
-	if (!areaId) {
-		return c.text('Area ID is required', 400);
-	}
+// 	if (!areaId) {
+// 		return c.text('Area ID is required', 400);
+// 	}
 
-	const reports = await db
-		.select({
-			...getTableColumns(avoidance_area_reports),
-			profile_display_name: profiles.display_name,
-		})
-		.from(avoidance_area_reports)
-		.leftJoin(profiles, eq(avoidance_area_reports.user_id, profiles.id))
-		.where(eq(avoidance_area_reports.avoidance_area_id, Number(areaId)))
-		.all();
+// 	const reports = await db
+// 		.select({
+// 			...getTableColumns(avoidance_area_reports),
+// 			profile_display_name: profiles.display_name,
+// 		})
+// 		.from(avoidance_area_reports)
+// 		.leftJoin(profiles, eq(avoidance_area_reports.user_id, profiles.id))
+// 		.where(eq(avoidance_area_reports.avoidance_area_id, Number(areaId)))
+// 		.all();
 
-	return c.json(reports);
-});
+// 	return c.json(reports);
+// });
 
 // GET non-deleted reviews by poi id
 app.get('/reviews', async (c) => {
@@ -264,16 +264,16 @@ app.get('/reviews', async (c) => {
 
 	const reviewsList = await db
 		.select({
-			...getTableColumns(reviews),
-			profile_display_name: profiles.display_name,
-			profile_avatar_url: profiles.avatar_url
+			...getTableColumns(schema.reviews),
+			profile_display_name: schema.profiles.display_name,
+			profile_avatar_url: schema.profiles.avatar_url
 		})
-		.from(reviews)
-		.leftJoin(profiles, eq(reviews.user_id, profiles.id))
+		.from(schema.reviews)
+		.leftJoin(schema.profiles, eq(schema.reviews.user_id, schema.profiles.id))
 		.where(
 			and(
-				eq(reviews.poi_id, poiId),
-				isNull(reviews.deleted_at)
+				eq(schema.reviews.poi_id, poiId),
+				isNull(schema.reviews.deleted_at)
 			)
 		)
 		.all(); // Order by difference between upvotes and downvotes
@@ -304,7 +304,7 @@ app.post('/avoidance_areas', async (c) => {
 	}
 
 	const result = await db
-		.insert(avoidance_areas)
+		.insert(schema.avoidance_areas)
 		.values({
 			user_id,
 			name,
@@ -363,7 +363,7 @@ app.post('/reviews', async (c) => {
 	}
 
 	const result = await db
-		.insert(reviews)
+		.insert(schema.reviews)
 		.values({
 			user_id,
 			poi_id,
@@ -400,13 +400,13 @@ app.put('/reviews/:id', async (c) => {
 	}
 
 	const result = await db
-		.update(reviews)
+		.update(schema.reviews)
 		.set({
 			rating,
 			features,
 			content
 		})
-		.where(eq(reviews.id, reviewId))
+		.where(eq(schema.reviews.id, reviewId))
 		.returning();
 
 	return c.json(result);
@@ -422,11 +422,11 @@ app.put('/reviews/:id/delete', async (c) => {
 	}
 
 	const result = await db
-		.update(reviews)
+		.update(schema.reviews)
 		.set({
 			deleted_at: sql`(unixepoch())`
 		})
-		.where(eq(reviews.id, reviewId))
+		.where(eq(schema.reviews.id, reviewId))
 		.returning();
 
 	return c.json(result);

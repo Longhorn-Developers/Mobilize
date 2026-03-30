@@ -63,7 +63,21 @@ CREATE TABLE `profiles` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `profiles_user_id_unique` ON `profiles` (`user_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `pois_location_geojson_unique` ON `pois` (`location_geojson`);--> statement-breakpoint
+CREATE TABLE `reviews` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` integer NOT NULL,
+	`rating` integer NOT NULL,
+	`features` text,
+	`content` text,
+	`poi_id` integer NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`deleted_at` integer,
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `poi_deleted_idx` ON `reviews` (`poi_id`,`deleted_at`);--> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -99,19 +113,3 @@ CREATE TABLE `verification` (
 	`created_at` integer DEFAULT (unixepoch()),
 	`updated_at` integer DEFAULT (unixepoch())
 );
---> statement-breakpoint
-CREATE TABLE `reviews` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`user_id` integer NOT NULL,
-	`rating` integer NOT NULL,
-	`features` text,
-	`content` text,
-	`poi_id` integer NOT NULL,
-	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
-	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
-	`deleted_at` integer,
-	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE INDEX `poi_deleted_idx` ON `reviews` (`poi_id`,`deleted_at`);

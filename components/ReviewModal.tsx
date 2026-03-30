@@ -24,6 +24,7 @@ import { Review, ReviewEntry } from "~/types/database";
 import {
   useDeleteReview,
   useInsertReview,
+  useMyProfile,
   useReviews,
   useUpdateReview,
 } from "~/utils/api-hooks";
@@ -276,7 +277,6 @@ interface ReviewModalProps {
   poi_id: number;
   entranceName: string;
   buildingName: string;
-  activeUserId: number;
   onExit: () => void;
 }
 
@@ -285,7 +285,6 @@ const ReviewModal = ({
   poi_id,
   entranceName,
   buildingName,
-  activeUserId,
   onExit,
 }: ReviewModalProps) => {
   const { control, handleSubmit } = useForm<Review>();
@@ -297,9 +296,12 @@ const ReviewModal = ({
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
   const { mutateAsync: deleteReview } = useDeleteReview();
+  const { data: myProfile } = useMyProfile();
 
   // query reviews from db
   const { data: reviews = [], isLoading } = useReviews(poi_id); // determine most efficient way to
+
+  const activeUserId = myProfile ? myProfile.id : 9999;
 
   const existingReview = reviews.find(
     (review) => review.user_id === activeUserId,
@@ -322,14 +324,14 @@ const ReviewModal = ({
 
       // If review exists, edit existing review; otherwise, post new review
       if (isEditMode) {
-        updateReview({
+        await updateReview({
           id: existingReview.id,
           rating: data.rating,
           features: JSON.stringify(data.features),
           content: data?.content ?? undefined,
         });
       } else {
-        insertReview({
+        await insertReview({
           user_id: data.user_id,
           poi_id: data.poi_id,
           rating: data.rating,

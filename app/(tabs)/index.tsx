@@ -185,8 +185,8 @@ export default function Home() {
   const markers = useMemo(
     () => {
       if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
+        // console.log("Pois");
+        // console.log(POIs);
       }
       
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
@@ -200,7 +200,7 @@ export default function Home() {
               icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
             };
             // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            // console.log(`POI Marker for ID ${marker.id}:`, marker);
             return marker;
           })
         : [];
@@ -414,7 +414,6 @@ export default function Home() {
             poi_id={1}
             entranceName="South Entrance" // based on bottom sheet selection
             buildingName="Gregory Gym" // from bottom sheet/places api
-            activeUserId={1}
             onExit={() => {
               setIsReviewMode(false);
             }}

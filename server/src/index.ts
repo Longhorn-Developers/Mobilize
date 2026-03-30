@@ -14,7 +14,12 @@ type Bindings = {
   BETTER_AUTH_URL: string;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
+type Variables = {
+  auth: ReturnType<typeof createAuth>;
+  db: ReturnType<typeof drizzle>;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 app.use("/*", cors({
   origin: "*",
@@ -23,25 +28,32 @@ app.use("/*", cors({
   credentials: true,
 }));
 
+// Auth and db middleware (once per request)
+app.use("/*", async (c, next) => {
+  c.set("auth", createAuth(c.env));
+  c.set("db", drizzle(c.env.mobilize_db, { schema }));
+  await next();
+});
+
+// stores mobile callback URLs (in production, we should prob use Cloudflare KV or database)
+const pendingCallbacks = new Map<string, string>();
+
 // testing endpoint
 app.get("/", (c) => c.json({ status: "ok" }));
 
 // POIs endpoint
 app.get("/pois", async (c) => {
-  const db = drizzle(c.env.mobilize_db, { schema });
+  const db = c.get("db");
   const pois = await db.select().from(schema.pois);
   return c.json(pois);
 });
 
 // Avoidance areas endpoint
 app.get("/avoidance_areas", async (c) => {
-  const db = drizzle(c.env.mobilize_db, { schema });
+  const db = c.get("db");
   const areas = await db.select().from(schema.avoidance_areas);
   return c.json(areas);
 });
-
-// stores mobile callback URLs (in production, we should prob use Cloudflare KV or database)
-const pendingCallbacks = new Map<string, string>();
 
 // Google OAuth sign-in endpoint
 app.get("/api/auth/signin/google", async (c) => {
@@ -134,8 +146,7 @@ app.get("/api/auth/callback/google", async (c) => {
     console.log("Google user:", googleUser.email);
 
     // Use Better Auth to create/update user and session
-    const auth = createAuth(c.env);
-    const db = drizzle(c.env.mobilize_db, { schema });
+    const db = c.get("db");
     
     // Find or create user
     let user = await db.select().from(schema.users).where(eq(schema.users.email, googleUser.email)).get();
@@ -157,6 +168,13 @@ app.get("/api/auth/callback/google", async (c) => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+
+      // Create profile for new user
+      await db.insert(schema.profiles).values({
+        user_id: userId,
+        display_name: googleUser.name || username,
+        avatar_url: googleUser.picture || null,
+      }).onConflictDoNothing();
       
       user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
     }
@@ -198,96 +216,64 @@ app.get("/api/auth/callback/google", async (c) => {
 
 // GET all avoidance_areas
 app.get('/avoidance_areas', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
-	const avoidance_areas_result = await db.select().from(schema.avoidance_areas).all();
-	return c.json(avoidance_areas_result);
+  const db = c.get("db");
+	const areas = await db.select().from(schema.avoidance_areas).all();
+	return c.json(areas);
 });
 
-// // GET single avoidance_area by id with profile info
-// app.get('/avoidance_areas/:id', async (c) => {
-// 	const db = drizzle(c.env.mobilize_db);
-// 	const areaId = Number(c.req.param('id'));
+// GET single avoidance_area by id with profile info
+app.get('/avoidance_areas/:id', async (c) => {
+  const db = c.get("db");
+	const areaId = Number(c.req.param('id'));
 
-// 	if (isNaN(areaId)) {
-// 		return c.text('Invalid Area ID', 400);
-// 	}
-
-// 	const area = await db
-// 		.select({
-// 			...getTableColumns(schema.avoidance_areas),
-// 			profile_display_name: schema.profiles.display_name,
-// 			profile_avatar_url: schema.profiles.avatar_url,
-
-// 		})
-// 		.from(schema.avoidance_areas)
-// 		.leftJoin(schema.profiles, eq(schema.avoidance_areas.user_id, schema.profiles.id))
-// 		.where(eq(schema.avoidance_areas.id, areaId))
-// 		.get();
-
-// 	if (!area) {
-// 		return c.text('Area not found', 404);
-// 	}
-
-// 	return c.json(area);
-// });
-
-// // GET reports for a specific avoidance area id
-// app.get('/avoidance_areas/:id/reports', async (c) => {
-// 	const db = drizzle(c.env.mobilize_db);
-// 	const areaId = c.req.param('id');
-
-// 	if (!areaId) {
-// 		return c.text('Area ID is required', 400);
-// 	}
-
-// 	const reports = await db
-// 		.select({
-// 			...getTableColumns(avoidance_area_reports),
-// 			profile_display_name: profiles.display_name,
-// 		})
-// 		.from(avoidance_area_reports)
-// 		.leftJoin(profiles, eq(avoidance_area_reports.user_id, profiles.id))
-// 		.where(eq(avoidance_area_reports.avoidance_area_id, Number(areaId)))
-// 		.all();
-
-// 	return c.json(reports);
-// });
-
-// GET non-deleted reviews by poi id
-app.get('/reviews', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
-	const poiId = Number(c.req.query('poi_id'));
-
-	if (!poiId) {
-		return c.text('POI ID is required', 400);
+	if (isNaN(areaId)) {
+		return c.text('Invalid Area ID', 400);
 	}
 
-	const reviewsList = await db
+	const area = await db
 		.select({
-			...getTableColumns(schema.reviews),
+			...getTableColumns(schema.avoidance_areas),
 			profile_display_name: schema.profiles.display_name,
-			profile_avatar_url: schema.profiles.avatar_url
-		})
-		.from(schema.reviews)
-		.leftJoin(schema.profiles, eq(schema.reviews.user_id, schema.profiles.id))
-		.where(
-			and(
-				eq(schema.reviews.poi_id, poiId),
-				isNull(schema.reviews.deleted_at)
-			)
-		)
-		.all(); // Order by difference between upvotes and downvotes
+			profile_avatar_url: schema.profiles.avatar_url,
 
-	if (!reviewsList) {
-		return c.text('Review not found', 404);
+		})
+		.from(schema.avoidance_areas)
+		.leftJoin(schema.profiles, eq(schema.avoidance_areas.user_id, schema.profiles.id))
+		.where(eq(schema.avoidance_areas.id, areaId))
+		.get();
+
+	if (!area) {
+		return c.text('Area not found', 404);
 	}
 
-	return c.json(reviewsList);
+	return c.json(area);
+});
+
+// GET reports for a specific avoidance area id
+app.get('/avoidance_areas/:id/reports', async (c) => {
+  const db = c.get("db");
+	const areaId = c.req.param('id');
+
+	if (!areaId) {
+		return c.text('Area ID is required', 400);
+	}
+
+	const reports = await db
+		.select({
+			...getTableColumns(schema.avoidance_area_reports),
+			profile_display_name: schema.profiles.display_name,
+		})
+		.from(schema.avoidance_area_reports)
+		.leftJoin(schema.profiles, eq(schema.avoidance_area_reports.user_id, schema.profiles.id))
+		.where(eq(schema.avoidance_area_reports.avoidance_area_id, Number(areaId)))
+		.all();
+
+	return c.json(reports);
 });
 
 // POST insert new avoidance area
 app.post('/avoidance_areas', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
+  const db = c.get("db");
 
 	let body;
 	try {
@@ -320,7 +306,7 @@ app.post('/avoidance_areas', async (c) => {
 app.on(["GET", "POST"], "/api/auth/**", async (c) => {
   console.log("🔴 Better Auth catch-all hit:", c.req.path, c.req.method);
   try {
-    const auth = createAuth(c.env);
+    const auth = c.get("auth");
     console.log("Auth created");
     const response = await auth.handler(c.req.raw);
     console.log("Auth response status:", response.status);
@@ -332,7 +318,7 @@ app.on(["GET", "POST"], "/api/auth/**", async (c) => {
 });
 
 app.get("/api/me", async (c) => {
-  const auth = createAuth(c.env);
+  const auth = c.get("auth");
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
@@ -344,9 +330,62 @@ app.get("/api/me", async (c) => {
   return c.json({ user: session.user });
 });
 
+// GET current active profile
+app.get('/profiles/me', async (c) => {
+  const auth = c.get("auth");
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) {
+    return c.json({ error: "Session Invalid -> prompt login/signup" }, 401);
+  }
+
+  const db = c.get("db");
+  const profile = await db
+    .select()
+    .from(schema.profiles)
+    .where(eq(schema.profiles.user_id, session.user.id))
+    .get();
+
+  if (!profile) {
+    return c.json({ error: "Profile Not Found -> prompt login/signup" }, 404);
+  }
+  return c.json(profile);
+});
+
+// GET non-deleted reviews by poi id
+app.get('/reviews', async (c) => {
+  const db = c.get("db");
+	const poiId = Number(c.req.query('poi_id'));
+
+	if (!poiId) {
+		return c.text('POI ID is required', 400);
+	}
+
+	const reviewsList = await db
+		.select({
+			...getTableColumns(schema.reviews),
+			profile_display_name: schema.profiles.display_name,
+			profile_avatar_url: schema.profiles.avatar_url
+		})
+		.from(schema.reviews)
+		.leftJoin(schema.profiles, eq(schema.reviews.user_id, schema.profiles.id))
+		.where(
+			and(
+				eq(schema.reviews.poi_id, poiId),
+				isNull(schema.reviews.deleted_at)
+			)
+		)
+		.all(); // Order by difference between upvotes and downvotes
+
+	if (!reviewsList) {
+		return c.text('Review not found', 404);
+	}
+
+	return c.json(reviewsList);
+});
+
 // POST insert new review
 app.post('/reviews', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
+  const db = c.get("db");
 	
 	let body;
 	try {
@@ -378,7 +417,7 @@ app.post('/reviews', async (c) => {
 
 // PUT update single existing review
 app.put('/reviews/:id', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
+  const db = c.get("db");
 	const reviewId = Number(c.req.param('id'));
 
 	if (isNaN(reviewId)) {
@@ -414,7 +453,7 @@ app.put('/reviews/:id', async (c) => {
 
 // PUT soft delete review
 app.put('/reviews/:id/delete', async (c) => {
-	const db = drizzle(c.env.mobilize_db);
+  const db = c.get("db");
 	const reviewId = Number(c.req.param('id'));
 
 	if (isNaN(reviewId)) {

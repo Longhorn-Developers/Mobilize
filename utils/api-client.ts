@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Polygon } from "geojson";
 
 import {
@@ -21,6 +22,7 @@ class ApiClient {
     endpoint: string,
     options?: RequestInit,
   ): Promise<T> {
+    const token = await AsyncStorage.getItem("auth_session_token");
     const url = `${this.baseUrl}${endpoint}`;
 
     try {
@@ -28,6 +30,7 @@ class ApiClient {
         ...options,
         headers: {
           "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
           ...options?.headers,
         },
       });
@@ -52,6 +55,12 @@ class ApiClient {
   // Get profile by ID
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);
+  }
+
+  // Get current active profile
+  async getMyProfile() {
+    const profile = await this.request<Profile>("/profiles/me");
+    return profile;
   }
 
   // Get reviews list by POI ID

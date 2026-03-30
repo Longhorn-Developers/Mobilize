@@ -15,6 +15,7 @@ export const queryKeys = {
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
+  myProfile: ["myProfile"] as const,
   review: (poi_id: number) => ["review", poi_id] as const,
   reviewById: (id: number) => ["reviewById", id] as const,
 };
@@ -70,6 +71,14 @@ export function useProfile(id: number) {
     queryKey: queryKeys.profile(id),
     queryFn: () => apiClient.getProfile(id),
     enabled: !!id, // Only run if id is provided
+  });
+}
+
+// fetch current active profile
+export function useMyProfile() {
+  return useQuery({
+    queryKey: queryKeys.myProfile,
+    queryFn: () => apiClient.getMyProfile(),
   });
 }
 

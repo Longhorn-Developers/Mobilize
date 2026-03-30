@@ -10,6 +10,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"dev": {
 		"port": 54321,
+		"ip": "0.0.0.0"
 	},
 	"observability": {
 		"enabled": true,
@@ -39,7 +40,9 @@
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	// "vars": { "MY_VARIABLE": "production_value" }
+	"vars": { 
+		"BETTER_AUTH_URL": "https://cf1vtp8m-54321.usw3.devtunnels.ms"
+	}
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/

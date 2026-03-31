@@ -1,18 +1,24 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { ForwardedRef, useCallback, useEffect, useState } from "react";
-import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import { ForwardedRef, useCallback, useEffect, useRef, useState } from "react";
+import { Text, View, Pressable, Image, ScrollView, TouchableOpacity } from "react-native";
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
 import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
 import { searchPlaces, getPlaceDetails, formatOpeningHours } from "~/utils/googlePlaces";
+import React from "react";
 
 interface POIData {
   poi: any;
 }
 
+export interface POIReviewData {
+  id: number;
+  building: string;
+  entrance: string;
+}
 
 /* Helper functions to get direction based buliding names */ 
 const getCardinalLabel = (entrance: any, buildingFeature: any): string | null => {
@@ -69,18 +75,23 @@ const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
+  handleReviews: () => void;
+  setPoi: (poi: POIReviewData | undefined) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
+  handleReviews: () => void;
+  setPoi: (poi: POIReviewData | undefined) => void;
 }
 
-const POIContent = ({ poi, allPOIs }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) => {
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
   const [entrances, setEntrances] = useState<any[]>([]);
+  const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
 
   const metadata = poi.metadata || {};
 
@@ -128,6 +139,15 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
       });
       setEntrances(matched);
       setSelectedEntrance(matched[0]?.id?.toString() ?? "");
+
+      // Set default poi data as soon as entrances load
+      if (matched[0]) {
+        const defaultLabel =
+          getCardinalLabel(matched[0], buildingFeature) ??
+          getCardinalLabelFromNeighbors(matched[0], matched) ??
+          "Main Entrance";
+        setCurEntranceLabel(defaultLabel);
+      }
     } else {
       setEntrances([]);
     }
@@ -225,14 +245,28 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 
         {/* Reviews */}
         {/* TODO: Include review logic here when implemented */}
-        <Pressable style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Pressable
+            style={{ marginBottom: 16 }}
+            onPress={() => {
+              setPoi({
+                id: poi.id,
+                building: configBuildingName(metadata.bld_name),
+                entrance: curEntranceLabel,
+              });
+              handleReviews();
+            }}
+          >
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#64748B", fontWeight: "400" }}>
               Reviews ({reviewCount})
             </Text>
-          </View>
-          <ChevronRight />
-        </Pressable>
+          </Pressable>
+          <Pressable
+            onPress={() => handleReviews()}
+          >
+            <ChevronRight />
+          </Pressable>
+        </View>
 
         {/* Hours + Distance */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
@@ -272,7 +306,13 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
               const icon = entrance.metadata?.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
 
               return (
-                <Pressable key={entrance.id} onPress={() => setSelectedEntrance(entrance.id.toString())}>
+                <Pressable
+                  key={entrance.id}
+                  onPress={() => {
+                    setSelectedEntrance(entrance.id.toString());
+                    setCurEntranceLabel(label);
+                  }}
+                >
                   <EntranceComponent
                     name={label}
                     Icons={[icon]}
@@ -304,7 +344,7 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   );
 };
 
-const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return (
@@ -317,12 +357,18 @@ const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
       handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
+      
       {({ data }) => {
         if (!data?.poi) return null;
-        return <POIContent poi={data.poi} allPOIs={allPOIs} />;
+        return <POIContent
+          poi={data.poi}
+          allPOIs={allPOIs}
+          handleReviews={handleReviews}
+          setPoi={setPoi}
+        />;
       }}
     </BottomSheetModal>
   );
-};
+});
 
 export default POIBottomSheet;

@@ -291,7 +291,7 @@ const ReviewModal = ({
   const [formState, setFormState] = useState(0);
   const [isMenuActive, setIsMenuActive] = useState(false);
 
-  const bottomTabBarHeight = useBottomTabBarHeight();
+  // const bottomTabBarHeight = useBottomTabBarHeight();
 
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
@@ -315,7 +315,7 @@ const ReviewModal = ({
         type: "error",
         text2: "Please select a rating.",
         position: "bottom",
-        bottomOffset: bottomTabBarHeight + 50,
+        // bottomOffset: bottomTabBarHeight + 50,
       });
     } else {
       // Post review (insert)
@@ -344,12 +344,11 @@ const ReviewModal = ({
     }
   };
 
-  const handleClose = () => {
-    onExit();
-  };
-
   return (
     <>
+      {/* Overlay */}
+      <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
+
       {/* Main Modal */}
       <View className={`gap-4 rounded-xl bg-white px-8 py-8 ${className}`}>
         {/* Exit Button */}
@@ -357,13 +356,13 @@ const ReviewModal = ({
           variant="ghost"
           title=""
           className="absolute right-0 top-8 shadow-none"
-          onPress={handleClose}
+          onPress={onExit}
           icon={<XIcon size={28} color={colors.ut.black + "50"} />}
         />
 
         {/* Headings */}
         <View className="gap-2">
-          <Text className="max-w-64 pt-1 text-3xl font-bold">
+          <Text className="mr-3 pt-1 text-3xl font-bold">
             {buildingName}
           </Text>
           <Text className="color-[#616467]">{entranceName}</Text>
@@ -482,7 +481,7 @@ const ReviewModal = ({
                 className="rounded-xl shadow-none"
                 variant="secondary"
                 title={"Cancel"}
-                onPress={handleClose}
+                onPress={onExit}
               />
             </View>
 

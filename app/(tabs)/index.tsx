@@ -14,7 +14,7 @@ import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
 } from "~/components/LocationDetailsBottomSheet";
-import POIBottomSheet from "~/components/POIBottomSheet";
+import POIBottomSheet, { POIReviewData } from "~/components/POIBottomSheet";
 import ReportModal from "~/components/ReportModal";
 import ReviewModal from "~/components/ReviewModal";
 import { SearchBar } from "~/components/SearchBar";
@@ -36,6 +36,7 @@ export default function Home() {
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const reviewSheetRef = useRef<BottomSheetModal>(null);
   const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 
   // states
@@ -49,7 +50,12 @@ export default function Home() {
   const MIN_ZOOM_FOR_POIS = 16;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isReviewMode, setIsReviewMode] = useState(false);
+
+  // Reviews
+  const [poi, setPoi] = useState<POIReviewData>();
+  const handleSetPoi = useCallback((poi: POIReviewData | undefined) => {
+    setPoi(poi);
+  }, []);
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -272,6 +278,16 @@ export default function Home() {
     setSearchQuery("");
   };
 
+  const handleEnterReviewMode = useCallback(() => {
+    reviewSheetRef.current?.present();
+  }, []);
+
+  const handleExitReviewMode = () => {
+    reviewSheetRef.current?.forceClose();
+  }
+
+  const emptyPOIs = useMemo(() => [], []);
+
   return (
   <>
     <Stack.Screen options={{ title: "Home", headerShown: false }} />
@@ -305,10 +321,37 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+      <POIBottomSheet
+        ref={poiBottomSheetRef}
+        allPOIs={POIs ?? emptyPOIs}
+        handleReviews={handleEnterReviewMode}
+        setPoi={handleSetPoi}
+      />
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
+
+    {/* Review Modal */}
+    <BottomSheetModal
+      ref={reviewSheetRef}
+      bottomInset={bottomTabBarHeight}
+      backgroundStyle={{ backgroundColor: "transparent" }}
+      enableDynamicSizing={false}
+      snapPoints={["100%"]}
+      enableContentPanningGesture={false}
+      handleComponent={null}
+      stackBehavior="push"
+      animationConfigs={{ duration: 0.1 }}
+      animateOnMount={false}
+    >
+      <ReviewModal
+        className="top-safe-offset-40 absolute left-10 right-10 z-30"
+        poi_id={poi ? poi.id : 0}
+        entranceName={poi ? poi.entrance : "No Entrance Name Found"} // based on bottom sheet selection
+        buildingName={poi ? poi.building : "No Building Name Found"} // from bottom sheet/places api
+        onExit={handleExitReviewMode}
+      />
+    </BottomSheetModal>
 
       <MapView
         style={{ flex: 1 }}
@@ -402,29 +445,6 @@ export default function Home() {
           className="absolute bottom-4 right-4"
           title={"Report"}
           onPress={() => setIsReportMode(true)}
-        />
-      )}
-
-      {isReviewMode ? (
-        <>
-          {/* Review modal overlay tint */}
-          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50" />
-          <ReviewModal
-            className="top-safe-offset-40 absolute left-10 right-10"
-            poi_id={1}
-            entranceName="South Entrance" // based on bottom sheet selection
-            buildingName="Gregory Gym" // from bottom sheet/places api
-            onExit={() => {
-              setIsReviewMode(false);
-            }}
-          />
-        </>
-      ) : (
-        // Temp Button to open review mode
-        <Button
-          className="absolute bottom-4 left-4"
-          title={"Reviews"}
-          onPress={() => setIsReviewMode(true)}
         />
       )}
     </>

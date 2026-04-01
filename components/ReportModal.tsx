@@ -169,7 +169,8 @@ const ReportModal = ({
                 className={`mt-2 rounded-xl border px-4 pb-16 pt-3 ${
                   errors.description ? "border-red-500" : "border-gray-300"
                 }`}
-                placeholder="Please describe any issues encountered in the blockage's surroundings..."
+                placeholder="Describe the blockage."
+                placeholderTextColor="#a7a7a7" 
                 onBlur={onBlur}
                 onChangeText={onChange}
                 value={value}
@@ -213,7 +214,8 @@ const ReportModal = ({
         multiline={true}
         numberOfLines={4}
         className={`mt-2 rounded-lg border border-gray-300 px-4 py-3`}
-        placeholder="Please describe any issues encountered in the blockage's surroundings..."
+        placeholder="Describe the blockage."
+        placeholderTextColor="#a7a7a7" 
         value={getValues("description")}
         maxLength={500}
         editable={false}

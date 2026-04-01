@@ -38,7 +38,6 @@ const reportFormSchema = z.object({
     ),
   name: z
     .string()
-    .min(5, "Name must be at least 5 characters")
     .max(30, "Name must not exceed 30 characters"),
   description: z
     .string()
@@ -263,11 +262,12 @@ const ReportModal = ({
                       style={{ width: 16, height: 16, margin: 4 }}
                     />
                     <TextInput
-                      placeholder="Name your report"
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
-                      className="flex-1 text-2xl font-bold text-gray-400"
+                      placeholder="Avoidance Area"
+                      placeholderTextColor="#a7a7a7" 
+                      className="flex-1 text-2xl font-bold text-black"
                     />
                   </View>
                 )}

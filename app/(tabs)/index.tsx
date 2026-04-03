@@ -25,7 +25,8 @@ import {
   useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
-import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import { PlaceDetails } from "~/utils/googlePlaces";
+// import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 import useMapIcons from "~/utils/useMapIcons";
 
 export default function Home() {
@@ -52,6 +53,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Reviews
+  const [reviewKey, setReviewKey] = useState(0);
   const [poi, setPoi] = useState<POIReviewData>();
   const handleSetPoi = useCallback((poi: POIReviewData | undefined) => {
     setPoi(poi);
@@ -63,20 +65,23 @@ export default function Home() {
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
-  const testGooglePlaces = async () => {
-    console.log("Testing Google Places...");
-    const results = await searchPlaces("Texas Global");
-    console.log("Search results:", results);
-    
-    if (results.length > 0) {
-      const details = await getPlaceDetails(results[0].place_id);
-      console.log("Place details:", details);
-    }
-  };
+  // COMMENT THIS OUT WHEN TESTING!!!!! DONT CALL IF NOT NEEDED
 
-  useEffect(() => {
-    testGooglePlaces();
-  }, []);
+  // const testGooglePlaces = async () => {
+  //   console.log("Testing Google Places...");
+  //   const results = await searchPlaces("Texas Global");
+  //   console.log("Search results:", results);
+    
+  //   if (results.length > 0) {
+  //     const details = await getPlaceDetails(results[0].place_id);
+  //     console.log("Place details:", details);
+  //   }
+  // };
+
+  // useEffect(() => {
+    
+  //   testGooglePlaces();
+  // }, []);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -249,7 +254,10 @@ export default function Home() {
     
     // Fetch full place details
     if (location.place_id) {
-      const placeDetails = await getPlaceDetails(location.place_id);
+      // Real Data
+      // const placeDetails = await getPlaceDetails(location.place_id);
+      // Test Data
+      const placeDetails: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
       
       if (placeDetails) {
         // TODO: Get user's current location to calculate distance
@@ -279,6 +287,7 @@ export default function Home() {
   };
 
   const handleEnterReviewMode = useCallback(() => {
+    setReviewKey(prevKey => prevKey + 1);
     reviewSheetRef.current?.present();
   }, []);
 
@@ -307,7 +316,7 @@ export default function Home() {
     )}
 
     {/* Search Dropdown - hide in report mode */}
-    {!isReportMode && (
+    {/* !isReportMode && (
       <SearchDropdown
         visible={isSearchActive}
         searchQuery={searchQuery}
@@ -315,7 +324,7 @@ export default function Home() {
         onDismiss={handleDismissSearch}
         topOffset={insets.top + 70}
       />
-    )}
+    ) */}
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
@@ -329,7 +338,7 @@ export default function Home() {
       />
 
     {/* Location Details Bottom Sheet */}
-    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
+    {/* <LocationDetailsBottomSheet ref={locationBottomSheetRef} /> */}
 
     {/* Review Modal */}
     <BottomSheetModal
@@ -345,10 +354,13 @@ export default function Home() {
       animateOnMount={false}
     >
       <ReviewModal
-        className="top-safe-offset-40 absolute left-10 right-10 z-30"
+        key={reviewKey}
+        className=""
         poi_id={poi ? poi.id : 0}
+        entrances={poi ? poi.entrances : []}
         entranceName={poi ? poi.entrance : "No Entrance Name Found"} // based on bottom sheet selection
-        buildingName={poi ? poi.building : "No Building Name Found"} // from bottom sheet/places api
+        building={poi && poi.building}
+        buildingName={poi ? poi.buildingName : "No Building Name Found"} // from bottom sheet/places api
         onExit={handleExitReviewMode}
       />
     </BottomSheetModal>

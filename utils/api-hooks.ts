@@ -105,7 +105,6 @@ export function useHealthCheck() {
 export function useInsertAvoidanceArea() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  // const bottomTabBarHeight = useBottomTabBarHeight();
 
   return useMutation({
     mutationFn: (data: {
@@ -130,7 +129,7 @@ export function useInsertAvoidanceArea() {
         type: "error",
         text2: `Error reporting avoidance area: ${error.message}`,
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight + 50,
+        bottomOffset: 40 * 3,
       });
     },
   });
@@ -188,7 +187,7 @@ export function useInsertReview() {
         text2:
           "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
     onError: (error) => {
@@ -196,7 +195,7 @@ export function useInsertReview() {
         type: "error",
         text2: `Error submitting review: ${error.message}`,
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
   });
@@ -205,7 +204,6 @@ export function useInsertReview() {
 // update an existing review
 export function useUpdateReview() {
   const queryClient = useQueryClient();
-  // const bottomTabBarHeight = useBottomTabBarHeight();
 
   return useMutation({
     mutationFn: (data: {
@@ -224,7 +222,7 @@ export function useUpdateReview() {
         text2:
           "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
     onError: (error) => {
@@ -232,7 +230,7 @@ export function useUpdateReview() {
         type: "error",
         text2: `Error modifying review: ${error.message}`,
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
   });
@@ -241,7 +239,6 @@ export function useUpdateReview() {
 // soft delete an existing review
 export function useDeleteReview() {
   const queryClient = useQueryClient();
-  // const bottomTabBarHeight = useBottomTabBarHeight();
 
   return useMutation({
     mutationFn: (data: { id: number; poi_id: number }) =>
@@ -255,7 +252,7 @@ export function useDeleteReview() {
         type: "success",
         text2: "Review deleted successfully!",
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
     onError: (error) => {
@@ -263,7 +260,7 @@ export function useDeleteReview() {
         type: "error",
         text2: `Error deleting review: ${error.message}`,
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight,
+        bottomOffset: 40 * 3,
       });
     },
   });

@@ -9,6 +9,7 @@ import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
 import { searchPlaces, getPlaceDetails, formatOpeningHours } from "~/utils/googlePlaces";
 import React from "react";
+import { PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 
 interface POIData {
   poi: any;
@@ -16,8 +17,10 @@ interface POIData {
 
 export interface POIReviewData {
   id: number;
-  building: string;
+  building: any;
+  buildingName: string;
   entrance: string;
+  entrances: any[];
 }
 
 /* Helper functions to get direction based buliding names */ 
@@ -161,12 +164,14 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           setHours("Hours not available"); 
           return;
         }
-        const predictions = await searchPlaces(searchQuery);
+        // const predictions = await searchPlaces(searchQuery);
+        const predictions: PlaceAutocompletePrediction[] = [{"description": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "structured_formatting": {"main_text": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "place_id": "ChIJdQqBe3e1RIYRYlcWXB0LfOs", "structured_formatting": {"main_text": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Global Auto Service, South 1st Street, Austin, Texas, USA", "place_id": "ChIJ_yNwDcK0RIYRILHOE9wmkXU", "structured_formatting": {"main_text": "Global Auto Service, South 1st Street, Austin, Texas, USA", "secondary_text": "South 1st Street, Austin, Texas, USA"}}, {"description": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "place_id": "ChIJwfBgVwC1RIYR0KeHkkuU39k", "structured_formatting": {"main_text": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "secondary_text": "Building, Speedway, Austin, Texas, USA"}}, {"description": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "place_id": "ChIJ_7wtSQC1RIYRNpEunpRENwg", "structured_formatting": {"main_text": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "secondary_text": "Speedway, Austin, Texas, USA"}}];
         if (!predictions.length) {
           setHours("Hours not available"); 
           return; 
         }
-        const details = await getPlaceDetails(predictions[0].place_id);
+        // const details = await getPlaceDetails(predictions[0].place_id);
+        const details: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
         if (!details?.opening_hours) {
           setHours("Hours not available");
           return;
@@ -250,9 +255,11 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
             style={{ marginBottom: 16 }}
             onPress={() => {
               setPoi({
-                id: poi.id,
-                building: configBuildingName(metadata.bld_name),
+                id: Number(selectedEntrance),
+                building: buildingFeature,
+                buildingName: configBuildingName(metadata.bld_name),
                 entrance: curEntranceLabel,
+                entrances: entrances,
               });
               handleReviews();
             }}
@@ -311,6 +318,13 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
                   onPress={() => {
                     setSelectedEntrance(entrance.id.toString());
                     setCurEntranceLabel(label);
+                    setPoi({
+                      id: entrance.id,
+                      building: buildingFeature,
+                      buildingName: configBuildingName(metadata.bld_name),
+                      entrance: label,
+                      entrances: entrances,
+                    });
                   }}
                 >
                   <EntranceComponent

@@ -32,20 +32,17 @@ import { Button } from "./Button";
 import { Wheelchair } from "~/assets/map_icons/svg_icons";
 import MapView, { Marker } from "react-native-maps";
 import useMapIcons from "~/utils/useMapIcons";
+import { getEntranceLabel } from "~/utils/utils";
 
 const TouchableRating = ({
-  name,
-  defaultValue,
   control,
 }: {
-  name: "rating";
-  defaultValue: number;
   control: Control<Review>;
 }) => {
   const { field } = useController({
     control,
-    defaultValue: defaultValue,
-    name,
+    defaultValue: 0,
+    name: "rating",
   });
 
   const ratingIcons = [1, 2, 3, 4, 5];
@@ -57,23 +54,62 @@ const TouchableRating = ({
   ));
 };
 
+// Entrances
+const EntranceButtons = ({
+  className,
+  firstSelectedPoiId,
+  labelPoiMap,
+  control,
+  onButtonPress,
+}: {
+  className: string;
+  firstSelectedPoiId: number,
+  labelPoiMap: [string, any][];
+  control: Control<Review>;
+  onButtonPress: (entrance: any) => void;
+}) => {
+  const [selectedEntrance, setSelectedEntrance] = useState(firstSelectedPoiId);
+  const { field } = useController({
+    control,
+    defaultValue: firstSelectedPoiId,
+    name: "poi_id",
+  });
+
+  return (
+    <View className={className}>
+      {labelPoiMap.map((entry) => (
+        <TouchableOpacity
+          key={entry[1].id}
+          className={`rounded-full border-2 px-2 py-1
+            ${selectedEntrance !== entry[1].id ? "border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
+          onPress={() => {
+            setSelectedEntrance(entry[1].id);
+            onButtonPress(entry[1]);
+            field.onChange(entry[1].id);
+          }}
+        >
+          <Text className={`text-sm font-semibold ${selectedEntrance !== entry[1].id ? "color-black" : "color-ut-burntorange"}`}>{entry[0]}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 // Features - power-assisted doors, manual doors, etc
 const FeatureButtons = ({
-  name,
-  defaultValue,
+  className,
+  features,
   control,
 }: {
-  name: "features";
-  defaultValue: string[];
+  className: string;
+  features: string[];
   control: Control<Review>;
 }) => {
   const { field } = useController({
     control,
-    defaultValue: defaultValue,
-    name,
+    defaultValue: [],
+    name: "features",
   });
-
-  const features = ["Power-assisted doors", "Ramps", "Others"];
 
   const handleSelectFeature = (feature: string) => {
     const newSelectedFeatures = field.value.includes(feature)
@@ -83,18 +119,22 @@ const FeatureButtons = ({
     field.onChange(newSelectedFeatures);
   };
 
-  return features.map((feature) => (
-    <TouchableOpacity
-      key={feature}
-      className={`rounded-full border-2 px-2 py-1 
-        ${!field.value.includes(feature) ? "border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
-      onPress={() => {
-        handleSelectFeature(feature);
-      }}
-    >
-      <Text className={`text-sm font-semibold ${!field.value.includes(feature) ? "color-black" : "color-ut-burntorange"}`}>{feature}</Text>
-    </TouchableOpacity>
-  ));
+  return (
+    <View className={className}>
+      {features.map((feature) => (
+        <TouchableOpacity
+          key={feature}
+          className={`rounded-full border-2 px-2 py-1 
+            ${!field.value.includes(feature) ? "border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
+          onPress={() => {
+            handleSelectFeature(feature);
+          }}
+        >
+          <Text className={`text-sm font-semibold ${!field.value.includes(feature) ? "color-black" : "color-ut-burntorange"}`}>{feature}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 };
 
 const ReviewContentInput = ({
@@ -332,11 +372,10 @@ const ReviewModal = ({
   buildingName,
   onExit,
 }: ReviewModalProps) => {
-  const { control, handleSubmit, watch } = useForm<Review>();
-  const rating = watch("rating");
   const [formState, setFormState] = useState(0);
   const [isMenuActive, setIsMenuActive] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState(poi_id);
+  const [selectedEntranceName, setSelectedEntranceName] = useState<string>(entranceName);
 
   // const bottomTabBarHeight = useBottomTabBarHeight();
 
@@ -346,18 +385,32 @@ const ReviewModal = ({
   const { data: myProfile } = useMyProfile();
 
   // query reviews from db
-  const { data: reviews = [], isLoading } = useReviews(selectedPoiId); // determine most efficient way to
+  const { data: reviews = [], isLoading } = useReviews(selectedPoiId);
 
   const activeUserId = myProfile ? myProfile.id : 9999;
+  const labelPoiMap: [string, any][] = entrances.map((entrance) => [getEntranceLabel(entrance, entrances, building), entrance]);
+  const features: string[] = ["Power-assisted doors", "Ramps", "Others"];
+
+  const { control, handleSubmit, watch, reset } = useForm<Review>();
+  const rating = watch("rating");
 
   const existingReview = reviews.find(
     (review) => review.user_id === activeUserId,
   );
   const isEditMode = !!existingReview;
 
+  useEffect(() => {
+    if (existingReview) {
+      reset(existingReview);
+    } else {
+      reset({rating: 0, features: [], content: ""});
+    }
+  }, [existingReview, existingReview?.id, selectedPoiId, reset]);
+
   const handleSelectEntrance = (entrance: any) => {
     // const found = entrances.find()
-    setSelectedPoiId(entrance.id)
+    setSelectedPoiId(entrance.id);
+    setSelectedEntranceName(getEntranceLabel(entrance, entrances, building));
   };
 
   const handleOutsidePress = () => {
@@ -373,12 +426,12 @@ const ReviewModal = ({
         type: "error",
         text2: "Please select a rating.",
         position: "bottom",
-        // bottomOffset: bottomTabBarHeight + 50,
+        bottomOffset: 40 * 3,
       });
     } else {
       // Post review (insert)
       data.user_id = activeUserId;
-      data.poi_id = poi_id;
+      data.poi_id = selectedPoiId;
 
       // If review exists, edit existing review; otherwise, post new review
       if (isEditMode) {
@@ -444,7 +497,7 @@ const ReviewModal = ({
               {/* Entrance Label */}
               <View className="absolute bottom-12 p-2 rounded-md bg-white shadow-md shadow-slate-300">
                 <Text className="px-10 py-1 color-ut-burntorange font-semibold">
-                  {entranceName}
+                  {selectedEntranceName}
                 </Text>
               </View>
               {/* Map Instruction */}
@@ -479,7 +532,7 @@ const ReviewModal = ({
                       {/* Edit/Delete Menu */}
                       <View className="">
                         {existingReview && isMenuActive && (
-                          <View className="absolute -bottom-16 left-1/3">
+                          <View className="absolute -bottom-2 left-1/3">
                             <View className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 shadow-md shadow-black/20">
                               {/* Edit Button */}
                               <TouchableOpacity
@@ -532,8 +585,6 @@ const ReviewModal = ({
               {/* Star Functionality */}
               <View className="flex flex-row gap-2">
                 <TouchableRating
-                  name="rating"
-                  defaultValue={existingReview?.rating || 0}
                   control={control}
                 />
               </View>
@@ -551,7 +602,13 @@ const ReviewModal = ({
               </View>
 
               {/* Entrance Buttons */}
-              
+              <EntranceButtons
+                className="flex flex-row flex-wrap gap-2"
+                firstSelectedPoiId={selectedPoiId}
+                labelPoiMap={labelPoiMap}
+                control={control}
+                onButtonPress={handleSelectEntrance}
+              />
             </View>
 
             {/* Feature Selection Section */}
@@ -559,13 +616,11 @@ const ReviewModal = ({
               <Text className="">Select any accessibility features you noticed</Text>
 
               {/* Feature Buttons */}
-              <View className="flex max-w-full flex-row gap-2">
-                <FeatureButtons
-                  name="features"
-                  defaultValue={existingReview?.features || []}
-                  control={control}
-                />
-              </View>
+              <FeatureButtons
+                className="flex flex-row flex-wrap gap-2"
+                features={features}
+                control={control}
+              />
             </View>
 
             {/* Experience Sharing Section */}
@@ -582,10 +637,10 @@ const ReviewModal = ({
             <View className="mt-2 gap-3">
               {/* Submit Button */}
               <Button
-                className={`gap-2 rounded-xl shadow-none ${rating === 0 && "pointer-events-none"}`}
-                variant={`${!existingReview && !rating ? "disabled" : "primary"}`}
+                className={`gap-2 rounded-xl shadow-none`}
+                variant={`${(!rating && (!existingReview || rating === 0)) ? "disabled" : "primary"}`}
                 onPress={handleSubmit(onSubmit)}
-                title={"Submit"}
+                title={existingReview ? "Resubmit" : "Submit"}
               />
 
               {/* Cancel Button */}

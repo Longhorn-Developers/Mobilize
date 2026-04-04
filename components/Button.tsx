@@ -73,7 +73,7 @@ const styles = {
   grayButton: "bg-ut-black/20",
   buttonText: "text-lg font-semibold text-center",
   primaryButtonText: "text-white",
-  disabledButtonText: "text-black",
+  disabledButtonText: "text-slate-700",
   ghostButtonText: "text-ut-burntorange",
   grayButtonText: "font-normal",
 };

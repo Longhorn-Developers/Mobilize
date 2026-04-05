@@ -126,6 +126,7 @@ export default function Home() {
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
     if (isReportMode) return;
+    if (polygonId[0] == 'C') return; // construction areas
     avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
   };
 
@@ -133,8 +134,7 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
+    
   };
 
   const polygons = useMemo(

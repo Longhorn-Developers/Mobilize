@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from "react-native";
-import { LatLng } from "react-native-maps";
+type LatLng = { latitude: number; longitude: number };
 import Toast from "react-native-toast-message";
 import { z, ZodType } from "zod";
 

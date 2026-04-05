@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,73 +7,190 @@ import {
   Image,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { 
-  PencilSimpleLineIcon, 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  PencilSimpleLineIcon,
   SignOutIcon,
+  SignInIcon,
 } from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
 import colors from "~/types/colors";
+import { apiClient } from "~/utils/api-client";
 
-// Mock user data - replace with actual user context/API call
-const mockUser = {
-  id: 1,
-  firstName: "Hao",
-  lastName: "Huang",
-  username: "haohuang",
-  email: "hao.huang@utexas.edu",
-  classYear: "Senior",
-  major: "Computer Science",
-  bio: "Passionate about accessibility and inclusive design. Love building apps that make campus life easier for everyone!",
-  avatarUrl: null,
-  mobilityPreferences: {
-    incline: "mild",
-    armRange: "full"
-  }
+const SESSION_TOKEN_KEY = "auth_session_token";
+const USER_KEY = "auth_user";
+
+type StoredUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  username: string | null;
+  role: string;
+};
+
+type ProfileData = {
+  display_name: string;
+  class_year: string | null;
+  major: string | null;
+  bio: string | null;
+  mobility_preference: string | null;
 };
 
 export default function ProfileTab() {
-  const [isEditing, setIsEditing] = useState(false);
-  const [firstName, setFirstName] = useState(mockUser.firstName);
-  const [lastName, setLastName] = useState(mockUser.lastName);
-  const [bio, setBio] = useState(mockUser.bio);
-  
   const insets = useSafeAreaInsets();
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Saving profile:", { firstName, lastName, bio });
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+
+  // Editable field state (mirrors profile fields)
+  const [displayName, setDisplayName] = useState("");
+  const [classYear, setClassYear] = useState("");
+  const [major, setMajor] = useState("");
+  const [bio, setBio] = useState("");
+
+  // Snapshots for cancel
+  const [saved, setSaved] = useState({
+    displayName: "",
+    classYear: "",
+    major: "",
+    bio: "",
+  });
+
+  const loadProfile = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const userJson = await AsyncStorage.getItem(USER_KEY);
+      const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+
+      if (!userJson || !token) {
+        setStoredUser(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+
+      setStoredUser(JSON.parse(userJson));
+
+      // Fetch fresh user + profile from server
+      const data = await apiClient.getMe();
+      if (data.user) {
+        // Keep AsyncStorage user in sync
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        setStoredUser(data.user);
+      }
+
+      const p = data.profile as ProfileData | null;
+      setProfile(p);
+
+      // Populate editable fields
+      const dn = p?.display_name ?? data.user?.name ?? "";
+      const cy = p?.class_year ?? "";
+      const maj = p?.major ?? "";
+      const b = p?.bio ?? "";
+
+      setDisplayName(dn);
+      setClassYear(cy);
+      setMajor(maj);
+      setBio(b);
+      setSaved({ displayName: dn, classYear: cy, major: maj, bio: b });
+    } catch (err) {
+      console.warn("Error loading profile:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Reload every time the tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile]),
+  );
+
+  const handleSave = async () => {
+    try {
+      await apiClient.updateProfile({
+        displayName: displayName.trim(),
+        classYear: classYear.trim() || undefined,
+        major: major.trim() || undefined,
+        bio: bio.trim() || undefined,
+      });
+      const snap = {
+        displayName: displayName.trim(),
+        classYear: classYear.trim(),
+        major: major.trim(),
+        bio: bio.trim(),
+      };
+      setSaved(snap);
+      setIsEditing(false);
+      Alert.alert("Saved", "Profile updated successfully.");
+    } catch (err) {
+      Alert.alert("Error", "Could not save profile. Please try again.");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setDisplayName(saved.displayName);
+    setClassYear(saved.classYear);
+    setMajor(saved.major);
+    setBio(saved.bio);
     setIsEditing(false);
-    Alert.alert("Success", "Profile updated successfully!");
+  };
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+          if (token) {
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
+            await fetch(`${apiUrl}/api/auth/signout`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            }).catch(() => {});
+          }
+          await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
+          setStoredUser(null);
+          setProfile(null);
+        },
+      },
+    ]);
+  };
+
+  const handleSignIn = () => {
+    router.push("../auth/signup" as any);
   };
 
   const handleEditMobilityPreferences = () => {
     router.push("../auth/mobility-preferences" as any);
   };
 
-  const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Sign Out", 
-          style: "destructive",
-          onPress: () => {
-            // TODO: Implement sign out logic
-            router.replace("../auth/signup" as any);
-          }
-        }
-      ]
+  const isSignedIn = !!storedUser;
+  const mobilityLabel = profile?.mobility_preference
+    ? profile.mobility_preference.charAt(0).toUpperCase() + profile.mobility_preference.slice(1)
+    : "Not set";
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color="#BF5700" />
+      </View>
     );
-  };
+  }
 
   return (
-    <ScrollView 
+    <ScrollView
       className="flex-1 bg-white"
       contentContainerStyle={{ paddingTop: insets.top }}
     >
@@ -81,8 +198,8 @@ export default function ProfileTab() {
         {/* Header */}
         <View className="mb-8 mt-8 flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-ut-black">Profile</Text>
-          {!isEditing && (
-            <TouchableOpacity 
+          {isSignedIn && !isEditing && (
+            <TouchableOpacity
               onPress={() => setIsEditing(true)}
               className="rounded-lg bg-ut-burntorange px-3 py-2"
             >
@@ -91,140 +208,115 @@ export default function ProfileTab() {
           )}
         </View>
 
-        {/* Profile Picture and Basic Info */}
+        {/* Avatar + name */}
         <View className="mb-8 items-center">
           <View className="relative mb-4">
             <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300">
-              {mockUser.avatarUrl ? (
+              {storedUser?.image ? (
                 <Image
-                  source={{ uri: mockUser.avatarUrl }}
+                  source={{ uri: storedUser.image }}
                   className="h-full w-full rounded-full"
                 />
               ) : (
                 <Text className="text-2xl text-gray-600">
-                  {firstName[0]?.toUpperCase()}
+                  {(displayName[0] ?? storedUser?.name?.[0] ?? "?").toUpperCase()}
                 </Text>
               )}
             </View>
-            {isEditing && (
-              <TouchableOpacity className="absolute bottom-0 right-0 rounded-full bg-ut-burntorange p-2">
-                <PencilSimpleLineIcon size={16} color="white" />
-              </TouchableOpacity>
-            )}
           </View>
-          
           <Text className="text-xl font-bold text-ut-black">
-            {firstName} {lastName}
+            {displayName || storedUser?.name || "Your Profile"}
           </Text>
-          <Text className="text-gray-600">@{mockUser.username}</Text>
-          <Text className="mt-1 text-sm text-gray-500">{mockUser.email}</Text>
+          {storedUser?.username ? (
+            <Text className="text-gray-600">@{storedUser.username}</Text>
+          ) : null}
+          {storedUser?.email ? (
+            <Text className="mt-1 text-sm text-gray-500">{storedUser.email}</Text>
+          ) : null}
+          {!isSignedIn && (
+            <Text className="mt-2 text-sm italic text-gray-400">Not signed in</Text>
+          )}
         </View>
 
-        {/* Profile Information */}
-        <View className="mb-8">
-          <Text className="mb-4 text-lg font-semibold text-ut-black">Information</Text>
-          
-          {/* First Name */}
-          <View className="mb-4">
-            <Text className="mb-2 text-sm text-gray-600">First Name</Text>
-            {isEditing ? (
-              <TextInput
-                value={firstName}
-                onChangeText={setFirstName}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-              />
-            ) : (
-              <Text className="text-base text-gray-900">{firstName}</Text>
-            )}
-          </View>
+        {/* Fields */}
+        {isSignedIn && (
+          <View className="mb-8">
+            <Text className="mb-4 text-lg font-semibold text-ut-black">Information</Text>
 
-          {/* Last Name */}
-          <View className="mb-4">
-            <Text className="mb-2 text-sm text-gray-600">Last Name</Text>
-            {isEditing ? (
-              <TextInput
-                value={lastName}
-                onChangeText={setLastName}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-              />
-            ) : (
-              <Text className="text-base text-gray-900">{lastName}</Text>
-            )}
-          </View>
+            {[
+              { label: "Display Name", value: displayName, set: setDisplayName, placeholder: "Your name" },
+              { label: "Class Year", value: classYear, set: setClassYear, placeholder: "e.g. Senior, 2026" },
+              { label: "Major", value: major, set: setMajor, placeholder: "e.g. Computer Science" },
+            ].map(({ label, value, set, placeholder }) => (
+              <View key={label} className="mb-4">
+                <Text className="mb-2 text-sm text-gray-600">{label}</Text>
+                {isEditing ? (
+                  <TextInput
+                    value={value}
+                    onChangeText={set}
+                    placeholder={placeholder}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+                  />
+                ) : (
+                  <Text className="text-base text-gray-900">{value || "—"}</Text>
+                )}
+              </View>
+            ))}
 
-          {/* Class Year */}
-          <View className="mb-4">
-            <Text className="mb-2 text-sm text-gray-600">Class Year</Text>
-            <Text className="text-base text-gray-900">{mockUser.classYear}</Text>
-          </View>
-
-          {/* Major */}
-          <View className="mb-4">
-            <Text className="mb-2 text-sm text-gray-600">Major</Text>
-            <Text className="text-base text-gray-900">{mockUser.major}</Text>
-          </View>
-
-          {/* Bio */}
-          <View className="mb-4">
-            <Text className="mb-2 text-sm text-gray-600">Biography</Text>
-            {isEditing ? (
-              <TextInput
-                value={bio}
-                onChangeText={setBio}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            ) : (
-              <Text className="text-base text-gray-900">{bio}</Text>
-            )}
-          </View>
-        </View>
-
-        {/* Mobility Preferences Section */}
-        <View className="mb-8">
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-lg font-semibold text-ut-black">Mobility Preferences</Text>
-            <TouchableOpacity onPress={handleEditMobilityPreferences}>
-              <PencilSimpleLineIcon size={16} color={colors.ut.burntorange} />
-            </TouchableOpacity>
-          </View>
-          
-          <View className="rounded-lg bg-gray-50 p-4">
-            <View className="mb-3">
-              <Text className="text-sm text-gray-600">Incline Preference</Text>
-              <Text className="text-base text-gray-900">Avoid steep inclines</Text>
-            </View>
-            <View>
-              <Text className="text-sm text-gray-600">Accessibility Needs</Text>
-              <Text className="text-base text-gray-900">Full arm range</Text>
+            <View className="mb-4">
+              <Text className="mb-2 text-sm text-gray-600">Biography</Text>
+              {isEditing ? (
+                <TextInput
+                  value={bio}
+                  onChangeText={setBio}
+                  placeholder="Tell us about yourself…"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              ) : (
+                <Text className="text-base text-gray-900">{bio || "—"}</Text>
+              )}
             </View>
           </View>
-        </View>
+        )}
+
+        {/* Mobility Preferences */}
+        {isSignedIn && (
+          <View className="mb-8">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-ut-black">Mobility Preferences</Text>
+              <TouchableOpacity onPress={handleEditMobilityPreferences}>
+                <PencilSimpleLineIcon size={16} color={colors.ut.burntorange} />
+              </TouchableOpacity>
+            </View>
+            <View className="rounded-lg bg-gray-50 p-4">
+              <Text className="text-sm text-gray-600">Movement style</Text>
+              <Text className="text-base text-gray-900">{mobilityLabel}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Action Buttons */}
         <View className="gap-3 pb-8">
           {isEditing ? (
             <>
               <Button title="Save Changes" onPress={handleSave} />
-              <Button 
-                title="Cancel" 
-                variant="gray" 
-                onPress={() => {
-                  setIsEditing(false);
-                  setFirstName(mockUser.firstName);
-                  setLastName(mockUser.lastName);
-                  setBio(mockUser.bio);
-                }}
-              />
+              <Button title="Cancel" variant="gray" onPress={handleCancelEdit} />
             </>
-          ) : (
-            <Button 
-              title="Sign Out" 
-              variant="gray" 
+          ) : isSignedIn ? (
+            <Button
+              title="Sign Out"
+              variant="gray"
               onPress={handleSignOut}
               icon={<SignOutIcon size={20} color={colors.theme.staticblack} />}
+            />
+          ) : (
+            <Button
+              title="Sign In with Google"
+              onPress={handleSignIn}
+              icon={<SignInIcon size={20} color="white" />}
             />
           )}
         </View>

@@ -5,7 +5,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+// Trim trailing slash so URLs like "https://host/" + "/api/me" don't
+// produce double-slash paths that some proxies/tunnels reject.
+const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+
+/**
+ * Safely parse a fetch Response as JSON.
+ * If the server returns HTML (e.g. a devtunnel auth page or proxy error),
+ * throws a descriptive error rather than "Unexpected character: <".
+ */
+async function safeJson(response: Response) {
+  const ct = response.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const body = await response.text().catch(() => "(unreadable body)");
+    throw new Error(
+      `API returned non-JSON (${response.status} ${response.statusText}). ` +
+      `Is the API server reachable?\n${body.slice(0, 200)}`
+    );
+  }
+  return response.json();
+}
 
 // Storage keys
 const SESSION_TOKEN_KEY = "auth_session_token";
@@ -57,16 +76,14 @@ export function useAuth(): AuthContextType {
 
       if (userJson && sessionToken) {
         // Verify session is still valid
-        const response = await fetch(`${API_URL}/api/auth/me`, {
+        const response = await fetch(`${API_URL}/api/me`, {
           headers: {
             Authorization: `Bearer ${sessionToken}`,
-            Cookie: `better-auth.session_token=${sessionToken}`,
           },
-          credentials: "include",
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data = await safeJson(response);
           if (data.user) {
             setAuthState({
               user: data.user,
@@ -100,11 +117,14 @@ export function useAuth(): AuthContextType {
     isNewUser?: boolean;
   }> => {
     try {
-      // Create a redirect URL for the app
+      // Create a redirect URL for the app (deep link back into Expo)
       const redirectUrl = Linking.createURL("auth/callback");
 
+      // The server-side redirect_uri Google must call back to
+      const redirectUri = `${API_URL}/api/auth/callback/google`;
+
       // Build the auth URL pointing to your server
-      const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}`;
+      const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
 
       // Open the OAuth flow in a browser
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
@@ -125,17 +145,15 @@ export function useAuth(): AuthContextType {
           await AsyncStorage.setItem(SESSION_TOKEN_KEY, token);
 
           // Fetch user data
-          const response = await fetch(`${API_URL}/api/auth/me`, {
+          const response = await fetch(`${API_URL}/api/me`, {
             headers: {
               Authorization: `Bearer ${token}`,
-              Cookie: `better-auth.session_token=${token}`,
             },
-            credentials: "include",
           });
 
           if (response.ok) {
-            const data = await response.json();
-            
+            const data = await safeJson(response);
+
             if (data.user) {
               await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
 
@@ -155,12 +173,12 @@ export function useAuth(): AuthContextType {
 
         // If we got here without a token, try to get session from cookies
         // This handles the case where Better Auth uses cookies instead of URL params
-        const meResponse = await fetch(`${API_URL}/api/auth/me`, {
+        const meResponse = await fetch(`${API_URL}/api/me`, {
           credentials: "include",
         });
 
         if (meResponse.ok) {
-          const data = await meResponse.json();
+          const data = await safeJson(meResponse);
           if (data.user) {
             await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
             

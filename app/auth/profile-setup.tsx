@@ -4,16 +4,16 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PencilSimpleLineIcon } from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
-import colors from "~/types/colors";
+import { apiClient } from "~/utils/api-client";
 
 export default function ProfileSetupScreen() {
   const [firstName, setFirstName] = useState("");
@@ -22,32 +22,43 @@ export default function ProfileSetupScreen() {
   const [classYear, setClassYear] = useState("");
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
-  const [hideNameFromPublic, setHideNameFromPublic] = useState(false);
-  
+  const [isSaving, setIsSaving] = useState(false);
+
   const insets = useSafeAreaInsets();
 
-  const handleNext = () => {
-    if (!firstName || !lastName || !username) {
-      Alert.alert("Error", "Please fill in required fields");
+  const handleNext = async () => {
+    if (!firstName.trim() || !lastName.trim() || !username.trim()) {
+      Alert.alert("Error", "First name, last name, and username are required.");
       return;
     }
-    
-    // TODO: Save profile data
-    console.log("Profile data:", {
-      firstName,
-      lastName,
-      username,
-      classYear,
-      major,
-      bio,
-      hideNameFromPublic,
-    });
-    
-    router.push("./mobility-preferences" as any);
+
+    setIsSaving(true);
+    try {
+      await apiClient.createProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        username: username.trim(),
+        classYear: classYear.trim() || undefined,
+        major: major.trim() || undefined,
+        bio: bio.trim() || undefined,
+      });
+      router.push("./mobility-preferences" as any);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      if (msg.includes("409") || msg.toLowerCase().includes("username")) {
+        Alert.alert("Username taken", "That username is already in use. Please choose another.");
+      } else {
+        Alert.alert("Error", "Could not save your profile. Please try again.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
+  const canProceed = firstName.trim() && lastName.trim() && username.trim();
+
   return (
-    <ScrollView 
+    <ScrollView
       className="flex-1 bg-white"
       contentContainerStyle={{ paddingTop: insets.top }}
     >
@@ -59,11 +70,13 @@ export default function ProfileSetupScreen() {
           </Text>
         </View>
 
-        {/* Profile Picture */}
+        {/* Profile Picture placeholder */}
         <View className="mb-6 items-center">
           <View className="relative">
             <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300">
-              <Text className="text-2xl text-gray-600">H</Text>
+              <Text className="text-2xl text-gray-600">
+                {firstName[0]?.toUpperCase() ?? "?"}
+              </Text>
             </View>
             <TouchableOpacity className="absolute bottom-0 right-0 rounded-full bg-ut-burntorange p-2">
               <PencilSimpleLineIcon size={16} color="white" />
@@ -73,9 +86,8 @@ export default function ProfileSetupScreen() {
 
         {/* Form Fields */}
         <View className="gap-4">
-          {/* First Name */}
           <View>
-            <Text className="mb-2 text-sm text-gray-600">First Name</Text>
+            <Text className="mb-2 text-sm text-gray-600">First Name *</Text>
             <TextInput
               value={firstName}
               onChangeText={setFirstName}
@@ -84,9 +96,8 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          {/* Last Name */}
           <View>
-            <Text className="mb-2 text-sm text-gray-600">Last Name</Text>
+            <Text className="mb-2 text-sm text-gray-600">Last Name *</Text>
             <TextInput
               value={lastName}
               onChangeText={setLastName}
@@ -95,30 +106,28 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          {/* Username */}
           <View>
-            <Text className="mb-2 text-sm text-gray-600">Username</Text>
+            <Text className="mb-2 text-sm text-gray-600">Username *</Text>
             <TextInput
               value={username}
               onChangeText={setUsername}
               placeholder="Enter your username"
               className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
               autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
-          {/* Class Year (Optional) */}
           <View>
-            <Text className="mb-2 text-sm text-gray-600">Class (optional)</Text>
+            <Text className="mb-2 text-sm text-gray-600">Class Year (optional)</Text>
             <TextInput
               value={classYear}
               onChangeText={setClassYear}
-              placeholder="Select your class year"
+              placeholder="e.g. Senior, 2026"
               className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
             />
           </View>
 
-          {/* Major (Optional) */}
           <View>
             <Text className="mb-2 text-sm text-gray-600">Major (optional)</Text>
             <TextInput
@@ -129,7 +138,6 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          {/* Bio (Optional) */}
           <View>
             <Text className="mb-2 text-sm text-gray-600">Short biography (optional)</Text>
             <TextInput
@@ -142,30 +150,19 @@ export default function ProfileSetupScreen() {
               textAlignVertical="top"
             />
           </View>
-
-          {/* Privacy Setting */}
-          <TouchableOpacity 
-            className="flex-row items-center py-4"
-            onPress={() => setHideNameFromPublic(!hideNameFromPublic)}
-          >
-            <View className={`mr-3 h-5 w-5 rounded border-2 ${hideNameFromPublic ? 'bg-ut-burntorange border-ut-burntorange' : 'border-gray-300'}`}>
-              {hideNameFromPublic && (
-                <Text className="text-center text-xs text-white">✓</Text>
-              )}
-            </View>
-            <Text className="text-gray-700">
-              Don't show my name to the public
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Next Button */}
         <View className="mt-8 pb-8">
-          <Button
-            title="Next"
-            onPress={handleNext}
-            variant={firstName && lastName && username ? "primary" : "disabled"}
-          />
+          {isSaving ? (
+            <ActivityIndicator size="large" color="#BF5700" />
+          ) : (
+            <Button
+              title="Next"
+              onPress={handleNext}
+              variant={canProceed ? "primary" : "disabled"}
+            />
+          )}
         </View>
       </View>
     </ScrollView>

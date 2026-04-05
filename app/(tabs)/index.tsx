@@ -2,7 +2,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,20 +19,22 @@ import {
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
+import buildingsData from "../../assets/geojson/buildings_simple.json";
 
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
-} from "~/components/LocationDetailsBottomSheet";
-import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+} from "../../components/LocationDetailsBottomSheet";
+import { getPlaceDetails } from "~/utils/googlePlaces";
 
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const mapRef = useRef<MapView>(null);
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
@@ -56,20 +58,70 @@ export default function Home() {
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
-  const testGooglePlaces = async () => {
-    console.log("Testing Google Places...");
-    const results = await searchPlaces("Texas Global");
-    console.log("Search results:", results);
-    
-    if (results.length > 0) {
-      const details = await getPlaceDetails(results[0].place_id);
-      console.log("Place details:", details);
+  const normalizeText = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+  const findCampusBuildingFeature = (
+    latitude: number,
+    longitude: number,
+    placeName?: string,
+    placeAddress?: string,
+  ) => {
+    const point = turf.point([longitude, latitude]);
+    const buildingsAny = buildingsData as any;
+    const features: any[] = buildingsAny.features ?? [];
+
+    const polygonMatch = features.find((feature) =>
+      feature?.geometry && turf.booleanPointInPolygon(point, feature),
+    );
+
+    if (polygonMatch) {
+      return polygonMatch;
     }
+
+    const placeNameMatch = placeName ? normalizeText(placeName) : "";
+    const placeAddressMatch = placeAddress ? normalizeText(placeAddress) : "";
+
+    return features.find((feature) => {
+      const description = normalizeText(feature?.properties?.Description ?? "");
+      const address = normalizeText(feature?.properties?.Address_Full ?? "");
+
+      return (
+        (placeNameMatch && description.includes(placeNameMatch)) ||
+        (placeNameMatch && placeNameMatch.includes(description)) ||
+        (placeAddressMatch && address.includes(placeAddressMatch)) ||
+        (placeAddressMatch && placeAddressMatch.includes(address))
+      );
+    });
   };
 
-  useEffect(() => {
-    testGooglePlaces();
-  }, []);
+  const buildPoiFromCampusBuilding = (
+    placeDetails: any,
+    buildingFeature: any,
+  ) => {
+    const buildingAbbr = buildingFeature?.properties?.Building_Abbr;
+    const buildingName = buildingFeature?.properties?.Description;
+
+    if (!buildingAbbr || !buildingName) {
+      return null;
+    }
+
+    return {
+      id: `search-${placeDetails.place_id ?? buildingAbbr}`,
+      poi_type: "accessible_entrance",
+      location_geojson: {
+        type: "Point",
+        coordinates: [
+          placeDetails.geometry.location.lng,
+          placeDetails.geometry.location.lat,
+        ],
+      },
+      metadata: {
+        name: buildingName,
+        bld_name: `(${buildingAbbr}) ${buildingName}`,
+      },
+    };
+  };
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -132,9 +184,10 @@ export default function Home() {
   // Handle POI click
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
+    const currentId = poi.placeId || poi.id; 
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
+    if (currentId && currentId[0] === 'C') return; 
+    bottomSheetRef.current?.present({ id: currentId });
   };
 
   const polygons = useMemo(
@@ -245,12 +298,35 @@ export default function Home() {
       const placeDetails = await getPlaceDetails(location.place_id);
       
       if (placeDetails) {
-        // TODO: Get user's current location to calculate distance
-        // For now, using a placeholder
-        //const distance = "2.4 Mi";
-        
-        // Open location details bottom sheet with real data
-        locationBottomSheetRef.current?.present(placeDetails);
+        const matchingBuilding = findCampusBuildingFeature(
+          placeDetails.geometry.location.lat,
+          placeDetails.geometry.location.lng,
+          placeDetails.name,
+          placeDetails.formatted_address,
+        );
+
+        mapRef.current?.animateToRegion(
+          {
+            latitude: placeDetails.geometry.location.lat,
+            longitude: placeDetails.geometry.location.lng,
+            latitudeDelta: 0.006,
+            longitudeDelta: 0.006,
+          },
+          450,
+        );
+
+        const buildingPoi = buildPoiFromCampusBuilding(
+          placeDetails,
+          matchingBuilding,
+        );
+
+        if (buildingPoi) {
+          locationBottomSheetRef.current?.dismiss();
+          poiBottomSheetRef.current?.present({ poi: buildingPoi });
+        } else {
+          // Open the generic sheet when we cannot map the place to an official building.
+          locationBottomSheetRef.current?.present(placeDetails);
+        }
       }
     }
   };
@@ -310,9 +386,10 @@ export default function Home() {
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
 
       <MapView
+        ref={mapRef}
         style={{ flex: 1 }}
         onPress={handleMapPress}
-        region={{
+        initialRegion={{
           latitude: 30.282,
           longitude: -97.733,
           latitudeDelta: 0.01,

@@ -35,6 +35,7 @@ import { Wheelchair } from "~/assets/map_icons/svg_icons";
 import MapView, { Marker } from "react-native-maps";
 import useMapIcons from "~/utils/useMapIcons";
 import { getEntranceLabel } from "~/utils/utils";
+import { cssInterop } from "nativewind";
 
 const TouchableRating = ({
   control,
@@ -178,6 +179,9 @@ const ReviewCard = ({
   const { mutateAsync: upsertVote } = useUpsertVote();
   const { mutateAsync: deleteVote } = useDeleteVote();
 
+  const [upvoteSelected, setUpvoteSelected] = useState(false);
+  const [downvoteSelected, setDownvoteSelected] = useState(false);
+
   // lol anti-complexity solution: render votes and mutate db separately
   const handleVote = async (vote: 1 | -1) => {
     console.log(review.user_vote);
@@ -200,6 +204,16 @@ const ReviewCard = ({
           review_id: review.id,
           vote,
         });
+      }
+      if (vote === 1) {
+        setUpvoteSelected(prevState => !prevState);
+        setDownvoteSelected(false);
+      } else if (vote === -1) {
+        setDownvoteSelected(prevState => !prevState);
+        setUpvoteSelected(false);
+      } else {
+        setUpvoteSelected(false);
+        setDownvoteSelected(false);
       }
     } catch (error) {
       console.log(error);
@@ -266,7 +280,7 @@ const ReviewCard = ({
                   className=""
                   onPress={async () => await handleVote(1)}
                 >
-                  <ArrowUpIcon size={20} weight="bold" color="#334155" />
+                  <ArrowUpIcon size={20} weight="bold" color={upvoteSelected ? "#BF5700" : "#334155"} />
                 </TouchableOpacity>
                 <Text className="color-slate-700 text-lg">
                   {review.vote_count}
@@ -276,7 +290,7 @@ const ReviewCard = ({
                   className=""
                   onPress={async () => await handleVote(-1)}
                 >
-                  <ArrowDownIcon size={20} weight="bold" color="#334155" />
+                  <ArrowDownIcon size={20} weight="bold" color={downvoteSelected ? "#BF5700" : "#334155"} />
                 </TouchableOpacity>
               </View>
             )}
@@ -339,10 +353,12 @@ const ReviewsList = ({
 
 const MiniMap = ({
   building,
+  selectedEntrance,
   entrances,
   onSelectEntrance
 }: {
   building: any,
+  selectedEntrance: number | null,
   entrances: any[],
   onSelectEntrance: (entrance: any) => void;
 }) => {
@@ -359,6 +375,8 @@ const MiniMap = ({
     longitudeDelta: 0.001,
   }
 
+  cssInterop(Marker, { className: "style" });
+
   return (
     <MapView
       style={{ width: "100%", height: 250, borderRadius: 12 }}
@@ -370,6 +388,7 @@ const MiniMap = ({
       {/* Entrace POIs for specified building go here */}
       {entrances.map((entrance) => (
         <Marker
+          className={selectedEntrance === entrance.id ? "shadow-md shadow-ut-burntorange" : ""}
           key={entrance.id}
           coordinate={{
             latitude: entrance.location_geojson.coordinates[1],
@@ -520,6 +539,7 @@ const ReviewModal = ({
               {/* Minimap */}
               <MiniMap
                 building={building}
+                selectedEntrance={selectedPoiId}
                 entrances={entrances}
                 onSelectEntrance={handleSelectEntrance}
               />

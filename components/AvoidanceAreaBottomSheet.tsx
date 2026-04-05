@@ -3,11 +3,12 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
 
 import colors from "~/types/colors";
+import type { AvoidanceArea } from "~/types/database";
 
 import AvoidanceAreaDetails from "./AvoidanceAreaDetails";
 
 interface PolygonData {
-  id: string;
+  area: AvoidanceArea;
 }
 
 interface AvoidanceAreaBottomSheetProps {
@@ -29,8 +30,8 @@ const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
       }}
     >
       {({ data }) => {
-        if (!data || !data.id) return;
-        return <AvoidanceAreaDetails areaId={data.id} />;
+        if (!data?.area) return;
+        return <AvoidanceAreaDetails area={data.area} />;
       }}
     </BottomSheetModal>
   );

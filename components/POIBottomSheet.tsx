@@ -1,13 +1,12 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { ForwardedRef, useCallback, useEffect, useState } from "react";
+import { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
-import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
+import { LocationPin, InformationSym } from "~/assets/map_icons/svg_icons";
 import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
-import { searchPlaces, getPlaceDetails, formatOpeningHours } from "~/utils/googlePlaces";
 
 interface POIData {
   poi: any;
@@ -79,7 +78,6 @@ interface POIContentProps {
 const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
-  const [hours, setHours] = useState<string>("Loading...");
   const [entrances, setEntrances] = useState<any[]>([]);
 
   const metadata = poi.metadata || {};
@@ -132,43 +130,7 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
       setEntrances([]);
     }
 
-    const fetchHours = async () => {
-        const buildingName = configBuildingName(metadata.bld_name);
-        const searchQuery = buildingName !== "Unknown Building"
-          ? `${buildingName} UT Austin`
-          : building?.Address_Full;
-        if (!searchQuery) { 
-          setHours("Hours not available"); 
-          return;
-        }
-        const predictions = await searchPlaces(searchQuery);
-        if (!predictions.length) {
-          setHours("Hours not available"); 
-          return; 
-        }
-        const details = await getPlaceDetails(predictions[0].place_id);
-        if (!details?.opening_hours) {
-          setHours("Hours not available");
-          return;
-        }
-        setHours(formatOpeningHours(details.opening_hours));
-      };
-      fetchHours();
     }, [poi.id]);
-
-  const rating = 4.2;
-  const reviewCount = 18;
-
-  const renderStars = (rating: number, size: number) => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const StarComponent = i < Math.floor(rating) ? StarFill : StarBorder;
-      return (
-        <View key={i} style={{ marginHorizontal: 1 }}>
-          <StarComponent width={size} height={size} />
-        </View>
-      );
-    });
-  };
 
   interface EntranceProps {
     name: string;
@@ -213,36 +175,11 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
           </Text>
         </View>
 
-        {/* Rating */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-          <View style={{ flexDirection: "row", marginRight: 12 }}>
-            {renderStars(rating, 23.6)}
-          </View>
-          <Text style={{ fontFamily: "Inter", fontSize: 15.35, fontWeight: "bold", marginRight: 24, color: "#1A2024" }}>
-            {rating.toFixed(1)}
-          </Text>
-        </View>
-
-        {/* Reviews */}
-        {/* TODO: Include review logic here when implemented */}
-        <Pressable style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#64748B", fontWeight: "400" }}>
-              Reviews ({reviewCount})
-            </Text>
-          </View>
-          <ChevronRight />
-        </Pressable>
-
-        {/* Hours + Distance */}
+        {/* Distance placeholder */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#B3B3B3", fontWeight: "500" }}>Hours</Text>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>{hours}</Text>
-          </View>
-          <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#B3B3B3", fontWeight: "500" }}>Distance</Text>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>2.4 Mi</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>On campus</Text>
           </View>
         </View>
 

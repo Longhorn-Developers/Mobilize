@@ -5,8 +5,6 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   BookmarkSimpleIcon,
   WarningIcon,
-  StarIcon,
-  CaretRightIcon,
   MapPinIcon,
   LightningIcon,
   WheelchairIcon,
@@ -15,8 +13,7 @@ import {
 } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { Button } from "./Button";
-import type { PlaceDetails } from "~/utils/googlePlaces";
-import { formatOpeningHours } from "~/utils/googlePlaces";
+import type { PlaceDetails } from "~/utils/mapboxSearch";
 import { useRef } from "react";
 
 // Types for location data
@@ -66,24 +63,6 @@ const LocationDetailsBottomSheetComponent = (
       bottomSheetRef.current?.dismiss();
     },
   }));
-
-  const renderStars = (rating: number) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-
-    for (let i = 0; i < 5; i++) {
-      stars.push(
-        <StarIcon
-          key={i}
-          size={24}
-          weight={i < fullStars ? "fill" : "regular"}
-          color={i < fullStars ? colors.ut.yellow : colors.ut.gray}
-        />
-      );
-    }
-
-    return stars;
-  };
 
   const renderAccessIcon = (access: EntranceAccess) => {
     const icons = [];
@@ -196,47 +175,13 @@ const LocationDetailsBottomSheetComponent = (
           <Text className="text-lg text-gray-600">{placeData.formatted_address}</Text>
         </View>
 
-        {/* Star Rating */}
-        {placeData.rating && (
-          <View className="mb-2 flex-row items-center gap-2">
-            {renderStars(placeData.rating)}
-            <Text className="ml-1 text-xl font-semibold text-gray-900">
-              {placeData.rating}
-            </Text>
-          </View>
-        )}
-
-        {/* Reviews */}
-        {placeData.user_ratings_total && (
-          <TouchableOpacity
-            className="mb-4 flex-row items-center gap-2"
-            activeOpacity={0.7}
-          >
-            <Text className="text-base text-gray-500">
-              Reviews ({placeData.user_ratings_total})
-            </Text>
-            <CaretRightIcon size={16} color={colors.ut.gray} />
-          </TouchableOpacity>
-        )}
-
-        {/* Hours and Distance */}
-        <View className="mb-4 flex-row gap-8">
-          {/* Hours */}
-          <View className="flex-1">
-            <Text className="mb-1 text-sm font-medium text-gray-500">Hours</Text>
-            <Text className="text-lg font-semibold text-gray-900">
-              {formatOpeningHours(placeData.opening_hours)}
-            </Text>
-          </View>
-
-          {/* Distance */}
-          <View className="flex-1">
+        {/* Distance */}
+        {distance && (
+          <View className="mb-4">
             <Text className="mb-1 text-sm font-medium text-gray-500">Distance</Text>
-            <Text className="text-lg font-semibold text-gray-900">
-              {distance || "Calculating..."}
-            </Text>
+            <Text className="text-lg font-semibold text-gray-900">{distance}</Text>
           </View>
-        </View>
+        )}
 
         {/* Divider */}
         <View className="mb-4 h-px bg-gray-200" />

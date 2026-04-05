@@ -12,7 +12,7 @@ import {
 } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { useEffect, useState } from "react";
-import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/googlePlaces";
+import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/mapboxSearch";
 
 interface Location {
   id: string;

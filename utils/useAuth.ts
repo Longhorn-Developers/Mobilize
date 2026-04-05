@@ -57,7 +57,7 @@ export function useAuth(): AuthContextType {
 
       if (userJson && sessionToken) {
         // Verify session is still valid
-        const response = await fetch(`${API_URL}/api/auth/me`, {
+        const response = await fetch(`${API_URL}/api/me`, {
           headers: {
             Authorization: `Bearer ${sessionToken}`,
             Cookie: `better-auth.session_token=${sessionToken}`,
@@ -125,7 +125,7 @@ export function useAuth(): AuthContextType {
           await AsyncStorage.setItem(SESSION_TOKEN_KEY, token);
 
           // Fetch user data
-          const response = await fetch(`${API_URL}/api/auth/me`, {
+          const response = await fetch(`${API_URL}/api/me`, {
             headers: {
               Authorization: `Bearer ${token}`,
               Cookie: `better-auth.session_token=${token}`,
@@ -155,7 +155,7 @@ export function useAuth(): AuthContextType {
 
         // If we got here without a token, try to get session from cookies
         // This handles the case where Better Auth uses cookies instead of URL params
-        const meResponse = await fetch(`${API_URL}/api/auth/me`, {
+        const meResponse = await fetch(`${API_URL}/api/me`, {
           credentials: "include",
         });
 

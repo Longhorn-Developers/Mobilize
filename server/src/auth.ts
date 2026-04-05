@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { bearer } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
@@ -82,6 +83,9 @@ export function createAuth(env: {
         },
       },
     },
+    plugins: [
+      bearer(),
+    ],
   });
 }
 

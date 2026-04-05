@@ -2,7 +2,7 @@ import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
-import { CaretLeft } from "phosphor-react-native";
+import { CaretLeftIcon } from "phosphor-react-native";
 import { useAuth } from "~/utils/useAuth";
 import { Button } from "~/components/Button";
 
@@ -58,7 +58,7 @@ export default function GoogleOAuthScreen() {
           className="mt-4 mb-4"
           style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
         >
-          <CaretLeft size={24} color="#000" />
+          <CaretLeftIcon size={24} color="#000" />
         </TouchableOpacity>
 
         <View className="flex-1 items-center justify-center">
@@ -89,7 +89,7 @@ export default function GoogleOAuthScreen() {
         className="mt-4 mb-4"
         style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
       >
-        <CaretLeft size={24} color="#000" />
+        <CaretLeftIcon size={24} color="#000" />
       </TouchableOpacity>
 
       <View className="flex-1 items-center justify-center">

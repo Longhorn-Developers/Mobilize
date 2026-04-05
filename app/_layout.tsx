@@ -121,8 +121,8 @@ function App() {
       <BottomSheetModalProvider>
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false }} />
-        <Toast config={toastConfig} />
       </BottomSheetModalProvider>
+      <Toast config={toastConfig} />
     </GestureHandlerRootView>
   );
 }

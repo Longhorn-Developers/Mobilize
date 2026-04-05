@@ -22,10 +22,12 @@ import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
 import {
   useDeleteReview,
+  useDeleteVote,
   useInsertReview,
   useMyProfile,
   useReviews,
   useUpdateReview,
+  useUpsertVote,
 } from "~/utils/api-hooks";
 
 import { Button } from "./Button";
@@ -173,6 +175,37 @@ const ReviewCard = ({
   activeUserId: number;
   actionFn: () => void;
 }) => {
+  const { mutateAsync: upsertVote } = useUpsertVote();
+  const { mutateAsync: deleteVote } = useDeleteVote();
+
+  // lol anti-complexity solution: render votes and mutate db separately
+  const handleVote = async (vote: 1 | -1) => {
+    console.log(review.user_vote);
+    try {
+      if (review.user_vote === vote) {
+        // User already voted this way (remove their vote)
+        review.user_vote = 0;
+        review.vote_count -= vote;
+        await deleteVote(review.id);
+      } else {
+        if (review.user_vote === -vote) {
+          // User voted differently previously (remove old & allow new vote)
+          review.vote_count += 2 * vote;
+        } else {
+          // User hasnt voted yet (allow vote)
+          review.vote_count += vote;
+        }
+        review.user_vote = vote;
+        await upsertVote({
+          review_id: review.id,
+          vote,
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   const elapsed_seconds: number =
     (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
   let elapsed_time_msg: string = "";
@@ -228,23 +261,20 @@ const ReviewCard = ({
             ) : (
               /* Upvote / Downvote (other users' reviews) */
               <View className="flex flex-row justify-between items-center border-2 border-slate-200 rounded-full px-1 ml-3 gap-1">
+                {/* Upvote */}
                 <TouchableOpacity
                   className=""
-                  onPress={() => {
-                    // Upvote api hook
-                  }}
+                  onPress={async () => await handleVote(1)}
                 >
                   <ArrowUpIcon size={20} weight="bold" color="#334155" />
                 </TouchableOpacity>
-                {/* Upvotes minus downvotes or smth */}
                 <Text className="color-slate-700 text-lg">
-                  10
+                  {review.vote_count}
                 </Text>
+                {/* Downvote */}
                 <TouchableOpacity
                   className=""
-                  onPress={() => {
-                    // Downvote api hook
-                  }}
+                  onPress={async () => await handleVote(-1)}
                 >
                   <ArrowDownIcon size={20} weight="bold" color="#334155" />
                 </TouchableOpacity>
@@ -377,8 +407,7 @@ const ReviewModal = ({
   const [selectedPoiId, setSelectedPoiId] = useState(poi_id);
   const [selectedEntranceName, setSelectedEntranceName] = useState<string>(entranceName);
 
-  // const bottomTabBarHeight = useBottomTabBarHeight();
-
+  // Api Client Hooks
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
   const { mutateAsync: deleteReview } = useDeleteReview();

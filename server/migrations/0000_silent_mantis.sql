@@ -113,3 +113,14 @@ CREATE TABLE `verification` (
 	`created_at` integer DEFAULT (unixepoch()),
 	`updated_at` integer DEFAULT (unixepoch())
 );
+--> statement-breakpoint
+CREATE TABLE `votes` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` integer NOT NULL,
+	`review_id` integer NOT NULL,
+	`vote` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`review_id`) REFERENCES `reviews`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `votes_user_id_review_id_unique` ON `votes` (`user_id`,`review_id`);

@@ -281,6 +281,26 @@ class ApiClient {
       method: "PUT",
     });
   }
+
+  // Upsert a vote on a review
+  async upsertVote(
+    data: {
+      review_id: number;
+      vote: 1 | -1;
+    },
+  ) {
+    return this.request<any>("/votes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete a vote from a review
+  async deleteVote(review_id: number) {
+    return this.request<any>(`/votes/${review_id}`, {
+      method: "DELETE",
+    });
+  }
 }
 
 // Export singleton instance

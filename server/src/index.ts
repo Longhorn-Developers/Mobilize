@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, Context } from "hono";
 import { cors } from "hono/cors";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, getTableColumns, sql, and, isNull } from "drizzle-orm";
@@ -17,6 +17,21 @@ type Bindings = {
 type Variables = {
   auth: ReturnType<typeof createAuth>;
   db: ReturnType<typeof drizzle>;
+};
+
+const getProfile = async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
+  const auth = c.get("auth");
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) return null;
+
+  const db = c.get("db");
+  const profile = await db
+    .select()
+    .from(schema.profiles)
+    .where(eq(schema.profiles.user_id, session.user.id))
+    .get();
+
+  return profile ?? null;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -350,7 +365,7 @@ app.get('/profiles/me', async (c) => {
   const auth = c.get("auth");
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
-    return c.json({ error: "Session Invalid -> prompt login/signup" }, 401);
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
   const db = c.get("db");
@@ -375,25 +390,30 @@ app.get('/reviews', async (c) => {
 		return c.text('POI ID is required', 400);
 	}
 
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404)
+  }
+
 	const reviewsList = await db
 		.select({
 			...getTableColumns(schema.reviews),
 			profile_display_name: schema.profiles.display_name,
-			profile_avatar_url: schema.profiles.avatar_url
+			profile_avatar_url: schema.profiles.avatar_url,
+      vote_count: sql<number>`COALESCE(SUM(${schema.votes.vote}), 0)`,
+      user_vote: sql<number | null>`(
+        SELECT vote FROM votes
+        WHERE votes.review_id = ${schema.reviews.id}
+        AND votes.user_id = ${profile.id}
+      )`,
 		})
 		.from(schema.reviews)
 		.leftJoin(schema.profiles, eq(schema.reviews.user_id, schema.profiles.id))
-		.where(
-			and(
-				eq(schema.reviews.poi_id, poiId),
-				isNull(schema.reviews.deleted_at)
-			)
-		)
-		.all(); // Order by difference between upvotes and downvotes
-
-	if (!reviewsList) {
-		return c.text('Review not found', 404);
-	}
+    .leftJoin(schema.votes, eq(schema.reviews.id, schema.votes.review_id))
+		.where(and(eq(schema.reviews.poi_id, poiId), isNull(schema.reviews.deleted_at)))
+    .groupBy(schema.reviews.id)
+    .orderBy(schema.votes.vote)  // Order by difference between upvotes and downvotes (vote count)
+		.all();
 
 	return c.json(reviewsList);
 });
@@ -401,6 +421,11 @@ app.get('/reviews', async (c) => {
 // POST insert new review
 app.post('/reviews', async (c) => {
   const db = c.get("db");
+
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404)
+  }
 	
 	let body;
 	try {
@@ -412,14 +437,18 @@ app.post('/reviews', async (c) => {
 
 	const { user_id, poi_id, rating, features, content } = body;
 
-	if (!user_id || !rating || !poi_id) {
+  if (profile.id !== user_id) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
+	if ( !rating || !poi_id) {
 		return c.text("Missing required fields", 400);
 	}
 
 	const result = await db
 		.insert(schema.reviews)
 		.values({
-			user_id,
+			user_id: profile.id,
 			poi_id,
 			rating,
 			features,
@@ -438,6 +467,17 @@ app.put('/reviews/:id', async (c) => {
 	if (isNaN(reviewId)) {
 		return c.text('Invalid review ID', 400);
 	}
+
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404)
+  }
+
+  const review = await db.select().from(schema.reviews)
+    .where(eq(schema.reviews.id, reviewId)).get();
+  if (!review || review.user_id !== profile.id) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
 	
 	let body;
 	try {
@@ -475,6 +515,17 @@ app.put('/reviews/:id/delete', async (c) => {
 		return c.text('Invalid review ID', 400);
 	}
 
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404)
+  }
+
+  const review = await db.select().from(schema.reviews)
+    .where(eq(schema.reviews.id, reviewId)).get();
+  if (!review || review.user_id !== profile.id) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
 	const result = await db
 		.update(schema.reviews)
 		.set({
@@ -484,6 +535,65 @@ app.put('/reviews/:id/delete', async (c) => {
 		.returning();
 
 	return c.json(result);
+});
+
+// POST /votes - upsert a vote
+app.post('/votes', async (c) => {
+
+  // TODO verify profile in votes AND review endpoints (check ownership - should not be trusting profile id sent from client)
+
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404);
+  }
+
+  const db = c.get("db");
+  
+  let body;
+  try {
+    body = await c.req.json();
+  } catch (e) {
+    console.error('Error parsing JSON body:', e);
+		return c.text('Invalid JSON body', 400);
+  }
+
+  const { review_id, vote } = body;
+
+  const result = await db
+  .insert(schema.votes)
+  .values({
+    user_id: profile.id,
+    review_id,
+    vote
+  })
+  .onConflictDoUpdate({
+    target: [schema.votes.user_id, schema.votes.review_id],
+    set: { vote },
+  })
+  .returning();
+
+  return c.json(result);
+});
+
+// DELETE active user's vote on specified review
+app.delete('/votes/:review_id', async (c) => {
+  const db = c.get("db");
+  const reviewId = Number(c.req.param('review_id'));
+
+  if (isNaN(reviewId)) {
+		return c.text('Invalid Review ID', 400);
+	} 
+
+  const profile = await getProfile(c);
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404)
+  };
+
+  const result = await db.delete(schema.votes)
+    .where(and(eq(schema.votes.user_id, profile.id), eq(schema.votes.review_id, reviewId)))
+    .returning();
+
+  return c.json(result);
 });
 
 export default {

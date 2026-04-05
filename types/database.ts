@@ -33,6 +33,8 @@ export type AvoidanceAreaReport = typeof avoidance_area_reports.$inferSelect & {
 export type ReviewEntryRaw = ReviewRaw & {
   profile_display_name: string;
   profile_avatar_url: string;
+  vote_count: number;
+  user_vote: number | null;
 };
 
 export interface ReviewEntry extends Omit<ReviewEntryRaw, "features"> {

@@ -18,6 +18,7 @@ export const queryKeys = {
   myProfile: ["myProfile"] as const,
   review: (poi_id: number) => ["review", poi_id] as const,
   reviewById: (id: number) => ["reviewById", id] as const,
+  votes: (review_id: number) => ["votes", review_id] as const,
 };
 
 // fetch all POIs
@@ -264,4 +265,44 @@ export function useDeleteReview() {
       });
     },
   });
+}
+
+// upsert a vote on a specified review
+export function useUpsertVote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { review_id: number, vote: 1 | -1 }) =>
+      apiClient.upsertVote(data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.votes(variables.review_id),
+      }); // refetch vote data
+
+      console.log(`[useUpsertVote] Vote upserted for review with id ${variables.review_id}!`);
+    },
+    onError: (error) => {
+      console.log(`[useUpsertVote] Error upserting vote: ${error.message}`);
+    }
+  });
+}
+
+// delete a vote from a specified review
+export function useDeleteVote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (review_id: number) =>
+      apiClient.deleteVote(review_id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.votes(variables),
+      });
+
+      console.log(`[useUpsertVote] Vote deleted for review with id ${variables}!`);
+    },
+    onError: (error) => {
+      console.log(`[useUpsertVote] Error deleting vote: ${error.message}`);
+    }
+  })
 }

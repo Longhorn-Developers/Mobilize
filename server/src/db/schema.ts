@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, unique } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Verification db schemas
@@ -124,6 +124,16 @@ export const reviews = sqliteTable('reviews', {
 },
 (table) => [
 	index('poi_deleted_idx').on(table.poi_id, table.deleted_at)
+]);
+
+export const votes = sqliteTable('votes', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    user_id: integer('user_id').notNull().references(() => profiles.id),
+    review_id: integer('review_id').notNull().references(() => reviews.id, { onDelete: "cascade" }),
+    vote: integer('vote').notNull(),
+},
+(table) => [
+    unique().on(table.user_id, table.review_id),
 ]);
 
 export const pois = sqliteTable('pois', {

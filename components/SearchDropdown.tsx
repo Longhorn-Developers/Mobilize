@@ -57,24 +57,24 @@ export const SearchDropdown = ({
   ];
 
   // Fetch Google Places results when search query changes
-  useEffect(() => {
-    const fetchPlaces = async () => {
-      if (searchQuery.length < 2) {
-        setGoogleResults([]);
-        return;
-      }
+  // useEffect(() => {
+  //   const fetchPlaces = async () => {
+  //     if (searchQuery.length < 2) {
+  //       setGoogleResults([]);
+  //       return;
+  //     }
 
-      setIsLoading(true);
-      const results = await searchPlaces(searchQuery);
-      setGoogleResults(results);
-      setIsLoading(false);
-    };
+  //     setIsLoading(true);
+  //     const results = await searchPlaces(searchQuery);
+  //     setGoogleResults(results);
+  //     setIsLoading(false);
+  //   };
 
-    // Debounce: wait 300ms after user stops typing
-    const timeoutId = setTimeout(fetchPlaces, 300);
+  //   // Debounce: wait 300ms after user stops typing
+  //   const timeoutId = setTimeout(fetchPlaces, 300);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  //   return () => clearTimeout(timeoutId);
+  // }, [searchQuery]);
 
   // Convert Google Places predictions to Location format
   const searchResults: Location[] = googleResults.map((prediction) => ({

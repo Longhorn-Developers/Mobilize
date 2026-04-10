@@ -27,6 +27,7 @@ import {
   type LocationDetailsBottomSheetRef,
 } from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails, PlaceDetails } from "~/utils/googlePlaces";
+import RoutePreviewBottomSheet from "~/components/RoutePreviewBottomSheet";
 
 export default function Home() {
   // hooks
@@ -37,6 +38,7 @@ export default function Home() {
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
+  const routePreviewBottomSheetRef = useRef<BottomSheetModal>(null);
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -49,6 +51,12 @@ export default function Home() {
   const MIN_ZOOM_FOR_POIS = 16;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 30.282,
+    longitude: -97.733,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -184,8 +192,8 @@ export default function Home() {
   const markers = useMemo(
     () => {
       if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
+        console.log("Pois loaded.");
+        // console.log(POIs);
       }
       
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
@@ -199,7 +207,7 @@ export default function Home() {
               icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
             };
             // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            // console.log(`POI Marker for ID ${marker.id}:`, marker);
             return marker;
           })
         : [];
@@ -258,6 +266,18 @@ export default function Home() {
     }
   };
 
+  const handleSelectStart = (selectedLoc: {lat: number, lng: number}) => {
+    setMapRegion({
+      latitude: selectedLoc.lat,
+      longitude: selectedLoc.lng,
+      latitudeDelta: 0.001,
+      longitudeDelta: 0.001,
+    });
+
+    poiBottomSheetRef.current?.close();
+    routePreviewBottomSheetRef.current?.present({start: [0, 0], end: [selectedLoc.lat, selectedLoc.lng]});
+  }
+
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (!isSearchActive && text.length > 0) {
@@ -307,7 +327,10 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} handleSelectStart={handleSelectStart} />
+
+      {/* Route Preview */}
+      <RoutePreviewBottomSheet ref={routePreviewBottomSheetRef} />
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -315,12 +338,8 @@ export default function Home() {
       <MapView
         style={{ flex: 1 }}
         onPress={handleMapPress}
-        region={{
-          latitude: 30.282,
-          longitude: -97.733,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
+        region={mapRegion}
+        // TODO animate ref (i think noah already made something like this?)
         onRegionChangeComplete={(region) => {
           // Calculate zoom level from latitudeDelta
           const zoom = Math.round(Math.log(360 / region.latitudeDelta) / Math.LN2);

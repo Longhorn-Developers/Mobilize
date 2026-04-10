@@ -69,14 +69,16 @@ const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
+  handleSelectStart: (selectedLoc: {lat: number, lng: number}) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
+  handleSelectStart: (selectedLoc: {lat: number, lng: number}) => void;
 }
 
-const POIContent = ({ poi, allPOIs }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleSelectStart }: POIContentProps) => {
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
@@ -296,7 +298,12 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
           backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
           borderRadius: 9.31, alignItems: "center", flexDirection: "row",
           justifyContent: "center", marginBottom: 8,
-        }}>
+        }}
+          onPress={() => handleSelectStart({
+            lat: poi?.location_geojson?.coordinates[1] || 0,
+            lng: poi?.location_geojson?.coordinates[0] || 0
+          })}
+        >
           <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "500" }}>
             Get Directions
           </Text>
@@ -306,7 +313,7 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   );
 };
 
-const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
+const POIBottomSheet = ({ ref, allPOIs, handleSelectStart }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return (
@@ -321,7 +328,7 @@ const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
     >
       {({ data }) => {
         if (!data?.poi) return null;
-        return <POIContent poi={data.poi} allPOIs={allPOIs} />;
+        return <POIContent poi={data.poi} allPOIs={allPOIs} handleSelectStart={handleSelectStart} />;
       }}
     </BottomSheetModal>
   );

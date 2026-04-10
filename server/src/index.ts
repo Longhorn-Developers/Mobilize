@@ -100,7 +100,7 @@ app.get("/api/auth/callback/google", async (c) => {
     }
 
     // Exchange code for Google tokens
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    let tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -113,6 +113,21 @@ app.get("/api/auth/callback/google", async (c) => {
     });
 
     if (!tokenResponse.ok) {
+      // retry fetch one time
+      console.log("Retrying fetch...")
+      await new Promise(r => setTimeout(r, 1000));
+      tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code: code,
+          client_id: c.env.GOOGLE_CLIENT_ID,
+          client_secret: c.env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: `${c.env.BETTER_AUTH_URL}/api/auth/callback/google`,
+          grant_type: "authorization_code",
+        }),
+      });
+
       const errorData = await tokenResponse.text();
       console.error("Token exchange failed:", errorData);
       return c.json({ error: "Token exchange failed" }, 500);

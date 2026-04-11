@@ -5,16 +5,20 @@ import {
   TouchableOpacityProps,
   View,
 } from "react-native";
+import { useTheme } from "~/utils/ThemeContext";
 
 type ButtonProps = {
   title?: string;
   children?: ReactNode;
   variant?: "primary" | "disabled" | "ghost" | "gray";
   icon?: ReactNode;
+  isDark?: boolean;
 } & TouchableOpacityProps;
-
 export const Button = forwardRef<View, ButtonProps>(
   ({ title, children, variant = "primary", icon, ...touchableProps }, ref) => {
+    const { colorScheme } = useTheme();
+    const isDark = colorScheme === "dark";
+
     const getButtonStyle = () => {
       switch (variant) {
         case "disabled":
@@ -35,7 +39,7 @@ export const Button = forwardRef<View, ButtonProps>(
         case "ghost":
           return styles.ghostButtonText;
         case "gray":
-          return styles.grayButtonText;
+          return isDark ? "text-white font-normal" : "text-black font-normal";
         default:
           return styles.primaryButtonText;
       }

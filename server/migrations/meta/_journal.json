@@ -22,6 +22,13 @@
       "when": 1764652440903,
       "tag": "0002_loud_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1775944072304,
+      "tag": "0003_unusual_garia",
+      "breakpoints": true
     }
   ]
 }

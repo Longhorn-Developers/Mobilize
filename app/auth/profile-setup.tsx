@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +23,7 @@ export default function ProfileSetupScreen() {
   const [classYear, setClassYear] = useState("");
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
@@ -41,6 +43,7 @@ export default function ProfileSetupScreen() {
         classYear: classYear.trim() || undefined,
         major: major.trim() || undefined,
         bio: bio.trim() || undefined,
+        isAnonymous,
       });
       router.push("./mobility-preferences" as any);
     } catch (err: any) {
@@ -57,15 +60,18 @@ export default function ProfileSetupScreen() {
 
   const canProceed = firstName.trim() && lastName.trim() && username.trim();
 
+  const inputClass =
+    "rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white";
+
   return (
     <ScrollView
-      className="flex-1 bg-white"
+      className="flex-1 bg-white dark:bg-neutral-900"
       contentContainerStyle={{ paddingTop: insets.top }}
     >
       <View className="px-6">
         {/* Header */}
         <View className="mb-8 mt-8">
-          <Text className="text-2xl font-bold text-ut-black">
+          <Text className="text-2xl font-bold text-ut-black dark:text-white">
             Set up your profile
           </Text>
         </View>
@@ -73,8 +79,8 @@ export default function ProfileSetupScreen() {
         {/* Profile Picture placeholder */}
         <View className="mb-6 items-center">
           <View className="relative">
-            <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300">
-              <Text className="text-2xl text-gray-600">
+            <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300 dark:bg-neutral-700">
+              <Text className="text-2xl text-gray-600 dark:text-gray-300">
                 {firstName[0]?.toUpperCase() ?? "?"}
               </Text>
             </View>
@@ -86,68 +92,56 @@ export default function ProfileSetupScreen() {
 
         {/* Form Fields */}
         <View className="gap-4">
-          <View>
-            <Text className="mb-2 text-sm text-gray-600">First Name *</Text>
-            <TextInput
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Enter your First Name"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-            />
-          </View>
+          {[
+            { label: "First Name *", value: firstName, set: setFirstName, placeholder: "Enter your First Name" },
+            { label: "Last Name *", value: lastName, set: setLastName, placeholder: "Enter your Last Name" },
+            { label: "Username *", value: username, set: setUsername, placeholder: "Enter your username", lower: true },
+            { label: "Class Year (optional)", value: classYear, set: setClassYear, placeholder: "e.g. Senior, 2026" },
+            { label: "Major (optional)", value: major, set: setMajor, placeholder: "Enter your major" },
+          ].map(({ label, value, set, placeholder, lower }) => (
+            <View key={label}>
+              <Text className="mb-2 text-sm text-gray-600 dark:text-gray-400">{label}</Text>
+              <TextInput
+                value={value}
+                onChangeText={set}
+                placeholder={placeholder}
+                placeholderTextColor="#9CA3AF"
+                className={inputClass}
+                autoCapitalize={lower ? "none" : "words"}
+                autoCorrect={false}
+              />
+            </View>
+          ))}
 
           <View>
-            <Text className="mb-2 text-sm text-gray-600">Last Name *</Text>
-            <TextInput
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Enter your Last Name"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-            />
-          </View>
-
-          <View>
-            <Text className="mb-2 text-sm text-gray-600">Username *</Text>
-            <TextInput
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Enter your username"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View>
-            <Text className="mb-2 text-sm text-gray-600">Class Year (optional)</Text>
-            <TextInput
-              value={classYear}
-              onChangeText={setClassYear}
-              placeholder="e.g. Senior, 2026"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-            />
-          </View>
-
-          <View>
-            <Text className="mb-2 text-sm text-gray-600">Major (optional)</Text>
-            <TextInput
-              value={major}
-              onChangeText={setMajor}
-              placeholder="Enter your major"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
-            />
-          </View>
-
-          <View>
-            <Text className="mb-2 text-sm text-gray-600">Short biography (optional)</Text>
+            <Text className="mb-2 text-sm text-gray-600 dark:text-gray-400">Short biography (optional)</Text>
             <TextInput
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+              placeholderTextColor="#9CA3AF"
+              className={inputClass}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+            />
+          </View>
+
+          {/* Anonymous toggle */}
+          <View className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+            <View className="flex-1 pr-4">
+              <Text className="text-base font-medium text-gray-900 dark:text-white">
+                Appear anonymous
+              </Text>
+              <Text className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                Your name and profile will be hidden from other users
+              </Text>
+            </View>
+            <Switch
+              value={isAnonymous}
+              onValueChange={setIsAnonymous}
+              trackColor={{ false: "#D1D5DB", true: "#BF5700" }}
+              thumbColor="#FFFFFF"
             />
           </View>
         </View>

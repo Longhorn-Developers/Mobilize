@@ -6,13 +6,11 @@ import {
   TouchableWithoutFeedback,
   ActivityIndicator,
 } from "react-native";
-import {
-  ClockIcon,
-  MapPinIcon,
-} from "phosphor-react-native";
+import { ClockIcon, MapPinIcon } from "phosphor-react-native";
 import colors from "~/types/colors";
 import { useEffect, useState } from "react";
 import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/mapboxSearch";
+import { useTheme } from "~/utils/ThemeContext";
 
 interface Location {
   id: string;
@@ -37,46 +35,33 @@ export const SearchDropdown = ({
   onDismiss,
   topOffset,
 }: SearchDropdownProps) => {
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
+
   const [googleResults, setGoogleResults] = useState<PlaceAutocompletePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Recent searches - hardcoded for now, will be replaced with local storage later
   const recentSearches: Location[] = [
-    {
-      id: "1",
-      name: "Texas Union Building",
-      address: "2100 Guadalupe St",
-      type: "recent",
-    },
-    {
-      id: "2",
-      name: "PCL (Perry-Castañeda Library)",
-      address: "101 E 21st St",
-      type: "recent",
-    },
+    { id: "1", name: "Texas Union Building", address: "2100 Guadalupe St", type: "recent" },
+    { id: "2", name: "PCL (Perry-Castañeda Library)", address: "101 E 21st St", type: "recent" },
   ];
 
-  // Fetch Google Places results when search query changes
   useEffect(() => {
     const fetchPlaces = async () => {
       if (searchQuery.length < 2) {
         setGoogleResults([]);
         return;
       }
-
       setIsLoading(true);
       const results = await searchPlaces(searchQuery);
       setGoogleResults(results);
       setIsLoading(false);
     };
 
-    // Debounce: wait 300ms after user stops typing
     const timeoutId = setTimeout(fetchPlaces, 300);
-
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Convert Google Places predictions to Location format
   const searchResults: Location[] = googleResults.map((prediction) => ({
     id: prediction.place_id,
     name: prediction.structured_formatting.main_text,
@@ -89,26 +74,32 @@ export const SearchDropdown = ({
 
   if (!visible) return null;
 
+  const iconColor = isDark ? "#6B7280" : colors.ut.gray;
+  const dividerColor = isDark ? "#3A3A3C" : "#F3F4F6";
+  const dropdownBg = isDark ? "#1C1C1E" : "#FFFFFF";
+
   const renderLocationItem = ({ item }: { item: Location }) => (
     <TouchableOpacity
       onPress={() => onSelectLocation(item)}
-      className="flex-row items-center gap-3 border-b border-gray-100 px-5 py-3"
+      style={{ borderBottomColor: dividerColor, borderBottomWidth: 1 }}
+      className="flex-row items-center gap-3 px-5 py-3"
       activeOpacity={0.7}
     >
-      {/* Icon */}
       <View className="h-8 w-8 items-center justify-center">
         {item.type === "recent" ? (
-          <ClockIcon size={20} color={colors.ut.gray} />
+          <ClockIcon size={20} color={iconColor} />
         ) : (
-          <MapPinIcon size={20} color={colors.ut.gray} />
+          <MapPinIcon size={20} color={iconColor} />
         )}
       </View>
-
-      {/* Location Info */}
       <View className="flex-1">
-        <Text className="text-base font-medium text-gray-900">{item.name}</Text>
+        <Text className={`text-base font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+          {item.name}
+        </Text>
         {item.address && (
-          <Text className="text-sm text-gray-500">{item.address}</Text>
+          <Text className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            {item.address}
+          </Text>
         )}
       </View>
     </TouchableOpacity>
@@ -116,33 +107,33 @@ export const SearchDropdown = ({
 
   return (
     <>
-      {/* Transparent overlay to dismiss */}
       <TouchableWithoutFeedback onPress={onDismiss}>
         <View className="absolute bottom-0 left-0 right-0 top-0 bg-black/20" />
       </TouchableWithoutFeedback>
 
-      {/* Dropdown Content */}
       <View
-        className="absolute left-4 right-4 z-10 rounded-2xl bg-white shadow-2xl"
-        style={{ top: topOffset }}
+        className="absolute left-4 right-4 z-10 rounded-2xl shadow-2xl"
+        style={{ top: topOffset, backgroundColor: dropdownBg }}
       >
-        {/* Section Header */}
         {displayedLocations.length > 0 && (
-          <View className="border-b border-gray-100 px-5 py-2">
-            <Text className="text-xs font-semibold uppercase text-gray-500">
+          <View
+            style={{ borderBottomColor: dividerColor, borderBottomWidth: 1 }}
+            className="px-5 py-2"
+          >
+            <Text className={`text-xs font-semibold uppercase ${isDark ? "text-gray-500" : "text-gray-500"}`}>
               {searchQuery.length > 0 ? "Results" : "Recent"}
             </Text>
           </View>
         )}
 
-        {/* Loading State */}
         {isLoading ? (
           <View className="items-center justify-center py-8">
             <ActivityIndicator size="small" color={colors.ut.burntorange} />
-            <Text className="mt-2 text-sm text-gray-500">Searching...</Text>
+            <Text className={`mt-2 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              Searching...
+            </Text>
           </View>
         ) : (
-          /* Results List */
           <FlatList
             data={displayedLocations}
             renderItem={renderLocationItem}
@@ -153,7 +144,7 @@ export const SearchDropdown = ({
             ListEmptyComponent={
               searchQuery.length > 0 ? (
                 <View className="items-center justify-center px-6 py-8">
-                  <Text className="text-center text-base text-gray-400">
+                  <Text className={`text-center text-base ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                     No results found for "{searchQuery}"
                   </Text>
                 </View>

@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,11 +17,15 @@ import {
   PencilSimpleLineIcon,
   SignOutIcon,
   SignInIcon,
+  MoonIcon,
+  SunIcon,
+  MonitorIcon,
 } from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
+import { useTheme, type ThemeMode } from "~/utils/ThemeContext";
 
 const SESSION_TOKEN_KEY = "auth_session_token";
 const USER_KEY = "auth_user";
@@ -40,28 +45,31 @@ type ProfileData = {
   major: string | null;
   bio: string | null;
   mobility_preference: string | null;
+  is_anonymous: boolean;
 };
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
+  const { colorScheme, themeMode, setThemeMode } = useTheme();
+  const isDark = colorScheme === "dark";
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
-  // Editable field state (mirrors profile fields)
   const [displayName, setDisplayName] = useState("");
   const [classYear, setClassYear] = useState("");
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
-  // Snapshots for cancel
   const [saved, setSaved] = useState({
     displayName: "",
     classYear: "",
     major: "",
     bio: "",
+    isAnonymous: false,
   });
 
   const loadProfile = useCallback(async () => {
@@ -79,10 +87,8 @@ export default function ProfileTab() {
 
       setStoredUser(JSON.parse(userJson));
 
-      // Fetch fresh user + profile from server
       const data = await apiClient.getMe();
       if (data.user) {
-        // Keep AsyncStorage user in sync
         await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
         setStoredUser(data.user);
       }
@@ -90,17 +96,18 @@ export default function ProfileTab() {
       const p = data.profile as ProfileData | null;
       setProfile(p);
 
-      // Populate editable fields
       const dn = p?.display_name ?? data.user?.name ?? "";
       const cy = p?.class_year ?? "";
       const maj = p?.major ?? "";
       const b = p?.bio ?? "";
+      const anon = p?.is_anonymous ?? false;
 
       setDisplayName(dn);
       setClassYear(cy);
       setMajor(maj);
       setBio(b);
-      setSaved({ displayName: dn, classYear: cy, major: maj, bio: b });
+      setIsAnonymous(anon);
+      setSaved({ displayName: dn, classYear: cy, major: maj, bio: b, isAnonymous: anon });
     } catch (err) {
       console.warn("Error loading profile:", err);
     } finally {
@@ -108,7 +115,6 @@ export default function ProfileTab() {
     }
   }, []);
 
-  // Reload every time the tab is focused
   useFocusEffect(
     useCallback(() => {
       loadProfile();
@@ -122,12 +128,14 @@ export default function ProfileTab() {
         classYear: classYear.trim() || undefined,
         major: major.trim() || undefined,
         bio: bio.trim() || undefined,
+        isAnonymous,
       });
       const snap = {
         displayName: displayName.trim(),
         classYear: classYear.trim(),
         major: major.trim(),
         bio: bio.trim(),
+        isAnonymous,
       };
       setSaved(snap);
       setIsEditing(false);
@@ -142,6 +150,7 @@ export default function ProfileTab() {
     setClassYear(saved.classYear);
     setMajor(saved.major);
     setBio(saved.bio);
+    setIsAnonymous(saved.isAnonymous);
     setIsEditing(false);
   };
 
@@ -168,22 +177,29 @@ export default function ProfileTab() {
     ]);
   };
 
-  const handleSignIn = () => {
-    router.push("../auth/signup" as any);
-  };
-
-  const handleEditMobilityPreferences = () => {
-    router.push("../auth/mobility-preferences" as any);
-  };
-
   const isSignedIn = !!storedUser;
   const mobilityLabel = profile?.mobility_preference
     ? profile.mobility_preference.charAt(0).toUpperCase() + profile.mobility_preference.slice(1)
     : "Not set";
 
+  const inputClass =
+    "rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white";
+  const cardClass = "rounded-lg bg-gray-50 p-4 dark:bg-neutral-800";
+  const sectionTitleClass = "mb-4 text-lg font-semibold text-ut-black dark:text-white";
+  const labelClass = "mb-2 text-sm text-gray-600 dark:text-gray-400";
+
+  const appearanceModes: { mode: ThemeMode; label: string; Icon: any }[] = [
+    { mode: "system", label: "System", Icon: MonitorIcon },
+    { mode: "light", label: "Light", Icon: SunIcon },
+    { mode: "dark", label: "Dark", Icon: MoonIcon },
+  ];
+
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: insets.top }}>
+      <View
+        className="flex-1 items-center justify-center bg-white dark:bg-neutral-900"
+        style={{ paddingTop: insets.top }}
+      >
         <ActivityIndicator size="large" color="#BF5700" />
       </View>
     );
@@ -191,13 +207,13 @@ export default function ProfileTab() {
 
   return (
     <ScrollView
-      className="flex-1 bg-white"
+      className="flex-1 bg-white dark:bg-neutral-900"
       contentContainerStyle={{ paddingTop: insets.top }}
     >
       <View className="px-6">
         {/* Header */}
         <View className="mb-8 mt-8 flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-ut-black">Profile</Text>
+          <Text className="text-2xl font-bold text-ut-black dark:text-white">Profile</Text>
           {isSignedIn && !isEditing && (
             <TouchableOpacity
               onPress={() => setIsEditing(true)}
@@ -211,37 +227,37 @@ export default function ProfileTab() {
         {/* Avatar + name */}
         <View className="mb-8 items-center">
           <View className="relative mb-4">
-            <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300">
+            <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300 dark:bg-neutral-700">
               {storedUser?.image ? (
                 <Image
                   source={{ uri: storedUser.image }}
                   className="h-full w-full rounded-full"
                 />
               ) : (
-                <Text className="text-2xl text-gray-600">
+                <Text className="text-2xl text-gray-600 dark:text-gray-300">
                   {(displayName[0] ?? storedUser?.name?.[0] ?? "?").toUpperCase()}
                 </Text>
               )}
             </View>
           </View>
-          <Text className="text-xl font-bold text-ut-black">
+          <Text className="text-xl font-bold text-ut-black dark:text-white">
             {displayName || storedUser?.name || "Your Profile"}
           </Text>
           {storedUser?.username ? (
-            <Text className="text-gray-600">@{storedUser.username}</Text>
+            <Text className="text-gray-600 dark:text-gray-400">@{storedUser.username}</Text>
           ) : null}
           {storedUser?.email ? (
-            <Text className="mt-1 text-sm text-gray-500">{storedUser.email}</Text>
+            <Text className="mt-1 text-sm text-gray-500 dark:text-gray-400">{storedUser.email}</Text>
           ) : null}
           {!isSignedIn && (
-            <Text className="mt-2 text-sm italic text-gray-400">Not signed in</Text>
+            <Text className="mt-2 text-sm italic text-gray-400 dark:text-gray-500">Not signed in</Text>
           )}
         </View>
 
-        {/* Fields */}
+        {/* Profile fields */}
         {isSignedIn && (
           <View className="mb-8">
-            <Text className="mb-4 text-lg font-semibold text-ut-black">Information</Text>
+            <Text className={sectionTitleClass}>Information</Text>
 
             {[
               { label: "Display Name", value: displayName, set: setDisplayName, placeholder: "Your name" },
@@ -249,35 +265,64 @@ export default function ProfileTab() {
               { label: "Major", value: major, set: setMajor, placeholder: "e.g. Computer Science" },
             ].map(({ label, value, set, placeholder }) => (
               <View key={label} className="mb-4">
-                <Text className="mb-2 text-sm text-gray-600">{label}</Text>
+                <Text className={labelClass}>{label}</Text>
                 {isEditing ? (
                   <TextInput
                     value={value}
                     onChangeText={set}
                     placeholder={placeholder}
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+                    placeholderTextColor="#9CA3AF"
+                    className={inputClass}
                   />
                 ) : (
-                  <Text className="text-base text-gray-900">{value || "—"}</Text>
+                  <Text className="text-base text-gray-900 dark:text-gray-100">{value || "—"}</Text>
                 )}
               </View>
             ))}
 
             <View className="mb-4">
-              <Text className="mb-2 text-sm text-gray-600">Biography</Text>
+              <Text className={labelClass}>Biography</Text>
               {isEditing ? (
                 <TextInput
                   value={bio}
                   onChangeText={setBio}
                   placeholder="Tell us about yourself…"
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+                  placeholderTextColor="#9CA3AF"
+                  className={inputClass}
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
                 />
               ) : (
-                <Text className="text-base text-gray-900">{bio || "—"}</Text>
+                <Text className="text-base text-gray-900 dark:text-gray-100">{bio || "—"}</Text>
               )}
+            </View>
+
+            {/* Anonymous toggle */}
+            <View className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+              <View className="flex-1 pr-4">
+                <Text className="text-base font-medium text-gray-900 dark:text-white">
+                  Appear anonymous
+                </Text>
+                <Text className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  Hide your name and profile from other users
+                </Text>
+              </View>
+              <Switch
+                value={isAnonymous}
+                onValueChange={(v) => {
+                  setIsAnonymous(v);
+                  if (!isEditing) {
+                    // Save immediately when toggled outside of edit mode
+                    apiClient.updateProfile({ isAnonymous: v }).catch(() =>
+                      Alert.alert("Error", "Could not update anonymity setting.")
+                    );
+                  }
+                }}
+                trackColor={{ false: "#D1D5DB", true: "#BF5700" }}
+                thumbColor="#FFFFFF"
+                disabled={isEditing}
+              />
             </View>
           </View>
         )}
@@ -286,17 +331,50 @@ export default function ProfileTab() {
         {isSignedIn && (
           <View className="mb-8">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-lg font-semibold text-ut-black">Mobility Preferences</Text>
-              <TouchableOpacity onPress={handleEditMobilityPreferences}>
+              <Text className={sectionTitleClass}>Mobility Preferences</Text>
+              <TouchableOpacity onPress={() => router.push("../auth/mobility-preferences" as any)}>
                 <PencilSimpleLineIcon size={16} color={colors.ut.burntorange} />
               </TouchableOpacity>
             </View>
-            <View className="rounded-lg bg-gray-50 p-4">
-              <Text className="text-sm text-gray-600">Movement style</Text>
-              <Text className="text-base text-gray-900">{mobilityLabel}</Text>
+            <View className={cardClass}>
+              <Text className="text-sm text-gray-600 dark:text-gray-400">Movement style</Text>
+              <Text className="text-base text-gray-900 dark:text-gray-100">{mobilityLabel}</Text>
             </View>
           </View>
         )}
+
+        {/* Appearance */}
+        <View className="mb-8">
+          <Text className={sectionTitleClass}>Appearance</Text>
+          <View className="flex-row gap-2">
+            {appearanceModes.map(({ mode, label, Icon }) => {
+              const active = themeMode === mode;
+              return (
+                <TouchableOpacity
+                  key={mode}
+                  className={`flex-1 items-center gap-1.5 rounded-xl border py-3 ${
+                    active
+                      ? "border-ut-burntorange bg-orange-50 dark:bg-orange-950"
+                      : "border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
+                  }`}
+                  onPress={() => setThemeMode(mode)}
+                >
+                  <Icon
+                    size={18}
+                    color={active ? colors.ut.burntorange : isDark ? "#9CA3AF" : "#6B7280"}
+                  />
+                  <Text
+                    className={`text-xs font-medium ${
+                      active ? "text-ut-burntorange" : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Action Buttons */}
         <View className="gap-3 pb-8">
@@ -307,15 +385,14 @@ export default function ProfileTab() {
             </>
           ) : isSignedIn ? (
             <Button
-              title="Sign Out"
+              title="Sign Out" 
               variant="gray"
               onPress={handleSignOut}
-              icon={<SignOutIcon size={20} color={colors.theme.staticblack} />}
-            />
+              icon={<SignOutIcon size={20} color={isDark ? "#FFFFFF" : "#000000"} />} />
           ) : (
             <Button
               title="Sign In with Google"
-              onPress={handleSignIn}
+              onPress={() => router.push("../auth/signup" as any)}
               icon={<SignInIcon size={20} color="white" />}
             />
           )}

@@ -45,6 +45,7 @@ import {
 import { getPlaceDetails, searchPlaces } from "~/utils/mapboxSearch";
 import { useAuth } from "~/utils/useAuth";
 import useMapIcons from "~/utils/useMapIcons";
+import { useTheme } from "~/utils/ThemeContext";
 
 // Initialise Mapbox
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "");
@@ -55,6 +56,9 @@ const MIN_ZOOM_FOR_POIS = 16;
 const MIN_ZOOM_FOR_SIDEWALKS = 17;
 const MIN_ZOOM_FOR_BUILDINGS = 14;
 const MIN_ZOOM_FOR_BARRIERS = 16;
+// Show abbreviation labels in the 2D zoom range before full 3D kicks in
+const MIN_ZOOM_FOR_LABELS = 15;
+const MAX_ZOOM_FOR_LABELS = 17;
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
@@ -67,7 +71,9 @@ export default function Home() {
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
+  const { colorScheme } = useTheme();
   const canReport = user?.role === "student";
+  const isDark = colorScheme === "dark";
 
   // Refs
   const cameraRef = useRef<Camera>(null);
@@ -78,7 +84,6 @@ export default function Home() {
   const buildingBottomSheetRef = useRef<BottomSheetModal>(null);
   const barrierBottomSheetRef = useRef<BottomSheetModal>(null);
   const constructionBottomSheetRef = useRef<BottomSheetModal>(null);
-  // Suppress MapView.onPress when a feature layer already handled the tap
   const featureTappedRef = useRef(false);
 
   // GeoJSON — loaded asynchronously after first render so the app doesn't freeze on startup
@@ -87,7 +92,6 @@ export default function Home() {
   const [barriersGeoJSON, setBarriersGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
 
   useEffect(() => {
-    // Run after interactions so the map renders first, then overlays load
     InteractionManager.runAfterInteractions(() => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       setSidewalksGeoJSON(require("../../assets/geojson/sidewalks_slim.json"));
@@ -157,7 +161,6 @@ export default function Home() {
     [constructionAreas],
   );
 
-  // POI features as GeoJSON for SymbolLayer rendering
   const poiGeoJSON = useMemo(
     (): GeoJSON.FeatureCollection => ({
       type: "FeatureCollection",
@@ -174,7 +177,6 @@ export default function Home() {
     [POIs],
   );
 
-  // In-progress polygon while drawing a report
   const reportGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
     if (aaPointsReport.length < 2) return null;
     const coords = aaPointsReport.map(
@@ -283,6 +285,15 @@ export default function Home() {
     if (!isSearchActive && text.length > 0) setIsSearchActive(true);
   };
 
+  // ── Dark-mode-aware layer styles ──────────────────────────────────────────
+
+  const buildingExtrusionColor = isDark
+    ? (["interpolate", ["linear"], ["get", "Shape__Area"], 0, "#5A5550", 50000, "#4A4540"] as any)
+    : (["interpolate", ["linear"], ["get", "Shape__Area"], 0, "#D6D2C4", 50000, "#C8C3B8"] as any);
+
+  const labelTextColor = isDark ? "#E5E7EB" : "#3D2B1F";
+  const labelHaloColor = isDark ? "#1C1C1E" : "#FFFFFF";
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -329,10 +340,17 @@ export default function Home() {
       {/* ── Mapbox Map ─────────────────────────────────────────────────────── */}
       <MapView
         style={{ flex: 1 }}
-        styleURL="mapbox://styles/mapbox/outdoors-v12"
+        styleURL={
+          isDark
+            ? "mapbox://styles/mapbox/dark-v11"
+            : "mapbox://styles/mapbox/outdoors-v12"
+        }
         pitchEnabled
         rotateEnabled
         compassEnabled
+        // Step 4: push compass below search bar
+        compassViewPosition={1}
+        compassViewMargins={{ x: 16, y: insets.top + 70 }}
         attributionEnabled
         logoEnabled
         onPress={(feature) => {
@@ -391,9 +409,7 @@ export default function Home() {
           }}
         />
 
-        {/* ── 3D Campus Buildings ───────────────────────────────────────────
-            FillExtrusionLayer on buildings_simple.json gives 3D geometry.
-            Also serves as the tap target for the BuildingBottomSheet.       */}
+        {/* ── 3D Campus Buildings + Step 5: Abbreviation Labels ────────────── */}
         <ShapeSource
           id="campus-buildings"
           shape={buildingsGeoJSON}
@@ -409,15 +425,7 @@ export default function Home() {
             minZoomLevel={MIN_ZOOM_FOR_BUILDINGS}
             maxZoomLevel={24}
             style={{
-              // Warm limestone color for UT campus buildings
-              fillExtrusionColor: [
-                "interpolate",
-                ["linear"],
-                ["get", "Shape__Area"],
-                0, "#D6D2C4",
-                50000, "#C8C3B8",
-              ],
-              // Derive height from footprint area — larger footprint → taller building
+              fillExtrusionColor: buildingExtrusionColor,
               fillExtrusionHeight: [
                 "interpolate",
                 ["linear"],
@@ -438,6 +446,24 @@ export default function Home() {
                 14, 0.6,
                 17, 0.9,
               ],
+            }}
+          />
+
+          {/* Step 5: Building abbreviations visible at 2D zoom range */}
+          <SymbolLayer
+            id="campus-building-labels"
+            minZoomLevel={MIN_ZOOM_FOR_LABELS}
+            maxZoomLevel={MAX_ZOOM_FOR_LABELS}
+            style={{
+              textField: ["get", "Building_Abbr"],
+              textSize: 11,
+              textColor: labelTextColor,
+              textHaloColor: labelHaloColor,
+              textHaloWidth: 1.5,
+              textAnchor: "center",
+              textAllowOverlap: false,
+              textIgnorePlacement: false,
+              textFont: ["DIN Offc Pro Medium", "Arial Unicode MS Regular"],
             }}
           />
         </ShapeSource>
@@ -508,7 +534,6 @@ export default function Home() {
             style={{ lineColor: "rgba(209,0,0,0.6)", lineWidth: 1.5 }}
           />
         </ShapeSource>
-
 
         {/* ── Live construction zones (ArcGIS) ─────────────────────────────── */}
         <ShapeSource
@@ -597,7 +622,7 @@ export default function Home() {
           </PointAnnotation>
         )}
 
-        {/* ── POI markers — ShapeSource+SymbolLayer for reliability ─────────── */}
+        {/* ── POI markers ──────────────────────────────────────────────────── */}
         {!isReportMode && (
           <ShapeSource
             id="pois"
@@ -614,7 +639,7 @@ export default function Home() {
               minZoomLevel={MIN_ZOOM_FOR_POIS}
               style={{
                 iconImage: ["get", "icon"],
-                iconSize: 0.75,
+                iconSize: 0.35,
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
               }}
@@ -625,7 +650,6 @@ export default function Home() {
 
       {isReportMode ? (
         <>
-          {/* Report mode overlay tint */}
           <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
           <ReportModal
             className="absolute left-10 right-10"

@@ -46,6 +46,7 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
+  const [isRoutePreviewMode, setIsRoutePreviewMode] = useState(false);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
   const MIN_ZOOM_FOR_POIS = 16;
@@ -126,6 +127,8 @@ export default function Home() {
         });
       }
     } else {
+      setIsRoutePreviewMode(false);
+      routePreviewBottomSheetRef.current?.close();
       avoidanceAreaBottomSheetRef.current?.close();
       poiBottomSheetRef.current?.close();
     }
@@ -274,8 +277,10 @@ export default function Home() {
       longitudeDelta: 0.001,
     });
 
-    poiBottomSheetRef.current?.close();
-    routePreviewBottomSheetRef.current?.present({start: [0, 0], end: [selectedLoc.lat, selectedLoc.lng]});
+    setIsRoutePreviewMode(true);
+
+    poiBottomSheetRef.current?.close();     // not actually closing (when i close routePreviewBottomSHeetRef, this pops back up)
+    routePreviewBottomSheetRef.current?.present();
   }
 
   const handleSearchChange = (text: string) => {
@@ -330,7 +335,15 @@ export default function Home() {
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} handleSelectStart={handleSelectStart} />
 
       {/* Route Preview */}
-      <RoutePreviewBottomSheet ref={routePreviewBottomSheetRef} />
+      <RoutePreviewBottomSheet
+        ref={routePreviewBottomSheetRef}
+        routeData={{
+          start: [0, 0],  // start location (device location)
+          end: {},        // selected poi
+          building: {},   // from POIReviewData from POIbottomsheet (created in reviews)
+          entrances: [],  // from POIReviewData
+        }}
+      />
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -364,7 +377,9 @@ export default function Home() {
         ))}
 
         {/* Render markers */}
-        {markers.map((marker) => (
+        {isRoutePreviewMode
+        ? null // [Route Preview Mode] Render map pin icon for selected poi (destination). POIReviewData
+        : markers.map((marker) => (
           <Marker
             key={marker.id}
             coordinate={marker.coordinate}

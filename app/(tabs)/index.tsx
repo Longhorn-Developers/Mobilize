@@ -28,6 +28,7 @@ import {
 } from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails, PlaceDetails } from "~/utils/googlePlaces";
 import RoutePreviewBottomSheet from "~/components/RoutePreviewBottomSheet";
+import * as Location from "expo-location";
 
 export default function Home() {
   // hooks
@@ -65,6 +66,9 @@ export default function Home() {
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
+  // location / route
+  const [deviceLocation, setDeviceLocation] = useState<Location.LocationObject | null>(null);
+
   // const testGooglePlaces = async () => {
   //   console.log("Testing Google Places...");
   //   const results = await searchPlaces("Texas Global");
@@ -79,6 +83,16 @@ export default function Home() {
   // useEffect(() => {
   //   testGooglePlaces();
   // }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      
+      const location = await Location.getCurrentPositionAsync({});
+      setDeviceLocation(location);
+    })();
+  }, []);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {

@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CaretLeft } from "phosphor-react-native";
@@ -22,78 +16,67 @@ export default function LoginScreen() {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
-    // TODO: Implement actual login logic
+    // TODO: Implement UT Shibboleth/CAS OAuth
     console.log("Login with:", { utEid, password });
     router.push("../" as any);
   };
 
   const handleForgotPassword = () => {
-    // TODO: Implement forgot password functionality
-    Alert.alert("Forgot Password", "Forgot password functionality coming soon!");
-  };
-
-  const handleGoBack = () => {
-    router.back();
+    Alert.alert("Forgot Password", "Visit utexas.edu/its to reset your UT EID password.");
   };
 
   return (
-    <View 
-      className="flex-1 bg-white px-6"
+    <View
+      className="flex-1 bg-white px-6 dark:bg-neutral-900"
       style={{ paddingTop: insets.top }}
     >
       {/* Back Button */}
       <TouchableOpacity
-        onPress={handleGoBack}
-        className="mt-4 mb-4"
+        onPress={() => router.back()}
+        className="mb-4 mt-4"
         style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
       >
-        <CaretLeft size={24} color="#000" />
+        <CaretLeft size={24} color="#BF5700" />
       </TouchableOpacity>
 
       {/* Header */}
       <View className="mb-8">
-        <Text className="text-2xl font-bold text-ut-black">
-          Sign up with your UT EID
+        <Text className="text-2xl font-bold text-ut-black dark:text-white">
+          Sign in with your UT EID
         </Text>
       </View>
 
       {/* Form */}
       <View className="flex-1">
-        {/* UT EID Input */}
         <View className="mb-4">
-          <Text className="mb-2 text-sm text-gray-600">UT EID</Text>
+          <Text className="mb-2 text-sm text-gray-600 dark:text-gray-400">UT EID</Text>
           <TextInput
             value={utEid}
             onChangeText={setUtEid}
             placeholder="Enter your UT EID"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+            placeholderTextColor="#9CA3AF"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             autoCapitalize="none"
             autoCorrect={false}
           />
         </View>
 
-        {/* Password Input */}
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-gray-600">Password</Text>
+          <Text className="mb-2 text-sm text-gray-600 dark:text-gray-400">Password</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Enter your password"
+            placeholderTextColor="#9CA3AF"
             secureTextEntry
-            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             autoCapitalize="none"
             autoCorrect={false}
           />
         </View>
 
-        {/* Sign Up Button */}
-        <Button
-          title="Sign Up"
-          onPress={handleLogin}
-          className="mb-4"
-        />
+        <Button title="Sign In" onPress={handleLogin} className="mb-4" />
 
-        {/* Forgot Password Link */}
         <TouchableOpacity onPress={handleForgotPassword} className="items-center">
           <Text className="text-ut-burntorange">Forgot my UT EID or password</Text>
         </TouchableOpacity>

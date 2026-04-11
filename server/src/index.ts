@@ -215,6 +215,8 @@ app.post("/api/profile", async (c) => {
     .where(eq(schema.profiles.user_id, user.id))
     .get();
 
+  const isAnonymous = typeof body.isAnonymous === "boolean" ? body.isAnonymous : false;
+
   if (existing) {
     await db
       .update(schema.profiles)
@@ -223,6 +225,7 @@ app.post("/api/profile", async (c) => {
         class_year: classYear ?? existing.class_year,
         major: major ?? existing.major,
         bio: bio ?? existing.bio,
+        is_anonymous: isAnonymous,
         updated_at: new Date(),
       })
       .where(eq(schema.profiles.user_id, user.id));
@@ -233,6 +236,7 @@ app.post("/api/profile", async (c) => {
       class_year: classYear ?? null,
       major: major ?? null,
       bio: bio ?? null,
+      is_anonymous: isAnonymous,
       created_at: new Date(),
       updated_at: new Date(),
     });
@@ -271,6 +275,7 @@ app.put("/api/profile", async (c) => {
   if (body.major !== undefined) updates.major = body.major;
   if (body.bio !== undefined) updates.bio = body.bio;
   if (body.mobilityPreference !== undefined) updates.mobility_preference = body.mobilityPreference;
+  if (body.isAnonymous !== undefined) updates.is_anonymous = body.isAnonymous;
 
   if (existing) {
     await db
@@ -327,6 +332,14 @@ app.get("/api/users/:username", async (c) => {
     .from(schema.profiles)
     .where(eq(schema.profiles.user_id, user.id))
     .get();
+
+  // Respect anonymity — strip identifying fields for public consumers
+  if (profile?.is_anonymous) {
+    return c.json({
+      user: { role: user.role },
+      profile: { is_anonymous: true },
+    });
+  }
 
   return c.json({ user, profile: profile ?? null });
 });

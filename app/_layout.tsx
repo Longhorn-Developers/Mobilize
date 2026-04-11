@@ -20,16 +20,15 @@ import Toast, {
 import { useSyncQueriesExternal } from "react-query-external-sync";
 
 import colors from "~/types/colors";
+import { ThemeProvider, useTheme } from "~/utils/ThemeContext";
 import { useAppState } from "~/utils/useAppState";
 
 function onAppStateChange(status: AppStateStatus) {
-  // React Query already supports in web browser refetch on window focus by default
   if (Platform.OS !== "web") {
     focusManager.setFocused(status === "active");
   }
 }
 
-// react-query refetch on network reconnect
 onlineManager.setEventListener((setOnline) => {
   const eventSubscription = Network.addNetworkStateListener((state) => {
     setOnline(!!state.isConnected);
@@ -37,75 +36,68 @@ onlineManager.setEventListener((setOnline) => {
   return eventSubscription.remove;
 });
 
-const toastConfig = {
-  /*
-    Overwrite 'error' type,
-    by modifying the existing `ErrorToast` component
-  */
-  success: (props: { props: ToastConfig }) => (
-    <>
-      {/* Icon Container */}
-      <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2/3 rounded-lg bg-lime-200 p-2">
-        <CheckIcon color={colors.ut.green} />
-      </View>
-
-      <SuccessToast
-        {...props}
-        text2NumberOfLines={3}
-        text2Style={{
-          fontSize: 13,
-          color: "gray",
-          textAlign: "center",
-          paddingVertical: 15,
-        }}
-        style={{
-          borderLeftWidth: 0,
-          height: "auto",
-        }}
-      />
-    </>
-  ),
-
-  /*
-    Overwrite 'error' type,
-    by modifying the existing `ErrorToast` component
-  */
-  error: (props: { props: ToastConfig }) => (
-    <>
-      {/* Icon Container */}
-      <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2/3 rounded-lg bg-red-200 p-2">
-        <XIcon color={colors.theme.red} />
-      </View>
-
-      <ErrorToast
-        {...props}
-        text2NumberOfLines={3}
-        text2Style={{
-          fontSize: 13,
-          color: "gray",
-          textAlign: "center",
-          paddingVertical: 15,
-        }}
-        style={{
-          borderLeftWidth: 0,
-          height: "auto",
-        }}
-      />
-    </>
-  ),
-};
-
 const queryClient = new QueryClient();
 
 export default function Layout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
 function App() {
+  const { colorScheme } = useTheme();
+
+  const toastConfig = {
+    success: (props: { props: ToastConfig }) => (
+      <>
+        <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2/3 rounded-lg bg-lime-200 p-2">
+          <CheckIcon color={colors.ut.green} />
+        </View>
+        <SuccessToast
+          {...props}
+          text2NumberOfLines={3}
+          text2Style={{
+            fontSize: 13,
+            color: colorScheme === "dark" ? "#D1D5DB" : "gray",
+            textAlign: "center",
+            paddingVertical: 15,
+          }}
+          style={{
+            borderLeftWidth: 0,
+            height: "auto",
+            backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+          }}
+        />
+      </>
+    ),
+    error: (props: { props: ToastConfig }) => (
+      <>
+        <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2/3 rounded-lg bg-red-200 p-2">
+          <XIcon color={colors.theme.red} />
+        </View>
+        <ErrorToast
+          {...props}
+          text2NumberOfLines={3}
+          text2Style={{
+            fontSize: 13,
+            color: colorScheme === "dark" ? "#D1D5DB" : "gray",
+            textAlign: "center",
+            paddingVertical: 15,
+          }}
+          style={{
+            borderLeftWidth: 0,
+            height: "auto",
+            backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+          }}
+        />
+      </>
+    ),
+  };
+
   useSyncQueriesExternal({
     queryClient,
     socketURL: "http://localhost:42831",
@@ -113,13 +105,12 @@ function App() {
     platform: Platform?.OS || "web",
     deviceId: Platform?.OS || "web",
   });
-  // react-query refetch on app focus
   useAppState(onAppStateChange);
 
   return (
     <GestureHandlerRootView>
       <BottomSheetModalProvider>
-        <StatusBar style="auto" />
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
         <Stack screenOptions={{ headerShown: false }} />
         <Toast config={toastConfig} />
       </BottomSheetModalProvider>

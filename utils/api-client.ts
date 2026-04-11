@@ -223,6 +223,7 @@ class ApiClient {
     classYear?: string;
     major?: string;
     bio?: string;
+    isAnonymous?: boolean;
   }) {
     return this.authRequest<{ success: boolean; profile: any }>("/api/profile", {
       method: "POST",
@@ -237,6 +238,7 @@ class ApiClient {
     major?: string;
     bio?: string;
     mobilityPreference?: string;
+    isAnonymous?: boolean;
   }) {
     return this.authRequest<{ success: boolean; profile: any }>("/api/profile", {
       method: "PUT",

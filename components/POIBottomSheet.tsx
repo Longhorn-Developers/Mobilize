@@ -7,6 +7,7 @@ import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
+import { useTheme } from "~/utils/ThemeContext";
 
 interface POIData {
   poi: any;
@@ -77,6 +78,8 @@ interface POIContentProps {
 
 const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   const mapIcons = useMapIcons();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [entrances, setEntrances] = useState<any[]>([]);
 
@@ -141,11 +144,11 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   const EntranceComponent = ({ name, Icons, selected }: EntranceProps) => (
     <View style={{
       width: 182, height: 82, borderRadius: 14, borderWidth: 2,
-      borderColor: selected ? "#BF5700" : "#333F4833",
-      backgroundColor: selected ? "#BF570033" : "#FFFFFF",
+      borderColor: selected ? "#BF5700" : (isDark ? "#52525B" : "#333F4833"),
+      backgroundColor: selected ? "#BF570033" : (isDark ? "#2C2C2E" : "#FFFFFF"),
       paddingHorizontal: 16, paddingVertical: 8, justifyContent: "center",
     }}>
-      <Text style={{ fontSize: 14, color: selected ? "#BF5700" : "#64748B", fontFamily: "Inter", fontWeight: "400", marginBottom: 8 }}>
+      <Text style={{ fontSize: 14, color: selected ? "#BF5700" : (isDark ? "#9CA3AF" : "#64748B"), fontFamily: "Inter", fontWeight: "400", marginBottom: 8 }}>
         {name}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -163,14 +166,14 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
       <View style={{ padding: 24 }}>
 
         {/* Header */}
-        <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2 }}>
+        <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
           {configBuildingName(metadata.bld_name)}
         </Text>
 
         {/* Address */}
         <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
           <LocationPin />
-          <Text style={{ fontFamily: typography.body.medium_strong.fontFamily, fontWeight: "500", fontSize: 15.35, color: "#1A2024" }}>
+          <Text style={{ fontFamily: typography.body.medium_strong.fontFamily, fontWeight: "500", fontSize: 15.35, color: isDark ? "#D1D5DB" : "#1A2024" }}>
             {building?.Address_Full || "UT Campus"}
           </Text>
         </View>
@@ -178,17 +181,17 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
         {/* Distance placeholder */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#B3B3B3", fontWeight: "500" }}>Distance</Text>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>On campus</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Distance</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>On campus</Text>
           </View>
         </View>
 
         {/* Divider */}
-        <View style={{ alignSelf: "center", width: "95%", height: 3.5, borderRadius: 2, backgroundColor: "#D9D9D9", marginVertical: 16 }} />
+        <View style={{ alignSelf: "center", width: "95%", height: 3.5, borderRadius: 2, backgroundColor: isDark ? "#3A3A3C" : "#D9D9D9", marginVertical: 16 }} />
 
         {/* Access */}
         <View style={{ flexDirection: "row", marginBottom: 16, alignItems: "center", gap: 16 }}>
-          <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>Access</Text>
+          <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>Access</Text>
           <InformationSym />
         </View>
 
@@ -243,15 +246,17 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 
 const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
 
   return (
     <BottomSheetModal<POIData>
       ref={ref}
       bottomInset={bottomTabBarHeight}
-      backgroundStyle={{ borderRadius: 32 }}
+      backgroundStyle={{ borderRadius: 32, backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }}
       enableDynamicSizing={false}
       snapPoints={["50%"]}
-      handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
+      handleIndicatorStyle={{ backgroundColor: isDark ? "#52525B" : colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
       {({ data }) => {

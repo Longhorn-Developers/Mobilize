@@ -1,9 +1,8 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { View, Image } from "react-native";
 import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -19,11 +18,86 @@ import {
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
 
+const BASE_ICON_SIZE = 16;
+const BASE_ZOOM = 16;
+const MIN_ZOOM_FOR_POIS = 14;
+const ICON_SCALE = 16;
+const MAX_ICON_SIZE = 50;
+
+const CLUSTER_RADIUS = 10;
+
+function getPOISubtype(poi: any): string {
+  switch (poi.poi_type) {
+    case "accessible_entrance":
+      return `accessible_entrance__${poi.metadata?.auto_opene ? "auto" : "manual"}`;
+    default:
+      return poi.poi_type;
+  }
+}
+
+function clusterPOIs(pois: any[]): any[] {
+  const visited = new Set<number>();
+  const clusters: any[] = [];
+
+  for (let i = 0; i < pois.length; i++) {
+    if (visited.has(i)) continue;
+
+    const current = pois[i];
+    const currentSubtype = getPOISubtype(current);
+    const group = [current];
+    visited.add(i);
+
+    for (let j = i + 1; j < pois.length; j++) {
+      if (visited.has(j)) continue;
+
+      const candidate = pois[j];
+      if (getPOISubtype(candidate) !== currentSubtype) continue;
+
+      const pointA = turf.point([
+        current.location_geojson.coordinates[0],
+        current.location_geojson.coordinates[1],
+      ]);
+      const pointB = turf.point([
+        candidate.location_geojson.coordinates[0],
+        candidate.location_geojson.coordinates[1],
+      ]);
+      const distance = turf.distance(pointA, pointB, { units: "meters" });
+
+      if (distance <= CLUSTER_RADIUS) {
+        group.push(candidate);
+        visited.add(j);
+      }
+    }
+
+    if (group.length === 1) {
+      clusters.push(current);
+    } else {
+      const multiPoint = turf.multiPoint(
+        group.map((p) => [
+          p.location_geojson.coordinates[0],
+          p.location_geojson.coordinates[1],
+        ]),
+      );
+      const centroid = turf.centroid(multiPoint);
+      clusters.push({
+        ...current,
+        location_geojson: {
+          ...current.location_geojson,
+          coordinates: centroid.geometry.coordinates,
+        },
+        clusteredPOIs: group,
+      });
+    }
+  }
+
+  return clusters;
+}
+
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
-  const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomTabBarHeight = 50;
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
 
@@ -34,13 +108,17 @@ export default function Home() {
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
 
-  // Minimum zoom level to show POIs (higher = more zoomed in)
-  const MIN_ZOOM_FOR_POIS = 16;
+  const markerSize = useMemo(() => {
+    const scale = Math.pow(2, zoomLevel - BASE_ZOOM);
+    return Math.min(Math.max(BASE_ICON_SIZE * scale, ICON_SCALE), MAX_ICON_SIZE);
+  }, [zoomLevel]);
 
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+
+  const clusteredPOIs = useMemo(() => clusterPOIs(POIs || []), [POIs]);
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -103,7 +181,7 @@ export default function Home() {
   // Handle POI click
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
-    poiBottomSheetRef.current?.present({ poi });
+    poiBottomSheetRef.current?.present({ poi, clusteredPOIs: poi.clusteredPOIs ?? [poi] });
   };
 
   const polygons = useMemo(
@@ -139,33 +217,26 @@ export default function Home() {
 
   const markers = useMemo(
     () => {
-      if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
-      }
-      
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
-        ? (POIs || []).map((poi) => {
-            const marker = {
-              id: String(poi.id),
-              coordinate: {
-                longitude: poi.location_geojson.coordinates[0],
-                latitude: poi.location_geojson.coordinates[1],
-              } satisfies LatLng,
-              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-            };
-            // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
-            return marker;
-          })
+        ? clusteredPOIs.map((poi) => ({
+            id: String(poi.id),
+            coordinate: {
+              longitude: poi.location_geojson.coordinates[0],
+              latitude: poi.location_geojson.coordinates[1],
+            } satisfies LatLng,
+            icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
+            isPOI: true,
+            poiData: poi,
+          }))
         : [];
 
       return [
-        // User selected aaPoints to report
         ...aaPointsReport.map((point, index) => ({
           id: `report-point-${index}`,
           coordinate: point,
           icon: mapIcons.point || undefined,
+          isPOI: false,
+          poiData: null,
         })),
         // Clicked point
         ...(clickedPoint
@@ -174,6 +245,8 @@ export default function Home() {
                 id: "clicked-point",
                 coordinate: clickedPoint,
                 icon: mapIcons.crosshair || undefined,
+                isPOI: false,
+                poiData: null,
               },
             ]
           : []),
@@ -181,7 +254,7 @@ export default function Home() {
         ...poiMarkers,
       ];
     },
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
+    [clusteredPOIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
 
   return (
@@ -231,15 +304,22 @@ export default function Home() {
           <Marker
             key={marker.id}
             coordinate={marker.coordinate}
-            image={marker.icon}
             anchor={{ x: 0.5, y: 0.5 }}
             onPress={() => {
-              const poi = POIs?.find((p) => String(p.id) === marker.id);
-              if (poi) {
-                handlePOIPress(poi);
-              }
+              if (marker.poiData) handlePOIPress(marker.poiData);
             }}
-          />
+          >
+            {marker.icon && (
+              <Image
+                source={marker.icon}
+                style={{
+                  width: marker.isPOI ? markerSize : BASE_ICON_SIZE,
+                  height: marker.isPOI ? markerSize : BASE_ICON_SIZE,
+                  resizeMode: "contain",
+                }}
+              />
+            )}
+          </Marker>
         ))}
       </MapView>
 
@@ -283,9 +363,13 @@ export default function Home() {
       ) : (
         // Bottom right button to enter report mode
         <Button
-          className="absolute bottom-4 right-4"
-          title={"Report"}
+          title="Report"
           onPress={() => setIsReportMode(true)}
+          style={{
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+          }}
         />
       )}
     </>

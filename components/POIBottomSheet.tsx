@@ -1,8 +1,7 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef, useCallback, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
-import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
+import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
 import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
@@ -201,9 +200,17 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
       <View style={{ padding: 24 }}>
 
         {/* Header */}
-        <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2 }}>
-          {configBuildingName(metadata.bld_name)}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16,}}>
+          <Text
+            style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2,}}>
+            {configBuildingName(metadata.bld_name)}
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Favorite />
+            <Warning />
+          </View>
+        </View>
 
         {/* Address */}
         <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
@@ -305,7 +312,7 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 };
 
 const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
-  const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomTabBarHeight = 50;
 
   return (
     <BottomSheetModal<POIData>

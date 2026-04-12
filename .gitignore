@@ -27,3 +27,5 @@ android
 
 # Package Files
 pnpm-lock.yaml
+package.json
+package-lock.json

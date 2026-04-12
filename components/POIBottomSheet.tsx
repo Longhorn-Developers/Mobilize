@@ -69,16 +69,16 @@ const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
-  handleSelectStart: (selectedLoc: {lat: number, lng: number}) => void;
+  handleEnterRoutePreview: (selectedLoc: {lat: number, lng: number}) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
-  handleSelectStart: (selectedLoc: {lat: number, lng: number}) => void;
+  handleEnterRoutePreview: (selectedLoc: {lat: number, lng: number}) => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleSelectStart }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleEnterRoutePreview }: POIContentProps) => {
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
@@ -299,7 +299,7 @@ const POIContent = ({ poi, allPOIs, handleSelectStart }: POIContentProps) => {
           borderRadius: 9.31, alignItems: "center", flexDirection: "row",
           justifyContent: "center", marginBottom: 8,
         }}
-          onPress={() => handleSelectStart({
+          onPress={() => handleEnterRoutePreview({
             lat: poi?.location_geojson?.coordinates[1] || 0,
             lng: poi?.location_geojson?.coordinates[0] || 0
           })}
@@ -313,7 +313,7 @@ const POIContent = ({ poi, allPOIs, handleSelectStart }: POIContentProps) => {
   );
 };
 
-const POIBottomSheet = ({ ref, allPOIs, handleSelectStart }: POIBottomSheetProps) => {
+const POIBottomSheet = ({ ref, allPOIs, handleEnterRoutePreview }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return (
@@ -328,7 +328,7 @@ const POIBottomSheet = ({ ref, allPOIs, handleSelectStart }: POIBottomSheetProps
     >
       {({ data }) => {
         if (!data?.poi) return null;
-        return <POIContent poi={data.poi} allPOIs={allPOIs} handleSelectStart={handleSelectStart} />;
+        return <POIContent poi={data.poi} allPOIs={allPOIs} handleEnterRoutePreview={handleEnterRoutePreview} />;
       }}
     </BottomSheetModal>
   );

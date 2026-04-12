@@ -11,6 +11,7 @@ import colors from "~/types/colors";
 interface RoutePreviewBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   routeData: RoutePreviewContentProps;
+  onPreviewExit: () => void;
 }
 
 interface RoutePreviewContentProps {
@@ -138,7 +139,7 @@ const RoutePreviewContent = ({
   )
 }
 
-const RoutePreviewBottomSheet = ({ref, routeData}: RoutePreviewBottomSheetProps) => {
+const RoutePreviewBottomSheet = ({ref, routeData, onPreviewExit}: RoutePreviewBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   return (
@@ -150,6 +151,7 @@ const RoutePreviewBottomSheet = ({ref, routeData}: RoutePreviewBottomSheetProps)
       snapPoints={["50%", "80%"]}
       handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
+      onDismiss={onPreviewExit}
     >
       <BottomSheetScrollView style={{ flex: 1 }}>
         <RoutePreviewContent

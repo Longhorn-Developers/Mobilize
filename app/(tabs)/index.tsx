@@ -141,7 +141,6 @@ export default function Home() {
         });
       }
     } else {
-      setIsRoutePreviewMode(false);
       routePreviewBottomSheetRef.current?.close();
       avoidanceAreaBottomSheetRef.current?.close();
       poiBottomSheetRef.current?.close();
@@ -209,7 +208,7 @@ export default function Home() {
   const markers = useMemo(
     () => {
       if (POIs && !isReportMode) {
-        console.log("Pois loaded.");
+        // console.log("Pois loaded.");
         // console.log(POIs);
       }
       
@@ -283,18 +282,27 @@ export default function Home() {
     }
   };
 
-  const handleSelectStart = (selectedLoc: {lat: number, lng: number}) => {
+  const handleEnterRoutePreview = (selectedLoc: {lat: number, lng: number}) => {
+    const currentLoc = {
+      lat: deviceLocation?.coords.latitude || 0,
+      lng: deviceLocation?.coords.longitude || 0
+    };
+
     setMapRegion({
-      latitude: selectedLoc.lat,
-      longitude: selectedLoc.lng,
-      latitudeDelta: 0.001,
-      longitudeDelta: 0.001,
+      latitude: (currentLoc.lat + selectedLoc.lat) / 2,   // center btwn start and end
+      longitude: (currentLoc.lng + selectedLoc.lng) / 2,
+      latitudeDelta: 2 * Math.abs(currentLoc.lat - selectedLoc.lat),
+      longitudeDelta: 2 * Math.abs(currentLoc.lng - selectedLoc.lng),
     });
 
     setIsRoutePreviewMode(true);
 
     poiBottomSheetRef.current?.close();     // not actually closing (when i close routePreviewBottomSHeetRef, this pops back up)
     routePreviewBottomSheetRef.current?.present();
+  }
+
+  const handleExitRoutePreview = () => {
+    setIsRoutePreviewMode(false);
   }
 
   const handleSearchChange = (text: string) => {
@@ -346,7 +354,11 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} handleSelectStart={handleSelectStart} />
+      <POIBottomSheet
+        ref={poiBottomSheetRef}
+        allPOIs={POIs ?? []}
+        handleEnterRoutePreview={handleEnterRoutePreview}
+      />
 
       {/* Route Preview */}
       <RoutePreviewBottomSheet
@@ -357,6 +369,7 @@ export default function Home() {
           building: {},   // from POIReviewData from POIbottomsheet (created in reviews)
           entrances: [],  // from POIReviewData
         }}
+        onPreviewExit={handleExitRoutePreview}
       />
 
     {/* Location Details Bottom Sheet */}
@@ -366,6 +379,9 @@ export default function Home() {
         style={{ flex: 1 }}
         onPress={handleMapPress}
         region={mapRegion}
+        showsUserLocation={true}
+        // followsUserLocation based on whether is routing mode or not / other func
+        followsUserLocation={false}
         // TODO animate ref (i think noah already made something like this?)
         onRegionChangeComplete={(region) => {
           // Calculate zoom level from latitudeDelta

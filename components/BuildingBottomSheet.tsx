@@ -1,9 +1,11 @@
-import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
-import { Linking, Text, TouchableOpacity, View } from "react-native";
+import { Linking, Text, Pressable, View } from "react-native";
 
+import { LocationPin } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
+import { typography } from "~/utils/typography";
 import { useTheme } from "~/utils/ThemeContext";
 
 export interface BuildingProperties {
@@ -32,23 +34,18 @@ const BuildingBottomSheet = ({ ref }: BuildingBottomSheetProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
 
-  const sheetBg = isDark ? "#1C1C1E" : "#FFFFFF";
-  const textPrimary = isDark ? "#F3F4F6" : colors.theme.black;
-  const textSecondary = isDark ? "#9CA3AF" : "#374151";
-  const divider = isDark ? "#3A3A3C" : colors.theme.majorgridline;
-  const rowBg = isDark ? "#2C2C2E" : "#F9FAFB";
-  const badgeBg = isDark ? "#3A1F00" : "#FDF0E8";
-
   return (
     <BottomSheetModal<{ building: BuildingProperties }>
       ref={ref}
       bottomInset={bottomTabBarHeight}
-      backgroundStyle={{ borderRadius: 32, backgroundColor: sheetBg }}
-      enableDynamicSizing
+      backgroundStyle={{ borderRadius: 32, backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }}
+      enableDynamicSizing={false}
+      snapPoints={["50%"]}
       handleIndicatorStyle={{
         backgroundColor: isDark ? "#52525B" : colors.theme.majorgridline,
         width: 80,
       }}
+      enableContentPanningGesture={false}
     >
       {({ data }) => {
         if (!data?.building) return null;
@@ -58,57 +55,55 @@ const BuildingBottomSheet = ({ ref }: BuildingBottomSheetProps) => {
           CLASSIFICATION_LABELS[Map_Classification ?? ""] ?? Map_Classification ?? null;
 
         return (
-          <BottomSheetView style={{ padding: 24, paddingBottom: 36 }}>
-            {/* Header */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  backgroundColor: badgeBg,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ fontSize: 24 }}>🏛️</Text>
+          <BottomSheetScrollView style={{ flex: 1 }}>
+            <View style={{ padding: 24 }}>
+
+              {/* Title */}
+              <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
+                {Description || "Campus Building"}
+              </Text>
+
+              {/* Address */}
+              {Address_Full ? (
+                <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
+                  <LocationPin />
+                  <Text style={{ fontFamily: typography.body.medium_strong.fontFamily, fontWeight: "500", fontSize: 15.35, color: isDark ? "#D1D5DB" : "#1A2024" }}>
+                    {Address_Full}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Classification row */}
+              <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
+                <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+                  <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Type</Text>
+                  <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>
+                    {classLabel || "Campus Building"}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 20, color: textPrimary, lineHeight: 24 }}>
-                  {Description || "Campus Building"}
-                </Text>
-                {classLabel ? (
-                  <View style={{ alignSelf: "flex-start", backgroundColor: badgeBg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 }}>
-                    <Text style={{ fontSize: 12, color: colors.ut.burntorange, fontWeight: "600" }}>
-                      {classLabel}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+
+              {/* Divider */}
+              <View style={{ alignSelf: "center", width: "95%", height: 3.5, borderRadius: 2, backgroundColor: isDark ? "#3A3A3C" : "#D9D9D9", marginVertical: 16 }} />
+
+              {/* View Building Details */}
+              {Building_Details_URL ? (
+                <Pressable
+                  style={{
+                    backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
+                    borderRadius: 9.31, alignItems: "center", flexDirection: "row",
+                    justifyContent: "center", marginBottom: 8,
+                  }}
+                  onPress={() => Linking.openURL(Building_Details_URL)}
+                >
+                  <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "500" }}>
+                    View Building Details
+                  </Text>
+                </Pressable>
+              ) : null}
+
             </View>
-
-            <View style={{ height: 1, backgroundColor: divider, marginBottom: 16 }} />
-
-            {Address_Full ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: rowBg, borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                <Text style={{ fontSize: 18 }}>📍</Text>
-                <Text style={{ flex: 1, fontSize: 14, color: textSecondary, fontFamily: "Inter", fontWeight: "500" }}>
-                  {Address_Full}
-                </Text>
-              </View>
-            ) : null}
-
-            {Building_Details_URL ? (
-              <TouchableOpacity
-                style={{ marginTop: 4, backgroundColor: colors.ut.burntorange, borderRadius: 14, paddingVertical: 14, alignItems: "center" }}
-                onPress={() => Linking.openURL(Building_Details_URL)}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15, fontFamily: "Inter" }}>
-                  View Building Details
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-          </BottomSheetView>
+          </BottomSheetScrollView>
         );
       }}
     </BottomSheetModal>

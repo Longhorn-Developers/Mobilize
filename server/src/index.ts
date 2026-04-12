@@ -502,6 +502,72 @@ app.on(["GET", "POST"], "/api/auth/**", async (c) => {
   }
 });
 
+// ── Construction Areas (ArcGIS proxy) ─────────────────────────────────────────
+
+const ARCGIS_URL =
+  "https://services9.arcgis.com/w9x0fkENXvuWZY26/arcgis/rest/services/Closed_Areas_view_new/FeatureServer/0/query";
+const PAGE_SIZE = 8000;
+
+function buildArcGISUrl(offset: number): string {
+  const u = new URL(ARCGIS_URL);
+  const p = u.searchParams;
+  p.set("f", "json");
+  p.set("where", "1=1");
+  p.set("returnGeometry", "true");
+  p.set("outFields", "OBJECTID");
+  p.set("orderByFields", "OBJECTID ASC");
+  p.set("outSR", "4326");
+  p.set("resultOffset", String(offset));
+  p.set("resultRecordCount", String(PAGE_SIZE));
+  p.set("cacheHint", "true");
+  return u.toString();
+}
+
+function convertArcGISFeature(f: any, idx: number): { id: number; points: [number, number][] } | null {
+  const attrs = f.attributes ?? {};
+  const id = attrs.OBJECTID ?? f.objectId ?? idx;
+  const g = f.geometry ?? {};
+  const rings: [number, number][][] = g.rings ?? [];
+  const paths: [number, number][][] = g.paths ?? [];
+  const source = rings.length ? rings[0] : paths.length ? paths[0] : null;
+  if (!source) return null;
+  const pts = source
+    .map(([x, y]: [number, number]) => [Number(y), Number(x)] as [number, number])
+    .filter(([lat, lon]: [number, number]) =>
+      Number.isFinite(lat) && Number.isFinite(lon) &&
+      lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180,
+    );
+  if (pts.length < 2) return null;
+  return { id, points: pts };
+}
+
+app.get("/construction_areas", async (c) => {
+  try {
+    const allFeatures: any[] = [];
+    let offset = 0;
+    for (;;) {
+      const res = await fetch(buildArcGISUrl(offset), {
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return c.json({ error: `ArcGIS HTTP ${res.status}` }, 502);
+      const json: any = await res.json();
+      if (json.error) return c.json({ error: `ArcGIS error: ${JSON.stringify(json.error)}` }, 502);
+      const feats: any[] = json.features ?? [];
+      allFeatures.push(...feats);
+      const more = json.exceededTransferLimit === true || feats.length === PAGE_SIZE;
+      if (!more || feats.length === 0) break;
+      offset += feats.length;
+    }
+    const rows = allFeatures
+      .map((f, i) => convertArcGISFeature(f, i))
+      .filter(Boolean);
+    return c.json(rows);
+  } catch (err: any) {
+    console.error("[construction_areas] proxy error:", err.message);
+    return c.json({ error: err.message }, 502);
+  }
+});
+
 // ── /api/me ────────────────────────────────────────────────────────────────────
 
 /** Returns the current user + their profile, or { user: null } if unauthenticated. */

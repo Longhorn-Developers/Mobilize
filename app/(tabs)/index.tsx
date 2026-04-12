@@ -4,7 +4,7 @@ import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { View } from "react-native";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
+import MapView, { Polygon, Marker, LatLng, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -17,6 +17,7 @@ import {
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
+  getRoute
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
 
@@ -27,6 +28,7 @@ import {
   type LocationDetailsBottomSheetRef,
 } from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import decode from "~/utils/decode_polyline";
 
 export default function Home() {
   // hooks
@@ -44,6 +46,7 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
+  const [Route, setRoute] = useState<LatLng[] | null>(null);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
   const MIN_ZOOM_FOR_POIS = 16;
@@ -55,6 +58,7 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+  // getRoute([[-97.733785,30.282635],[-97.733731,30.285145]], [[[-97.734269,30.284691],[-97.733454,30.284654],[-97.733669,30.283366],[-97.734708,30.283932],[-97.734269,30.284691]]]);
 
   const testGooglePlaces = async () => {
     console.log("Testing Google Places...");
@@ -70,6 +74,7 @@ export default function Home() {
   useEffect(() => {
     testGooglePlaces();
   }, []);
+
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -125,6 +130,7 @@ export default function Home() {
 
   // Handle avoidance area click
   const handleAvoidanceAreaPress = (polygonId: string) => {
+    if (polygonId[0] == 'C') return; // construction areas
     if (isReportMode) return;
     avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
   };
@@ -133,8 +139,6 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
     poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
   };
 
   const polygons = useMemo(
@@ -184,8 +188,8 @@ export default function Home() {
   const markers = useMemo(
     () => {
       if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
+        // console.log("Pois");
+        // console.log(POIs);
       }
       
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
@@ -199,7 +203,7 @@ export default function Home() {
               icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
             };
             // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
+            // console.log(`POI Marker for ID ${marker.id}:`, marker);
             return marker;
           })
         : [];
@@ -227,6 +231,30 @@ export default function Home() {
     },
     [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
   );
+
+
+  const getDirections = (target: any[]) => {
+    const UT_TOWER = [-97.73942, 30.28614];
+    let res = getRoute([UT_TOWER, target.slice(0, 2)], 
+      polygons.map((poly) => poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude]))
+    )
+
+    // console.log(decode({value: res.routes.geometry}));
+    res.then((result) => {
+      // console.log(decode(result.routes[0].geometry));
+      setRoute(decode(result.routes[0].geometry).map(
+        (coord) => ({
+          latitude: coord[1],
+          longitude: coord[0]
+        })
+      ));
+    });
+    // console.log(target.slice(0, 2));
+    // console.log(polygons.map((poly) => poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude])))
+
+    // console.log(res);
+  }
+
 
   const handleSelectLocation = async (location: {
     id: string;
@@ -304,7 +332,10 @@ export default function Home() {
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
+      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} getDirections={getDirections} />
+
+      {/* Routing Mode Overlay */}
+      {/* </> */}
 
     {/* Location Details Bottom Sheet */}
     <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -340,6 +371,17 @@ export default function Home() {
             }}
           />
         ))}
+
+        {/* Render Polylines */}
+        {(Route !== null) && (
+          <Polyline
+            key="RouteLine"
+            coordinates={Route}
+            strokeColor="#50df49"
+            fillColor="rgba(255,0,0,0.5)"
+            strokeWidth={4}
+          />
+        )}
 
         {/* Render markers */}
         {markers.map((marker) => (

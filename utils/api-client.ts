@@ -47,6 +47,43 @@ class ApiClient {
     return await response.text();
   }
 
+
+  async getRoute(waypoints: any[], avoiding: any[]) {
+    const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
+    const TOKEN = process.env.EXPO_PUBLIC_OPENROUTE_KEY || "";
+
+    // multipoly format reference: https://en.wikipedia.org/wiki/GeoJSON
+
+    let res = await fetch(
+      FEATURE_URL,
+      {
+        method: "post",
+        headers: {
+          'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+          'Authorization': TOKEN,
+          'Content-Type': 'application/json; charset=utf-8'
+        },
+        body: JSON.stringify(
+          {"coordinates":waypoints,
+            "options":{
+              "avoid_polygons":{
+                "type":"MultiPolygon",
+                "coordinates":avoiding.map((poly) => [poly])
+              }
+            }
+          }
+        )
+
+      }
+    );
+    console.log(res);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    const json = await res.json();
+    console.log(json);
+    return json;
+  }
+
+
   // Get profile by ID
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);

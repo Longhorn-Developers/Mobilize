@@ -1,6 +1,6 @@
 // TanStack Query hooks for the Hono backend
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, UseQueryResult } from "@tanstack/react-query";
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -16,6 +16,14 @@ export const queryKeys = {
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
   profile: (id: number) => ["profile", id] as const,
 };
+
+
+// get route between 2+ points
+export async function getRoute(waypoints: any[], avoiding: any[]) {
+  // TODO implement caching later
+    return await apiClient.getRoute(waypoints, avoiding)
+}
+
 
 // fetch all POIs
 export function usePOIs() {

@@ -423,7 +423,7 @@ export default function Home() {
           <FillExtrusionLayer
             id="campus-buildings-3d"
             minZoomLevel={MIN_ZOOM_FOR_BUILDINGS}
-            maxZoomLevel={24}
+            maxZoomLevel={30}
             style={{
               fillExtrusionColor: buildingExtrusionColor,
               fillExtrusionHeight: [

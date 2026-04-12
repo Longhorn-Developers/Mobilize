@@ -4,6 +4,7 @@
     "strict": true,
     "strictNullChecks": true,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "~/*": ["*"]

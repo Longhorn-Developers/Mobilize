@@ -1,5 +1,6 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { booleanPointInPolygon } from "@turf/turf";
 import { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
@@ -66,6 +67,33 @@ const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string 
   return "Northwest Entrance";
 };
 
+const normalizeText = (value?: string | null) =>
+  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const extractBuildingAbbr = (value?: string | null): string | null => {
+  if (!value) return null;
+
+  const parenMatch = value.match(/\(([A-Za-z0-9]{2,6})\)/);
+  if (parenMatch?.[1]) return parenMatch[1].toUpperCase();
+
+  const leadingCodeMatch = value.match(/^([A-Za-z0-9]{2,6})\b/);
+  if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
+
+  return null;
+};
+
+const isEntranceInsideBuilding = (entrance: any, buildingFeature: any): boolean => {
+  const coords = entrance?.location_geojson?.coordinates;
+  const polygonCoords = buildingFeature?.geometry?.coordinates;
+
+  if (!coords || !polygonCoords) return false;
+
+  const [lng, lat] = coords;
+  const point = { type: "Point", coordinates: [lng, lat] };
+
+  return booleanPointInPolygon(point as any, buildingFeature as any);
+};
+
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
@@ -94,7 +122,7 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
   };
 
   const getBuildingAbbr = (str: string) => {
-    return str ? str.substring(1, 4).toUpperCase() : "";
+    return extractBuildingAbbr(str) ?? "";
   };
 
   const findBuildingByAbbreviation = (abbreviation: string) => {
@@ -116,18 +144,33 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 
   useEffect(() => {
     const currentAbbr =
-      getBuildingAbbr(metadata.bld_name) ?? getBuildingAbbr(metadata.name);
+      getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
+    const currentBuildingName = normalizeText(configBuildingName(metadata.bld_name));
+    const fallbackName = normalizeText(metadata.name);
 
     if (currentAbbr && allPOIs.length) {
       const matched = allPOIs.filter((p) => {
         if (p.poi_type !== "accessible_entrance") return false;
+
+        const entranceAbbr =
+          getBuildingAbbr(p.metadata?.bld_name) || getBuildingAbbr(p.metadata?.name);
+        const entranceName = normalizeText(p.metadata?.bld_name || p.metadata?.name);
+
         return (
-          getBuildingAbbr(p.metadata?.bld_name) === currentAbbr ||
-          getBuildingAbbr(p.metadata?.name) === currentAbbr
+          (currentAbbr && entranceAbbr === currentAbbr) ||
+          (buildingFeature ? isEntranceInsideBuilding(p, buildingFeature) : false) ||
+          (!!currentBuildingName && entranceName.includes(currentBuildingName)) ||
+          (!!fallbackName && entranceName.includes(fallbackName))
         );
       });
       setEntrances(matched);
       setSelectedEntrance(matched[0]?.id?.toString() ?? "");
+    } else if (allPOIs.length && buildingFeature) {
+      const matchedByGeometry = allPOIs.filter(
+        (p) => p.poi_type === "accessible_entrance" && isEntranceInsideBuilding(p, buildingFeature),
+      );
+      setEntrances(matchedByGeometry);
+      setSelectedEntrance(matchedByGeometry[0]?.id?.toString() ?? "");
     } else {
       setEntrances([]);
     }

@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
 import * as schema from "./db/schema";
 import { createAuth } from "./auth";
+import { syncPOIs } from "./scheduled/poi-sync";
 
 type Bindings = {
   mobilize_db: D1Database;
@@ -223,4 +224,13 @@ app.get("/api/me", async (c) => {
   return c.json({ user: session.user });
 });
 
-export default app;
+export default {
+    fetch: app.fetch,
+    // Scheduled handler for cron triggers
+    async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+        console.log(`Cron trigger fired at ${new Date(event.scheduledTime).toISOString()}`);
+
+        // Run the POI sync
+        ctx.waitUntil(syncPOIs(env));
+    },
+};

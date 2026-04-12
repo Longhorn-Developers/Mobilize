@@ -27,7 +27,7 @@ import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
 } from "../../components/LocationDetailsBottomSheet";
-import { getPlaceDetails } from "~/utils/googlePlaces";
+import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
 
 export default function Home() {
   // hooks
@@ -48,7 +48,7 @@ export default function Home() {
   const [zoomLevel, setZoomLevel] = useState(15);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
-  const MIN_ZOOM_FOR_POIS = 16;
+  const MIN_ZOOM_FOR_POIS = 15;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -57,9 +57,6 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
-
-  const normalizeText = (value: string) =>
-    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
   const findCampusBuildingFeature = (
     latitude: number,
@@ -79,20 +76,9 @@ export default function Home() {
       return polygonMatch;
     }
 
-    const placeNameMatch = placeName ? normalizeText(placeName) : "";
-    const placeAddressMatch = placeAddress ? normalizeText(placeAddress) : "";
-
-    return features.find((feature) => {
-      const description = normalizeText(feature?.properties?.Description ?? "");
-      const address = normalizeText(feature?.properties?.Address_Full ?? "");
-
-      return (
-        (placeNameMatch && description.includes(placeNameMatch)) ||
-        (placeNameMatch && placeNameMatch.includes(description)) ||
-        (placeAddressMatch && address.includes(placeAddressMatch)) ||
-        (placeAddressMatch && placeAddressMatch.includes(address))
-      );
-    });
+    // Only trust strict polygon containment.
+    // If we cannot confidently match, fall back to the generic location sheet.
+    return null;
   };
 
   const buildPoiFromCampusBuilding = (
@@ -292,10 +278,25 @@ export default function Home() {
     // Close search
     setIsSearchActive(false);
     setSearchQuery("");
-    
+
+    // Resolve missing place_id for recent/manual locations so recenter still works.
+    let resolvedPlaceId = location.place_id;
+    if (!resolvedPlaceId) {
+      const primaryQuery = [location.name, location.address].filter(Boolean).join(" ");
+      const fallbackQuery = location.name;
+
+      const primaryResults = await searchPlaces(primaryQuery);
+      resolvedPlaceId = primaryResults[0]?.place_id;
+
+      if (!resolvedPlaceId && fallbackQuery) {
+        const fallbackResults = await searchPlaces(fallbackQuery);
+        resolvedPlaceId = fallbackResults[0]?.place_id;
+      }
+    }
+
     // Fetch full place details
-    if (location.place_id) {
-      const placeDetails = await getPlaceDetails(location.place_id);
+    if (resolvedPlaceId) {
+      const placeDetails = await getPlaceDetails(resolvedPlaceId);
       
       if (placeDetails) {
         const matchingBuilding = findCampusBuildingFeature(
@@ -328,6 +329,8 @@ export default function Home() {
           locationBottomSheetRef.current?.present(placeDetails);
         }
       }
+    } else {
+      console.error("Could not resolve place_id for selected location", location);
     }
   };
 

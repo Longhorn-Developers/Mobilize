@@ -1,5 +1,4 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
 
 import colors from "~/types/colors";
@@ -15,7 +14,7 @@ interface AvoidanceAreaBottomSheetProps {
 }
 
 const AvoidanceAreaBottomSheet = ({ ref }: AvoidanceAreaBottomSheetProps) => {
-  const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomTabBarHeight = 50;
   return (
     <BottomSheetModal<PolygonData>
       ref={ref}

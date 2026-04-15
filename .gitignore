@@ -10,6 +10,8 @@ npm-debug.*
 *.orig.*
 web-build/
 pnpm-lock.yaml
+package-lock.json
+
 
 # expo router
 expo-env.d.ts

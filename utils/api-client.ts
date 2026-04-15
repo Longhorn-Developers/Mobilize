@@ -20,7 +20,7 @@ class ApiClient {
     options?: RequestInit,
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-
+  
     try {
       const response = await fetch(url, {
         ...options,
@@ -29,12 +29,26 @@ class ApiClient {
           ...options?.headers,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  
+      const text = await response.text();
+  
+      console.log("API URL:", url);
+      console.log("STATUS:", response.status);
+      console.log("RESPONSE PREVIEW:", text.slice(0, 120));
+  
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `Non-JSON response (${response.status}): ${text.slice(0, 100)}`
+        );
       }
-
-      return await response.json();
+  
+      if (!response.ok) {
+        throw new Error(`API Error ${response.status}: ${text}`);
+      }
+  
+      // ✅ Safe JSON parse
+      return JSON.parse(text);
     } catch (error) {
       console.error(`API request failed for ${url}:`, error);
       throw error;
@@ -263,5 +277,5 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient(
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:54321",
+    "https://mobilize-ut.longhorn-developers.workers.dev"
 );

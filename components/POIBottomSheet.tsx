@@ -1,8 +1,14 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+<<<<<<< HEAD
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef, useCallback, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
+=======
+import { ForwardedRef, useCallback, useEffect, useState } from "react";
+import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
@@ -69,16 +75,25 @@ const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
+<<<<<<< HEAD
   getDirections: (target: any[]) => void;
+=======
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
+<<<<<<< HEAD
   getDirections: (target: any[]) => void;
 }
 
 const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
+=======
+}
+
+const POIContent = ({ poi, allPOIs }: POIContentProps) => {
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
@@ -203,9 +218,23 @@ const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
       <View style={{ padding: 24 }}>
 
         {/* Header */}
+<<<<<<< HEAD
         <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2 }}>
           {configBuildingName(metadata.bld_name)}
         </Text>
+=======
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16,}}>
+          <Text
+            style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2,}}>
+            {configBuildingName(metadata.bld_name)}
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Favorite />
+            <Warning />
+          </View>
+        </View>
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
         {/* Address */}
         <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
@@ -296,8 +325,12 @@ const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
           backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
           borderRadius: 9.31, alignItems: "center", flexDirection: "row",
           justifyContent: "center", marginBottom: 8,
+<<<<<<< HEAD
         }}
         onPress={() => getDirections(poi.location_geojson.coordinates)}>
+=======
+        }}>
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
           <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "500" }}>
             Get Directions
           </Text>
@@ -307,8 +340,13 @@ const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
   );
 };
 
+<<<<<<< HEAD
 const POIBottomSheet = ({ ref, allPOIs, getDirections }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
+=======
+const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
+  const bottomTabBarHeight = 50;
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
   return (
     <BottomSheetModal<POIData>
@@ -322,7 +360,11 @@ const POIBottomSheet = ({ ref, allPOIs, getDirections }: POIBottomSheetProps) =>
     >
       {({ data }) => {
         if (!data?.poi) return null;
+<<<<<<< HEAD
         return <POIContent poi={data.poi} allPOIs={allPOIs} getDirections={getDirections} />;
+=======
+        return <POIContent poi={data.poi} allPOIs={allPOIs} />;
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
       }}
     </BottomSheetModal>
   );

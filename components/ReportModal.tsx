@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   CameraPlusIcon,
   PencilSimpleLineIcon,
@@ -88,7 +87,7 @@ const ReportModal = ({
     },
   });
 
-  const bottomTabBarHeight = useBottomTabBarHeight();
+  const bottomTabBarHeight = 50;
 
   // Sync aaPoints with form whenever they change
   useEffect(() => {

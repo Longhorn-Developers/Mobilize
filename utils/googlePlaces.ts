@@ -1,3 +1,6 @@
+import { Platform } from "react-native";
+import Constants from "expo-constants";
+
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 <<<<<<< HEAD
 const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
@@ -8,6 +11,55 @@ const UT_AUSTIN_LOCATION = {
   longitude: -97.7341,
 };
 const SEARCH_RADIUS = 2000; // 2km radius around UT campus
+const AUTOCOMPLETE_FIELD_MASK =
+  "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat";
+
+const getPlacesHeaders = () => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY || "",
+  };
+
+  if (Platform.OS === "ios") {
+    const expoConfig = (Constants.expoConfig as any) || {};
+    const manifest2 = (Constants.manifest2 as any) || {};
+    const bundleIdentifier =
+      expoConfig?.ios?.bundleIdentifier ||
+      manifest2?.extra?.expoClient?.iosBundleIdentifier;
+
+    if (bundleIdentifier) {
+      headers["X-Ios-Bundle-Identifier"] = bundleIdentifier;
+    }
+  }
+
+  return headers;
+};
+
+const logPlacesError = (label: string, data: any) => {
+  const reason = data?.error?.details?.[0]?.reason;
+
+  if (data?.error?.status === "PERMISSION_DENIED") {
+    console.error(
+      `${label}: PERMISSION_DENIED. Key restrictions likely block this client.`,
+      {
+        code: data?.error?.code,
+        status: data?.error?.status,
+        message: data?.error?.message,
+        reason,
+      },
+    );
+
+    if (reason === "API_KEY_IOS_APP_BLOCKED") {
+      console.error(
+        "Google key is iOS-app restricted and rejected this request. Confirm bundle identifier restriction matches this app, or use an unrestricted/dev key for REST calls.",
+      );
+    }
+
+    return;
+  }
+
+  console.error(label, data);
+};
 
 // Types for Google Places API (New) responses
 =======
@@ -83,8 +135,8 @@ export const searchPlaces = async (
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+          ...getPlacesHeaders(),
+          "X-Goog-FieldMask": AUTOCOMPLETE_FIELD_MASK,
         },
         body: JSON.stringify({
           input: query,
@@ -102,9 +154,15 @@ export const searchPlaces = async (
     );
 
     const data = await response.json();
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
 
-    if (response.ok && data.suggestions) {
-      return data.suggestions.map((suggestion: any) => ({
+    if (response.ok) {
+      // Google may return an empty object when no suggestions match.
+      if (suggestions.length === 0) {
+        return [];
+      }
+
+      return suggestions.map((suggestion: any) => ({
         place_id: suggestion.placePrediction?.placeId || "",
         description: suggestion.placePrediction?.text?.text || "",
         structured_formatting: {
@@ -114,6 +172,7 @@ export const searchPlaces = async (
             "",
         },
       }));
+<<<<<<< HEAD
     } else {
       console.error("Places Autocomplete error:", data);
 =======
@@ -130,7 +189,12 @@ export const searchPlaces = async (
       console.error("Places Autocomplete error:", data.status, data.error_message);
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
       return [];
+=======
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
     }
+
+    logPlacesError("Places Autocomplete error", data);
+    return [];
   } catch (error) {
     console.error("Error fetching place autocomplete:", error);
     return [];
@@ -164,6 +228,7 @@ export const getPlaceDetails = async (
       "displayName",
       "formattedAddress",
       "location",
+<<<<<<< HEAD
       "rating",
       "userRatingCount",
       "currentOpeningHours",
@@ -178,6 +243,8 @@ export const getPlaceDetails = async (
       "user_ratings_total",
       "opening_hours",
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
       "photos",
       "types",
     ].join(",");
@@ -187,10 +254,7 @@ export const getPlaceDetails = async (
       `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-        },
+        headers: getPlacesHeaders(),
       }
     );
 
@@ -223,6 +287,7 @@ export const getPlaceDetails = async (
         types: data.types,
       };
     } else {
+<<<<<<< HEAD
       console.error("Place Details error:", data);
 =======
     const url = `${PLACE_DETAILS_URL}?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
@@ -235,6 +300,9 @@ export const getPlaceDetails = async (
     } else {
       console.error("Place Details error:", data.status, data.error_message);
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+      logPlacesError("Place Details error", data);
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
       return null;
     }
   } catch (error) {

@@ -2,7 +2,11 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+=======
+import { useCallback, useMemo, useRef, useState } from "react";
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
 import { View } from "react-native";
 import MapView, { Polygon, Marker, LatLng, Polyline } from "react-native-maps";
 =======
@@ -25,6 +29,7 @@ import {
   getRoute
 } from "~/utils/api-hooks";
 import useMapIcons from "~/utils/useMapIcons";
+import buildingsData from "../../assets/geojson/buildings_simple.json";
 
 <<<<<<< HEAD
 import { SearchBar } from "~/components/SearchBar";
@@ -32,6 +37,7 @@ import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
+<<<<<<< HEAD
 } from "~/components/LocationDetailsBottomSheet";
 import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 import decode from "~/utils/decode_polyline";
@@ -111,6 +117,10 @@ function clusterPOIs(pois: any[]): any[] {
   return clusters;
 }
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+} from "../../components/LocationDetailsBottomSheet";
+import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
 
 export default function Home() {
   // hooks
@@ -118,6 +128,7 @@ export default function Home() {
   const mapIcons = useMapIcons();
 <<<<<<< HEAD
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const mapRef = useRef<MapView>(null);
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
@@ -138,7 +149,7 @@ export default function Home() {
   const [Route, setRoute] = useState<LatLng[] | null>(null);
 
   // Minimum zoom level to show POIs (higher = more zoomed in)
-  const MIN_ZOOM_FOR_POIS = 16;
+  const MIN_ZOOM_FOR_POIS = 15;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 =======
@@ -156,20 +167,56 @@ export default function Home() {
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
   // getRoute([[-97.733785,30.282635],[-97.733731,30.285145]], [[[-97.734269,30.284691],[-97.733454,30.284654],[-97.733669,30.283366],[-97.734708,30.283932],[-97.734269,30.284691]]]);
 
-  const testGooglePlaces = async () => {
-    console.log("Testing Google Places...");
-    const results = await searchPlaces("Texas Global");
-    console.log("Search results:", results);
-    
-    if (results.length > 0) {
-      const details = await getPlaceDetails(results[0].place_id);
-      console.log("Place details:", details);
+  const findCampusBuildingFeature = (
+    latitude: number,
+    longitude: number,
+    placeName?: string,
+    placeAddress?: string,
+  ) => {
+    const point = turf.point([longitude, latitude]);
+    const buildingsAny = buildingsData as any;
+    const features: any[] = buildingsAny.features ?? [];
+
+    const polygonMatch = features.find((feature) =>
+      feature?.geometry && turf.booleanPointInPolygon(point, feature),
+    );
+
+    if (polygonMatch) {
+      return polygonMatch;
     }
+
+    // Only trust strict polygon containment.
+    // If we cannot confidently match, fall back to the generic location sheet.
+    return null;
   };
 
-  useEffect(() => {
-    testGooglePlaces();
-  }, []);
+  const buildPoiFromCampusBuilding = (
+    placeDetails: any,
+    buildingFeature: any,
+  ) => {
+    const buildingAbbr = buildingFeature?.properties?.Building_Abbr;
+    const buildingName = buildingFeature?.properties?.Description;
+
+    if (!buildingAbbr || !buildingName) {
+      return null;
+    }
+
+    return {
+      id: `search-${placeDetails.place_id ?? buildingAbbr}`,
+      poi_type: "accessible_entrance",
+      location_geojson: {
+        type: "Point",
+        coordinates: [
+          placeDetails.geometry.location.lng,
+          placeDetails.geometry.location.lat,
+        ],
+      },
+      metadata: {
+        name: buildingName,
+        bld_name: `(${buildingAbbr}) ${buildingName}`,
+      },
+    };
+  };
 
 
   const clusteredPOIs = useMemo(() => clusterPOIs(POIs || []), [POIs]);
@@ -237,10 +284,17 @@ export default function Home() {
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
 <<<<<<< HEAD
+<<<<<<< HEAD
     poiBottomSheetRef.current?.present({ poi });
 =======
     poiBottomSheetRef.current?.present({ poi, clusteredPOIs: poi.clusteredPOIs ?? [poi] });
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+    const currentId = poi.placeId || poi.id; 
+    poiBottomSheetRef.current?.present({ poi });
+    if (currentId && currentId[0] === 'C') return; 
+    bottomSheetRef.current?.present({ id: currentId });
+>>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
   };
 
   const polygons = useMemo(
@@ -400,19 +454,59 @@ export default function Home() {
     // Close search
     setIsSearchActive(false);
     setSearchQuery("");
-    
+
+    // Resolve missing place_id for recent/manual locations so recenter still works.
+    let resolvedPlaceId = location.place_id;
+    if (!resolvedPlaceId) {
+      const primaryQuery = [location.name, location.address].filter(Boolean).join(" ");
+      const fallbackQuery = location.name;
+
+      const primaryResults = await searchPlaces(primaryQuery);
+      resolvedPlaceId = primaryResults[0]?.place_id;
+
+      if (!resolvedPlaceId && fallbackQuery) {
+        const fallbackResults = await searchPlaces(fallbackQuery);
+        resolvedPlaceId = fallbackResults[0]?.place_id;
+      }
+    }
+
     // Fetch full place details
-    if (location.place_id) {
-      const placeDetails = await getPlaceDetails(location.place_id);
+    if (resolvedPlaceId) {
+      const placeDetails = await getPlaceDetails(resolvedPlaceId);
       
       if (placeDetails) {
-        // TODO: Get user's current location to calculate distance
-        // For now, using a placeholder
-        //const distance = "2.4 Mi";
-        
-        // Open location details bottom sheet with real data
-        locationBottomSheetRef.current?.present(placeDetails);
+        const matchingBuilding = findCampusBuildingFeature(
+          placeDetails.geometry.location.lat,
+          placeDetails.geometry.location.lng,
+          placeDetails.name,
+          placeDetails.formatted_address,
+        );
+
+        mapRef.current?.animateToRegion(
+          {
+            latitude: placeDetails.geometry.location.lat,
+            longitude: placeDetails.geometry.location.lng,
+            latitudeDelta: 0.006,
+            longitudeDelta: 0.006,
+          },
+          450,
+        );
+
+        const buildingPoi = buildPoiFromCampusBuilding(
+          placeDetails,
+          matchingBuilding,
+        );
+
+        if (buildingPoi) {
+          locationBottomSheetRef.current?.dismiss();
+          poiBottomSheetRef.current?.present({ poi: buildingPoi });
+        } else {
+          // Open the generic sheet when we cannot map the place to an official building.
+          locationBottomSheetRef.current?.present(placeDetails);
+        }
       }
+    } else {
+      console.error("Could not resolve place_id for selected location", location);
     }
   };
 
@@ -478,9 +572,10 @@ export default function Home() {
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
       <MapView
+        ref={mapRef}
         style={{ flex: 1 }}
         onPress={handleMapPress}
-        region={{
+        initialRegion={{
           latitude: 30.282,
           longitude: -97.733,
           latitudeDelta: 0.01,

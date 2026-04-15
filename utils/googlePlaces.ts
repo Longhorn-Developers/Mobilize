@@ -70,6 +70,11 @@ export interface PlaceAutocompletePrediction {
   };
 }
 
+export interface PlaceOpeningHours {
+  open_now?: boolean;
+  weekday_text?: string[];
+}
+
 export interface PlaceDetails {
   place_id: string;
   name: string;
@@ -80,19 +85,45 @@ export interface PlaceDetails {
       lng: number;
     };
   };
-  rating?: number;
-  user_ratings_total?: number;
-  opening_hours?: {
-    weekday_text: string[];
-    open_now: boolean;
-  };
   photos?: Array<{
     photo_reference: string;
     height: number;
     width: number;
   }>;
   types?: string[];
+  rating?: number;
+  user_ratings_total?: number;
+  opening_hours?: PlaceOpeningHours;
 }
+
+/**
+ * Format opening hours for display.
+ * Returns today's hours if available, otherwise the first line, or a fallback string.
+ */
+export const formatOpeningHours = (hours?: PlaceOpeningHours): string => {
+  if (!hours) return "Hours not available";
+
+  if (hours.open_now !== undefined) {
+    const status = hours.open_now ? "Open now" : "Closed";
+    if (hours.weekday_text && hours.weekday_text.length > 0) {
+      const today = new Date().getDay(); // 0 = Sunday
+      // weekday_text is Mon–Sun (0-indexed Monday = 0)
+      const dayIndex = today === 0 ? 6 : today - 1;
+      const todayText = hours.weekday_text[dayIndex];
+      if (todayText) {
+        const timePart = todayText.split(": ").slice(1).join(": ");
+        return `${status} · ${timePart}`;
+      }
+    }
+    return status;
+  }
+
+  if (hours.weekday_text && hours.weekday_text.length > 0) {
+    return hours.weekday_text[0];
+  }
+
+  return "Hours not available";
+};
 
 /**
  * Search for places using Google Places Autocomplete (New API)
@@ -180,23 +211,21 @@ export const getPlaceDetails = async (
 
   try {
     // fieldMask is required for the new Places API v1
+    // Only Basic-tier fields to stay within the $200/month free credit
     const fieldMask = [
       "id",
       "displayName",
       "formattedAddress",
       "location",
-      "rating",
-      "userRatingCount",
-      "currentOpeningHours",
       "photos",
       "types",
     ].join(",");
 
     const response = await fetch(
-      `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
+      `${PLACES_API_BASE_URL}/places/${placeId}`,
       {
         method: "GET",
-        headers: getPlacesHeaders(),
+        headers: { ...getPlacesHeaders(), "X-Goog-FieldMask": fieldMask },
       }
     );
 
@@ -213,14 +242,6 @@ export const getPlaceDetails = async (
             lng: data.location?.longitude || 0,
           },
         },
-        rating: data.rating,
-        user_ratings_total: data.userRatingCount,
-        opening_hours: data.currentOpeningHours
-          ? {
-              weekday_text: data.currentOpeningHours.weekdayDescriptions || [],
-              open_now: data.currentOpeningHours.openNow || false,
-            }
-          : undefined,
         photos: data.photos?.map((photo: any) => ({
           photo_reference: photo.name,
           height: photo.heightPx,
@@ -236,31 +257,6 @@ export const getPlaceDetails = async (
     console.error("Error fetching place details:", error);
     return null;
   }
-};
-
-/**
- * Format opening hours into a readable string
- * Returns something like "7 AM to 10 PM" or "Closed"
- */
-export const formatOpeningHours = (
-  openingHours?: PlaceDetails["opening_hours"]
-): string => {
-  if (!openingHours || !openingHours.weekday_text) {
-    return "Hours not available";
-  }
-
-  // Get today's hours (0 = Sunday, 1 = Monday, etc.)
-  const today = new Date().getDay();
-  const todayHours = openingHours.weekday_text[today === 0 ? 6 : today - 1];
-
-  if (!todayHours) {
-    return "Hours not available";
-  }
-
-  // Extract just the time part (remove day name)
-  // e.g., "Monday: 7:00 AM – 10:00 PM" -> "7:00 AM – 10:00 PM"
-  const timePart = todayHours.split(": ")[1];
-  return timePart || "Hours not available";
 };
 
 /**

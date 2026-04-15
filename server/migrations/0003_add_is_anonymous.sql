@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0;

@@ -93,6 +93,8 @@ export const profiles = sqliteTable("profiles", {
 
     mobility_preference: text("mobility_preference"), // "walking" | "wheelchair" | "cane" | "other"
 
+    is_anonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(false),
+
     created_at: integer("created_at", { mode: "timestamp" })
         .notNull()
         .default(sql`(unixepoch())`),

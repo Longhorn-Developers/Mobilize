@@ -12,6 +12,7 @@ type ButtonProps = {
   children?: ReactNode;
   variant?: "primary" | "secondary" | "disabled" | "ghost" | "gray";
   icon?: ReactNode;
+  isDark?: boolean;
 } & TouchableOpacityProps;
 
 export const Button = forwardRef<View, ButtonProps>(

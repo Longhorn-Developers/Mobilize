@@ -11,17 +11,18 @@ import {
   ArrowUpIcon,
   PaperPlaneRightIcon,
 } from "phosphor-react-native";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
+import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import { z } from "zod";
 
 import colors from "~/types/colors";
+import type { AvoidanceArea } from "~/types/database";
 import {
-  useAvoidanceArea,
   useAvoidanceAreaReports,
   useInsertAvoidanceAreaReport,
 } from "~/utils/api-hooks";
+import { useAuth } from "~/utils/useAuth";
 
 import { ActionButtonGroup } from "./ActionButtonGroup";
 
@@ -43,12 +44,17 @@ const commentSchema = z.object({
 
 type CommentFormData = z.infer<typeof commentSchema>;
 
-const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
+const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
+  const areaId = String(area.id);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
-  const [polygon, setPolygon] = useState<Polygon | null>(null);
+  const { user } = useAuth();
+  const canComment = user?.role === "student";
 
-  const { data: avoidanceArea, isLoading } = useAvoidanceArea(areaId);
+  const polygon: Polygon | null = area.boundary_geojson
+    ? { type: "Polygon", coordinates: [area.boundary_geojson.coordinates[0]] }
+    : null;
+
   const { data: reports } = useAvoidanceAreaReports(areaId);
   const { mutateAsync: insertAvoidanceAreaReport } =
     useInsertAvoidanceAreaReport();
@@ -65,19 +71,8 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     },
   });
 
-  // Effect to convert boundary_geojson to Polygon
-  useEffect(() => {
-    if (avoidanceArea?.boundary_geojson) {
-      setPolygon({
-        type: "Polygon",
-        coordinates: [avoidanceArea.boundary_geojson.coordinates[0]],
-      });
-    }
-  }, [avoidanceArea?.boundary_geojson]);
-
   const handleAddComment = (data: CommentFormData) => {
     insertAvoidanceAreaReport({
-      user_id: 1, // TODO: Replace with actual user ID
       avoidance_area_id: areaId,
       title: "User Comment",
       description: data.content,
@@ -106,22 +101,6 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
     console.log(`Status updated: ${stillPresent}`);
   };
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!avoidanceArea) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text>Area not found.</Text>
-      </View>
-    );
-  }
-
   return (
     <BottomSheetScrollView
       className="px-8 py-4"
@@ -136,7 +115,7 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
 
         {/* Heading and subheading */}
         <View className="flex-1">
-          <Text className="text-3xl font-bold">{avoidanceArea.name}</Text>
+          <Text className="text-3xl font-bold">{area.name}</Text>
           <Text className="text-lg font-medium text-gray-600">
             Temporary Blockage
           </Text>
@@ -166,27 +145,15 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
           <View className="flex-row items-center gap-2">
             {/* Profile Pic */}
             <View className="h-10 w-10 items-center justify-center rounded-full bg-gray-300">
-              {avoidanceArea.profile_avatar_url ? (
-                <Image
-                  source={{ uri: avoidanceArea.profile_avatar_url }}
-                  className="h-full w-full rounded-full"
-                />
-              ) : (
-                <Text className="text-center text-gray-500">
-                  {avoidanceArea.profile_display_name?.[0].toLocaleUpperCase() ||
-                    "A"}
-                </Text>
-              )}
+              <Text className="text-center text-gray-500">A</Text>
             </View>
 
             {/* Author Username */}
-            <Text className="text-lg text-gray-600">
-              @{avoidanceArea.profile_display_name || "anonymous"}
-            </Text>
+            <Text className="text-lg text-gray-600">anonymous</Text>
 
             {/* Created At */}
             <Text className="text-lg text-gray-500">
-              {formatTimeAgo(avoidanceArea.created_at)}
+              {formatTimeAgo(area.created_at)}
             </Text>
           </View>
 
@@ -198,9 +165,9 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
         </View>
 
         {/* Description */}
-        {avoidanceArea.description ? (
+        {area.description ? (
           <Text className="text-md text-gray-800">
-            {avoidanceArea.description}
+            {area.description}
           </Text>
         ) : (
           <Text className="text-md italic text-gray-500">
@@ -274,42 +241,48 @@ const AvoidanceAreaDetails = ({ areaId }: { areaId: string }) => {
               </View>
             ))}
 
-            {/* Add Comment */}
-            <View className="gap-2">
-              <View className="flex-row items-center gap-2 rounded-3xl bg-gray-100 px-4 py-2">
-                <View className="h-8 w-8 rounded-full bg-gray-300" />
-                <Controller
-                  control={control}
-                  name="content"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      className="flex-1 pb-2 text-lg"
-                      placeholder="Add comment"
-                      value={value}
-                      numberOfLines={4}
-                      onChangeText={onChange}
-                      multiline
-                    />
-                  )}
-                />
-                <TouchableOpacity
-                  onPress={handleSubmit(handleAddComment)}
-                  disabled={!isValid}
-                  className={`ml-2 ${isValid ? "opacity-100" : "opacity-50"}`}
-                >
-                  <PaperPlaneRightIcon
-                    size={24}
-                    weight="fill"
-                    color={isValid ? colors.ut.burntorange : colors.ut.black}
+            {/* Add Comment — only available to students */}
+            {canComment ? (
+              <View className="gap-2">
+                <View className="flex-row items-center gap-2 rounded-3xl bg-gray-100 px-4 py-2">
+                  <View className="h-8 w-8 rounded-full bg-gray-300" />
+                  <Controller
+                    control={control}
+                    name="content"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        className="flex-1 pb-2 text-lg"
+                        placeholder="Add comment"
+                        value={value}
+                        numberOfLines={4}
+                        onChangeText={onChange}
+                        multiline
+                      />
+                    )}
                   />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSubmit(handleAddComment)}
+                    disabled={!isValid}
+                    className={`ml-2 ${isValid ? "opacity-100" : "opacity-50"}`}
+                  >
+                    <PaperPlaneRightIcon
+                      size={24}
+                      weight="fill"
+                      color={isValid ? colors.ut.burntorange : colors.ut.black}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {errors.content && (
+                  <Text className="px-4 text-sm text-red-500">
+                    {errors.content.message}
+                  </Text>
+                )}
               </View>
-              {errors.content && (
-                <Text className="px-4 text-sm text-red-500">
-                  {errors.content.message}
-                </Text>
-              )}
-            </View>
+            ) : (
+              <Text className="px-4 py-2 text-sm text-gray-400 italic">
+                Sign in with a UT EID to leave a comment.
+              </Text>
+            )}
           </View>
         )}
       </View>

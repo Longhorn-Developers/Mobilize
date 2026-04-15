@@ -8,6 +8,13 @@
       "when": 1775380526379,
       "tag": "0000_silent_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1775944072304,
+      "tag": "0003_unusual_garia",
+      "breakpoints": true
     }
   ]
 }

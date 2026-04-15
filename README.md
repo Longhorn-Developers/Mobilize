@@ -26,17 +26,36 @@ An Expo React Native mobile application that helps disabled students have more a
 
 4. **Setup environment variables**
 
-   .env.local
+   Create a `.env` file at the repo root:
 
    ```bash
    EXPO_PUBLIC_API_URL=http://localhost:54321
+   EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoiLi4uIn0...   # Mapbox public token (starts with pk.)
+   EXPO_PUBLIC_GOOGLE_PLACES_API_KEY=AIza...                # Google Places API (New) key
+   EXPO_PUBLIC_OPENROUTE_KEY=...                            # OpenRouteService key (wheelchair routing)
    ```
 
-   server/.env (you can find these in cloudflare dashboard)
+   server/.env (you can find these in the Cloudflare dashboard)
 
    ```bash
    CLOUDFLARE_ACCOUNT_ID=
    CLOUDFLARE_DATABASE_ID=
+   ```
+
+5. **Mapbox native setup (first time or after adding @rnmapbox/maps)**
+
+   Mapbox requires a **secret download token** (starts with `sk.`) during the native build step. This is different from the public access token above.
+
+   Add it to `app.config.js` in the `@rnmapbox/maps` plugin config:
+   ```js
+   ["@rnmapbox/maps", { RNMAPBOX_MAPS_DOWNLOAD_TOKEN: "sk.eyJ1IjoiLi4uIn0..." }]
+   ```
+   Or add it to `~/.netrc` as described in the [Mapbox installation docs](https://docs.mapbox.com/android/maps/guides/install/).
+
+   Then run a full native build (required after adding a native module):
+   ```bash
+   pnpm install --no-frozen-lockfile
+   npx expo run:android   # or run:ios
    ```
 
 5. **Google OAuth Configuration**
@@ -251,7 +270,7 @@ pnpm deploy
 
 ## 🔑 Configuration
 
-- **App Configuration**: `app.json`
+- **App Configuration**: `app.config.js`
 - **TypeScript**: `tsconfig.json`
 - **Tailwind**: `tailwind.config.js`
 - **ESLint**: `eslint.config.js`
@@ -266,7 +285,7 @@ pnpm deploy
 - **Framework**: React Native with Expo SDK 54
 - **Navigation**: Expo Router v6
 - **Styling**: NativeWind (TailwindCSS for React Native)
-- **Maps**: Expo Maps (Apple Maps for iOS, Google Maps for Android)
+- **Maps**: Mapbox (@rnmapbox/maps) — 3D terrain, dark/light styles, accessibility overlays
 - **State Management**: TanStack Query (React Query)
 - **UI Components**:
   - React Native Gesture Handler
@@ -286,10 +305,13 @@ pnpm deploy
 
 ## 📋 Prerequisites
 
-- Node.js (v18 or higher recommended)
-- pnpm (package manager)
-- Expo CLI
-- iOS Simulator (for iOS development) or Android Studio (for Android development)
+- Node.js v20+ (required by Expo SDK 54)
+- pnpm 10+ (`npm install -g pnpm`)
+- Expo CLI (`npm install -g expo-cli`)
+- Android Studio (for Android) or Xcode (for iOS)
+- A **Mapbox account** with a public token (`pk.`) and a secret download token (`sk.`)
+- A **Google Places API (New)** key with Places API enabled
+- An **OpenRouteService** key for wheelchair routing
 - Cloudflare account (for backend deployment)
 
 ## 🤝 Contributing

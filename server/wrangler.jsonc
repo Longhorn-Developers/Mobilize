@@ -40,8 +40,8 @@
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	"vars": { 
-		"BETTER_AUTH_URL": "https://cf1vtp8m-54321.usw3.devtunnels.ms"
+	"vars": {
+		"BETTER_AUTH_URL": "https://wf64c11q-54321.use.devtunnels.ms"
 	}
 	/**
 	 * Note: Use secrets to store sensitive data.

@@ -27,13 +27,13 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.astrol.mobilizeut",
       "config": {
-        "googleMapsApiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
+        "googleMapsApiKey": "AIzaSyAYF2pf7B72ob4rKpn53YD5EsUZbIZJ-mU"
       }
     },
     "android": {
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyA63WxnoV6KEiyIrLuF2YeXN1MK9982vSU"
+          "apiKey": "AIzaSyAYF2pf7B72ob4rKpn53YD5EsUZbIZJ-mU"
         }
       },
       "adaptiveIcon": {

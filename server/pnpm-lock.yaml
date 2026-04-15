@@ -4109,13 +4109,9 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
-<<<<<<< HEAD
-  acorn-jsx@5.3.2(acorn@8.16.0):
-=======
   '@xmldom/xmldom@0.9.9': {}
 
-  acorn-jsx@5.3.2(acorn@8.15.0):
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
+  acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
       acorn: 8.16.0
 

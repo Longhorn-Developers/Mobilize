@@ -1,21 +1,12 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as turf from "@turf/turf";
 import { Stack } from "expo-router";
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-=======
-import { useCallback, useMemo, useRef, useState } from "react";
->>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
-import { View } from "react-native";
-import MapView, { Polygon, Marker, LatLng, Polyline } from "react-native-maps";
-=======
 import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Image } from "react-native";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+import MapView, { Polygon, Marker, LatLng, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import { Button } from "~/components/Button";
@@ -35,23 +26,11 @@ import {
   useInsertAvoidanceArea,
   getRoute
 } from "~/utils/api-hooks";
-import { PlaceDetails } from "~/utils/googlePlaces";
-// import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import decode from "~/utils/decode_polyline";
+import { PlaceDetails, searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 import useMapIcons from "~/utils/useMapIcons";
 import buildingsData from "../../assets/geojson/buildings_simple.json";
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { SearchBar } from "~/components/SearchBar";
-import { SearchDropdown } from "~/components/SearchDropdown";
-import {
-  LocationDetailsBottomSheet,
-  type LocationDetailsBottomSheetRef,
-<<<<<<< HEAD
-} from "~/components/LocationDetailsBottomSheet";
-import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
-import decode from "~/utils/decode_polyline";
-=======
 const BASE_ICON_SIZE = 16;
 const BASE_ZOOM = 16;
 const MIN_ZOOM_FOR_POIS = 14;
@@ -126,19 +105,11 @@ function clusterPOIs(pois: any[]): any[] {
 
   return clusters;
 }
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
-} from "../../components/LocationDetailsBottomSheet";
-import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
->>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
 
-=======
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
-<<<<<<< HEAD
   const bottomTabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapView>(null);
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
@@ -146,11 +117,6 @@ export default function Home() {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const reviewSheetRef = useRef<BottomSheetModal>(null);
   const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
-=======
-  const bottomTabBarHeight = 50;
-  const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
-  const poiBottomSheetRef = useRef<BottomSheetModal>(null);
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
   // states
   const [isReportMode, setIsReportMode] = useState(false);
@@ -158,20 +124,14 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(15);
-<<<<<<< HEAD
   const [Route, setRoute] = useState<LatLng[] | null>(null);
-
-  // Minimum zoom level to show POIs (higher = more zoomed in)
-  const MIN_ZOOM_FOR_POIS = 15;
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-=======
 
   const markerSize = useMemo(() => {
     const scale = Math.pow(2, zoomLevel - BASE_ZOOM);
     return Math.min(Math.max(BASE_ICON_SIZE * scale, ICON_SCALE), MAX_ICON_SIZE);
   }, [zoomLevel]);
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
   // Reviews
   const [reviewKey, setReviewKey] = useState(0);
@@ -187,7 +147,23 @@ export default function Home() {
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
   // getRoute([[-97.733785,30.282635],[-97.733731,30.285145]], [[[-97.734269,30.284691],[-97.733454,30.284654],[-97.733669,30.283366],[-97.734708,30.283932],[-97.734269,30.284691]]]);
 
-<<<<<<< HEAD
+  // COMMENT THIS OUT WHEN TESTING!!!!! DONT CALL IF NOT NEEDED
+
+  // const testGooglePlaces = async () => {
+  //   console.log("Testing Google Places...");
+  //   const results = await searchPlaces("Texas Global");
+  //   console.log("Search results:", results);
+  //
+  //   if (results.length > 0) {
+  //     const details = await getPlaceDetails(results[0].place_id);
+  //     console.log("Place details:", details);
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   testGooglePlaces();
+  // }, []);
+
   const findCampusBuildingFeature = (
     latitude: number,
     longitude: number,
@@ -239,27 +215,7 @@ export default function Home() {
     };
   };
 
-
   const clusteredPOIs = useMemo(() => clusterPOIs(POIs || []), [POIs]);
-=======
-  // COMMENT THIS OUT WHEN TESTING!!!!! DONT CALL IF NOT NEEDED
-
-  // const testGooglePlaces = async () => {
-  //   console.log("Testing Google Places...");
-  //   const results = await searchPlaces("Texas Global");
-  //   console.log("Search results:", results);
-    
-  //   if (results.length > 0) {
-  //     const details = await getPlaceDetails(results[0].place_id);
-  //     console.log("Place details:", details);
-  //   }
-  // };
-
-  // useEffect(() => {
-    
-  //   testGooglePlaces();
-  // }, []);
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -323,23 +279,7 @@ export default function Home() {
   // Handle POI click
   const handlePOIPress = (poi: any) => {
     if (isReportMode) return;
-<<<<<<< HEAD
-<<<<<<< HEAD
     poiBottomSheetRef.current?.present({ poi });
-<<<<<<< HEAD
-=======
-    poiBottomSheetRef.current?.present({ poi, clusteredPOIs: poi.clusteredPOIs ?? [poi] });
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
-    const currentId = poi.placeId || poi.id; 
-    poiBottomSheetRef.current?.present({ poi });
-    if (currentId && currentId[0] === 'C') return; 
-    bottomSheetRef.current?.present({ id: currentId });
->>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
-=======
-    if (poi[0] === 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: poi });
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   };
 
   const polygons = useMemo(
@@ -388,31 +328,6 @@ export default function Home() {
 
   const markers = useMemo(
     () => {
-<<<<<<< HEAD
-      if (POIs && !isReportMode) {
-        // console.log("Pois");
-        // console.log(POIs);
-      }
-      
-      const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
-        ? (POIs || []).map((poi) => {
-            const marker = {
-              id: String(poi.id),
-              coordinate: {
-                longitude: poi.location_geojson.coordinates[0],
-                latitude: poi.location_geojson.coordinates[1],
-              } satisfies LatLng,
-              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-            };
-            // 📝 ADDED CONSOLE LOGGING HERE
-            // console.log(`POI Marker for ID ${marker.id}:`, marker);
-            return marker;
-          })
-        : [];
-
-      return [
-        // User selected aaPoints to report
-=======
       const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
         ? clusteredPOIs.map((poi) => ({
             id: String(poi.id),
@@ -427,16 +342,13 @@ export default function Home() {
         : [];
 
       return [
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+        // User selected aaPoints to report
         ...aaPointsReport.map((point, index) => ({
           id: `report-point-${index}`,
           coordinate: point,
           icon: mapIcons.point || undefined,
-<<<<<<< HEAD
-=======
           isPOI: false,
           poiData: null,
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
         })),
         // Clicked point
         ...(clickedPoint
@@ -445,11 +357,8 @@ export default function Home() {
                 id: "clicked-point",
                 coordinate: clickedPoint,
                 icon: mapIcons.crosshair || undefined,
-<<<<<<< HEAD
-=======
                 isPOI: false,
                 poiData: null,
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
               },
             ]
           : []),
@@ -457,17 +366,13 @@ export default function Home() {
         ...poiMarkers,
       ];
     },
-<<<<<<< HEAD
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
-=======
     [clusteredPOIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
   );
 
 
   const getDirections = (target: any[]) => {
     const UT_TOWER = [-97.73942, 30.28614];
-    let res = getRoute([UT_TOWER, target.slice(0, 2)], 
+    let res = getRoute([UT_TOWER, target.slice(0, 2)],
       polygons.map((poly) => poly.coordinates.map((coord: any) => [coord.longitude, coord.latitude]))
     )
 
@@ -495,7 +400,7 @@ export default function Home() {
     place_id?: string;
   }) => {
     console.log("Selected location:", location);
-    
+
     // Close search
     setIsSearchActive(false);
     setSearchQuery("");
@@ -516,17 +421,9 @@ export default function Home() {
     }
 
     // Fetch full place details
-<<<<<<< HEAD
     if (resolvedPlaceId) {
       const placeDetails = await getPlaceDetails(resolvedPlaceId);
-=======
-    if (location.place_id) {
-      // Real Data
-      // const placeDetails = await getPlaceDetails(location.place_id);
-      // Test Data
-      const placeDetails: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
-      
+
       if (placeDetails) {
         const matchingBuilding = findCampusBuildingFeature(
           placeDetails.geometry.location.lat,
@@ -596,7 +493,7 @@ export default function Home() {
 
     {/* Search Bar - hide in report mode */}
     {!isReportMode && (
-      <SearchBar 
+      <SearchBar
         onPress={() => setIsSearchActive(true)}
         onChangeText={handleSearchChange}
         onClear={handleClearSearch}
@@ -621,21 +518,8 @@ export default function Home() {
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
-      
+
       {/* POI Bottom Sheet */}
-<<<<<<< HEAD
-<<<<<<< HEAD
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} getDirections={getDirections} />
-
-      {/* Routing Mode Overlay */}
-      {/* </> */}
-
-    {/* Location Details Bottom Sheet */}
-    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
-=======
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
       <POIBottomSheet
         ref={poiBottomSheetRef}
         allPOIs={POIs ?? emptyPOIs}
@@ -670,7 +554,6 @@ export default function Home() {
         onExit={handleExitReviewMode}
       />
     </BottomSheetModal>
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
       <MapView
         ref={mapRef}
@@ -723,14 +606,6 @@ export default function Home() {
             coordinate={marker.coordinate}
             anchor={{ x: 0.5, y: 0.5 }}
             onPress={() => {
-<<<<<<< HEAD
-              const poi = POIs?.find((p) => String(p.id) === marker.id);
-              if (poi) {
-                handlePOIPress(poi);
-              }
-            }}
-          />
-=======
               if (marker.poiData) handlePOIPress(marker.poiData);
             }}
           >
@@ -745,7 +620,6 @@ export default function Home() {
               />
             )}
           </Marker>
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
         ))}
       </MapView>
 

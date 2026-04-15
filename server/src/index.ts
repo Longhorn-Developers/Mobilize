@@ -4,11 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { eq, getTableColumns, sql, and, isNull } from "drizzle-orm";
 import * as schema from "./db/schema";
 import { createAuth } from "./auth";
-<<<<<<< HEAD
 import { syncPOIs } from "./scheduled/poi-sync";
-=======
-import { syncPOIs } from './scheduled/poi-sync';
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
 type Bindings = {
   mobilize_db: D1Database;
@@ -364,17 +360,6 @@ app.get("/api/me", async (c) => {
   return c.json({ user: session.user });
 });
 
-<<<<<<< HEAD
-export default {
-    fetch: app.fetch,
-    // Scheduled handler for cron triggers
-    async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-        console.log(`Cron trigger fired at ${new Date(event.scheduledTime).toISOString()}`);
-
-        // Run the POI sync
-        ctx.waitUntil(syncPOIs(env));
-    },
-=======
 // GET current active profile
 app.get('/profiles/me', async (c) => {
   const auth = c.get("auth");
@@ -620,5 +605,4 @@ export default {
 		// Run the POI sync
 		ctx.waitUntil(syncPOIs(env));
 	},
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 };

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Polygon } from "geojson";
 
 import {
@@ -6,6 +7,8 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
+  ReviewEntryRaw,
+  ReviewEntry,
 } from "~/types/database";
 
 class ApiClient {
@@ -19,6 +22,7 @@ class ApiClient {
     endpoint: string,
     options?: RequestInit,
   ): Promise<T> {
+    const token = await AsyncStorage.getItem("auth_session_token");
     const url = `${this.baseUrl}${endpoint}`;
   
     try {
@@ -26,6 +30,7 @@ class ApiClient {
         ...options,
         headers: {
           "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
           ...options?.headers,
         },
       });
@@ -101,6 +106,24 @@ class ApiClient {
   // Get profile by ID
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);
+  }
+
+  // Get current active profile
+  async getMyProfile() {
+    const profile = await this.request<Profile>("/profiles/me");
+    return profile;
+  }
+
+  // Get reviews list by POI ID
+  async getReviews(poi_id: number) {
+    const reviews = await this.request<ReviewEntryRaw[]>(
+      `/reviews?poi_id=${poi_id}`,
+    );
+
+    return reviews.map((review) => ({
+      ...review,
+      features: review.features ? JSON.parse(review.features) : [],
+    })) as ReviewEntry[];
   }
 
   // Get all POIs
@@ -272,6 +295,62 @@ class ApiClient {
         body: JSON.stringify(data),
       },
     );
+  }
+
+  // Create a new review
+  async insertReview(data: {
+    user_id: number;
+    poi_id: number;
+    rating: number;
+    features?: string;
+    content?: string;
+  }) {
+    return this.request<any>("/reviews", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update an existing review
+  async updateReview(
+    id: number,
+    data: {
+      rating: number;
+      features?: string;
+      content?: string;
+    },
+  ) {
+    return this.request<any>(`/reviews/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Soft delete an existing review
+  async deleteReview(id: number) {
+    return this.request<any>(`/reviews/${id}/delete`, {
+      method: "PUT",
+    });
+  }
+
+  // Upsert a vote on a review
+  async upsertVote(
+    data: {
+      review_id: number;
+      vote: 1 | -1;
+    },
+  ) {
+    return this.request<any>("/votes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete a vote from a review
+  async deleteVote(review_id: number) {
+    return this.request<any>(`/votes/${review_id}`, {
+      method: "DELETE",
+    });
   }
 }
 

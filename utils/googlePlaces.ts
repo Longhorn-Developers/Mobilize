@@ -1,4 +1,5 @@
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+<<<<<<< HEAD
 const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
 
 // UT Austin coordinates for biasing search results
@@ -9,6 +10,19 @@ const UT_AUSTIN_LOCATION = {
 const SEARCH_RADIUS = 2000; // 2km radius around UT campus
 
 // Types for Google Places API (New) responses
+=======
+const PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+const PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
+
+// UT Austin coordinates for biasing search results
+const UT_AUSTIN_LOCATION = {
+  lat: 30.2849,
+  lng: -97.7341,
+};
+const SEARCH_RADIUS = 2000; // 2km radius around UT campus
+
+// Types for Google Places API responses
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 export interface PlaceAutocompletePrediction {
   place_id: string;
   description: string;
@@ -43,7 +57,11 @@ export interface PlaceDetails {
 }
 
 /**
+<<<<<<< HEAD
  * Search for places using Google Places Autocomplete (New API)
+=======
+ * Search for places using Google Places Autocomplete
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
  * Biased towards UT Austin campus area
  */
 export const searchPlaces = async (
@@ -59,6 +77,7 @@ export const searchPlaces = async (
   }
 
   try {
+<<<<<<< HEAD
     const response = await fetch(
       `${PLACES_API_BASE_URL}/places:autocomplete`,
       {
@@ -97,6 +116,19 @@ export const searchPlaces = async (
       }));
     } else {
       console.error("Places Autocomplete error:", data);
+=======
+    const url = `${PLACES_AUTOCOMPLETE_URL}?input=${encodeURIComponent(query)}&location=${UT_AUSTIN_LOCATION.lat},${UT_AUSTIN_LOCATION.lng}&radius=${SEARCH_RADIUS}&key=${GOOGLE_PLACES_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === "OK") {
+      return data.predictions || [];
+    } else if (data.status === "ZERO_RESULTS") {
+      return [];
+    } else {
+      console.error("Places Autocomplete error:", data.status, data.error_message);
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
       return [];
     }
   } catch (error) {
@@ -106,7 +138,11 @@ export const searchPlaces = async (
 };
 
 /**
+<<<<<<< HEAD
  * Get detailed information about a specific place using the new API
+=======
+ * Get detailed information about a specific place
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
  */
 export const getPlaceDetails = async (
   placeId: string
@@ -121,6 +157,7 @@ export const getPlaceDetails = async (
   }
 
   try {
+<<<<<<< HEAD
     // fieldMask is required for the new Places API v1
     const fieldMask = [
       "id",
@@ -130,10 +167,22 @@ export const getPlaceDetails = async (
       "rating",
       "userRatingCount",
       "currentOpeningHours",
+=======
+    // Request specific fields to minimize API costs
+    const fields = [
+      "place_id",
+      "name",
+      "formatted_address",
+      "geometry",
+      "rating",
+      "user_ratings_total",
+      "opening_hours",
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
       "photos",
       "types",
     ].join(",");
 
+<<<<<<< HEAD
     const response = await fetch(
       `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
       {
@@ -175,6 +224,17 @@ export const getPlaceDetails = async (
       };
     } else {
       console.error("Place Details error:", data);
+=======
+    const url = `${PLACE_DETAILS_URL}?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === "OK") {
+      return data.result;
+    } else {
+      console.error("Place Details error:", data.status, data.error_message);
+>>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
       return null;
     }
   } catch (error) {

@@ -18,9 +18,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
-import POIBottomSheet from "~/components/POIBottomSheet";
 import { Button } from "~/components/Button";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/components/LocationDetailsBottomSheet";
+import POIBottomSheet, { POIReviewData } from "~/components/POIBottomSheet";
 import ReportModal from "~/components/ReportModal";
+import ReviewModal from "~/components/ReviewModal";
+import { SearchBar } from "~/components/SearchBar";
+import { SearchDropdown } from "~/components/SearchDropdown";
 import {
   usePOIs,
   useAvoidanceAreas,
@@ -28,9 +35,12 @@ import {
   useInsertAvoidanceArea,
   getRoute
 } from "~/utils/api-hooks";
+import { PlaceDetails } from "~/utils/googlePlaces";
+// import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
 import useMapIcons from "~/utils/useMapIcons";
 import buildingsData from "../../assets/geojson/buildings_simple.json";
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
@@ -122,6 +132,8 @@ function clusterPOIs(pois: any[]): any[] {
 import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
 >>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
 
+=======
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 export default function Home() {
   // hooks
   const insets = useSafeAreaInsets();
@@ -132,6 +144,7 @@ export default function Home() {
   const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
   const poiBottomSheetRef = useRef<BottomSheetModal>(null);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const reviewSheetRef = useRef<BottomSheetModal>(null);
   const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
 =======
   const bottomTabBarHeight = 50;
@@ -160,6 +173,13 @@ export default function Home() {
   }, [zoomLevel]);
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
+  // Reviews
+  const [reviewKey, setReviewKey] = useState(0);
+  const [poi, setPoi] = useState<POIReviewData>();
+  const handleSetPoi = useCallback((poi: POIReviewData | undefined) => {
+    setPoi(poi);
+  }, []);
+
   // query hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
@@ -167,6 +187,7 @@ export default function Home() {
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
   // getRoute([[-97.733785,30.282635],[-97.733731,30.285145]], [[[-97.734269,30.284691],[-97.733454,30.284654],[-97.733669,30.283366],[-97.734708,30.283932],[-97.734269,30.284691]]]);
 
+<<<<<<< HEAD
   const findCampusBuildingFeature = (
     latitude: number,
     longitude: number,
@@ -220,6 +241,25 @@ export default function Home() {
 
 
   const clusteredPOIs = useMemo(() => clusterPOIs(POIs || []), [POIs]);
+=======
+  // COMMENT THIS OUT WHEN TESTING!!!!! DONT CALL IF NOT NEEDED
+
+  // const testGooglePlaces = async () => {
+  //   console.log("Testing Google Places...");
+  //   const results = await searchPlaces("Texas Global");
+  //   console.log("Search results:", results);
+    
+  //   if (results.length > 0) {
+  //     const details = await getPlaceDetails(results[0].place_id);
+  //     console.log("Place details:", details);
+  //   }
+  // };
+
+  // useEffect(() => {
+    
+  //   testGooglePlaces();
+  // }, []);
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
   const getMapIcon = useCallback(
     (poiType: any, metadata: any) => {
@@ -286,6 +326,7 @@ export default function Home() {
 <<<<<<< HEAD
 <<<<<<< HEAD
     poiBottomSheetRef.current?.present({ poi });
+<<<<<<< HEAD
 =======
     poiBottomSheetRef.current?.present({ poi, clusteredPOIs: poi.clusteredPOIs ?? [poi] });
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
@@ -295,6 +336,10 @@ export default function Home() {
     if (currentId && currentId[0] === 'C') return; 
     bottomSheetRef.current?.present({ id: currentId });
 >>>>>>> 8ecc139cc4beab84488d0634d70f9ee1c55494ac
+=======
+    if (poi[0] === 'C') return; // construction areas
+    bottomSheetRef.current?.present({ id: poi });
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   };
 
   const polygons = useMemo(
@@ -471,8 +516,16 @@ export default function Home() {
     }
 
     // Fetch full place details
+<<<<<<< HEAD
     if (resolvedPlaceId) {
       const placeDetails = await getPlaceDetails(resolvedPlaceId);
+=======
+    if (location.place_id) {
+      // Real Data
+      // const placeDetails = await getPlaceDetails(location.place_id);
+      // Test Data
+      const placeDetails: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
       
       if (placeDetails) {
         const matchingBuilding = findCampusBuildingFeature(
@@ -526,6 +579,17 @@ export default function Home() {
     setSearchQuery("");
   };
 
+  const handleEnterReviewMode = useCallback(() => {
+    setReviewKey(prevKey => prevKey + 1);
+    reviewSheetRef.current?.present();
+  }, []);
+
+  const handleExitReviewMode = () => {
+    reviewSheetRef.current?.forceClose();
+  }
+
+  const emptyPOIs = useMemo(() => [], []);
+
   return (
   <>
     <Stack.Screen options={{ title: "Home", headerShown: false }} />
@@ -545,7 +609,7 @@ export default function Home() {
     )}
 
     {/* Search Dropdown - hide in report mode */}
-    {!isReportMode && (
+    {/* !isReportMode && (
       <SearchDropdown
         visible={isSearchActive}
         searchQuery={searchQuery}
@@ -553,12 +617,13 @@ export default function Home() {
         onDismiss={handleDismissSearch}
         topOffset={insets.top + 70}
       />
-    )}
+    ) */}
 
       {/* Avoidance Area Bottom Sheet */}
       <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
       
       {/* POI Bottom Sheet */}
+<<<<<<< HEAD
 <<<<<<< HEAD
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} getDirections={getDirections} />
 
@@ -570,6 +635,42 @@ export default function Home() {
 =======
       <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+      <POIBottomSheet
+        ref={poiBottomSheetRef}
+        allPOIs={POIs ?? emptyPOIs}
+        handleReviews={handleEnterReviewMode}
+        setPoi={handleSetPoi}
+      />
+
+    {/* Location Details Bottom Sheet */}
+    {/* <LocationDetailsBottomSheet ref={locationBottomSheetRef} /> */}
+
+    {/* Review Modal */}
+    <BottomSheetModal
+      ref={reviewSheetRef}
+      bottomInset={bottomTabBarHeight}
+      backgroundStyle={{ backgroundColor: "transparent" }}
+      enableDynamicSizing={false}
+      snapPoints={["100%"]}
+      enableContentPanningGesture={false}
+      handleComponent={null}
+      stackBehavior="push"
+      animationConfigs={{ duration: 0.1 }}
+      animateOnMount={false}
+    >
+      <ReviewModal
+        key={reviewKey}
+        className=""
+        poi_id={poi ? poi.id : 0}
+        entrances={poi ? poi.entrances : []}
+        entranceName={poi ? poi.entrance : "No Entrance Name Found"} // based on bottom sheet selection
+        building={poi && poi.building}
+        buildingName={poi ? poi.buildingName : "No Building Name Found"} // from bottom sheet/places api
+        onExit={handleExitReviewMode}
+      />
+    </BottomSheetModal>
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
       <MapView
         ref={mapRef}

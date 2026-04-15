@@ -1,9 +1,14 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 <<<<<<< HEAD
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+<<<<<<< HEAD
 import { booleanPointInPolygon } from "@turf/turf";
 import { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
+=======
+import { ForwardedRef, useCallback, useEffect, useRef, useState } from "react";
+import { Text, View, Pressable, Image, ScrollView, TouchableOpacity } from "react-native";
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
 =======
 import { ForwardedRef, useCallback, useEffect, useState } from "react";
@@ -15,63 +20,21 @@ import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
 import { searchPlaces, getPlaceDetails, formatOpeningHours } from "~/utils/googlePlaces";
+import React from "react";
+import { PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
+import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
 
 interface POIData {
   poi: any;
 }
 
-
-/* Helper functions to get direction based buliding names */ 
-const getCardinalLabel = (entrance: any, buildingFeature: any): string | null => {
-  if (!entrance.location_geojson?.coordinates || !buildingFeature?.geometry?.coordinates) return null;
-
-  const [eLng, eLat] = entrance.location_geojson.coordinates;
-  const coords: [number, number][] = buildingFeature.geometry.coordinates[0];
-  const centroidLng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
-  const centroidLat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
-
-  const dLat = eLat - centroidLat;
-  const dLng = eLng - centroidLng;
-
-  const angle = Math.atan2(dLng, dLat) * (180 / Math.PI);
-  const normalized = (angle + 360) % 360;
-
-  if (normalized >= 337.5 || normalized < 22.5) return "North Entrance";
-  if (normalized < 67.5) return "Northeast Entrance";
-  if (normalized < 112.5) return "East Entrance";
-  if (normalized < 157.5) return "Southeast Entrance";
-  if (normalized < 202.5) return "South Entrance";
-  if (normalized < 247.5) return "Southwest Entrance";
-  if (normalized < 292.5) return "West Entrance";
-  return "Northwest Entrance";
-};
-
-const getCardinalLabelFromNeighbors = (entrance: any, neighbors: any[]): string | null => {
-  if (!entrance.location_geojson?.coordinates || neighbors.length < 2) return null;
-
-  const [eLng, eLat] = entrance.location_geojson.coordinates;
-  const validNeighbors = neighbors.filter(p => p.location_geojson?.coordinates);
-  if (!validNeighbors.length) return null;
-
-  const centroidLng = validNeighbors.reduce((sum, p) => sum + p.location_geojson.coordinates[0], 0) / validNeighbors.length;
-  const centroidLat = validNeighbors.reduce((sum, p) => sum + p.location_geojson.coordinates[1], 0) / validNeighbors.length;
-
-  const dLat = eLat - centroidLat;
-  const dLng = eLng - centroidLng;
-  if (Math.abs(dLat) < 0.00001 && Math.abs(dLng) < 0.00001) return null;
-
-  const angle = Math.atan2(dLng, dLat) * (180 / Math.PI);
-  const normalized = (angle + 360) % 360;
-
-  if (normalized >= 337.5 || normalized < 22.5) return "North Entrance";
-  if (normalized < 67.5) return "Northeast Entrance";
-  if (normalized < 112.5) return "East Entrance";
-  if (normalized < 157.5) return "Southeast Entrance";
-  if (normalized < 202.5) return "South Entrance";
-  if (normalized < 247.5) return "Southwest Entrance";
-  if (normalized < 292.5) return "West Entrance";
-  return "Northwest Entrance";
-};
+export interface POIReviewData {
+  id: number;
+  building: any;
+  buildingName: string;
+  entrance: string;
+  entrances: any[];
+}
 
 const normalizeText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -104,14 +67,20 @@ interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
 <<<<<<< HEAD
+<<<<<<< HEAD
   getDirections: (target: any[]) => void;
 =======
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+  handleReviews: () => void;
+  setPoi: (poi: POIReviewData | undefined) => void;
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
+<<<<<<< HEAD
 <<<<<<< HEAD
   getDirections: (target: any[]) => void;
 }
@@ -122,10 +91,18 @@ const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
 
 const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+  handleReviews: () => void;
+  setPoi: (poi: POIReviewData | undefined) => void;
+}
+
+const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) => {
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
   const [entrances, setEntrances] = useState<any[]>([]);
+  const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
 
   const metadata = poi.metadata || {};
 
@@ -182,12 +159,24 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
       });
       setEntrances(matched);
       setSelectedEntrance(matched[0]?.id?.toString() ?? "");
+<<<<<<< HEAD
     } else if (allPOIs.length && buildingFeature) {
       const matchedByGeometry = allPOIs.filter(
         (p) => p.poi_type === "accessible_entrance" && isEntranceInsideBuilding(p, buildingFeature),
       );
       setEntrances(matchedByGeometry);
       setSelectedEntrance(matchedByGeometry[0]?.id?.toString() ?? "");
+=======
+
+      // Set default poi data as soon as entrances load
+      if (matched[0]) {
+        const defaultLabel =
+          getCardinalLabel(matched[0], buildingFeature) ??
+          getCardinalLabelFromNeighbors(matched[0], matched) ??
+          "Main Entrance";
+        setCurEntranceLabel(defaultLabel);
+      }
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
     } else {
       setEntrances([]);
     }
@@ -201,12 +190,14 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
           setHours("Hours not available"); 
           return;
         }
-        const predictions = await searchPlaces(searchQuery);
+        // const predictions = await searchPlaces(searchQuery);
+        const predictions: PlaceAutocompletePrediction[] = [{"description": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "structured_formatting": {"main_text": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "place_id": "ChIJdQqBe3e1RIYRYlcWXB0LfOs", "structured_formatting": {"main_text": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Global Auto Service, South 1st Street, Austin, Texas, USA", "place_id": "ChIJ_yNwDcK0RIYRILHOE9wmkXU", "structured_formatting": {"main_text": "Global Auto Service, South 1st Street, Austin, Texas, USA", "secondary_text": "South 1st Street, Austin, Texas, USA"}}, {"description": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "place_id": "ChIJwfBgVwC1RIYR0KeHkkuU39k", "structured_formatting": {"main_text": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "secondary_text": "Building, Speedway, Austin, Texas, USA"}}, {"description": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "place_id": "ChIJ_7wtSQC1RIYRNpEunpRENwg", "structured_formatting": {"main_text": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "secondary_text": "Speedway, Austin, Texas, USA"}}];
         if (!predictions.length) {
           setHours("Hours not available"); 
           return; 
         }
-        const details = await getPlaceDetails(predictions[0].place_id);
+        // const details = await getPlaceDetails(predictions[0].place_id);
+        const details: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
         if (!details?.opening_hours) {
           setHours("Hours not available");
           return;
@@ -299,14 +290,30 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 
         {/* Reviews */}
         {/* TODO: Include review logic here when implemented */}
-        <Pressable style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Pressable
+            style={{ marginBottom: 16 }}
+            onPress={() => {
+              setPoi({
+                id: Number(selectedEntrance),
+                building: buildingFeature,
+                buildingName: configBuildingName(metadata.bld_name),
+                entrance: curEntranceLabel,
+                entrances: entrances,
+              });
+              handleReviews();
+            }}
+          >
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#64748B", fontWeight: "400" }}>
               Reviews ({reviewCount})
             </Text>
-          </View>
-          <ChevronRight />
-        </Pressable>
+          </Pressable>
+          <Pressable
+            onPress={() => handleReviews()}
+          >
+            <ChevronRight />
+          </Pressable>
+        </View>
 
         {/* Hours + Distance */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
@@ -346,7 +353,20 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
               const icon = entrance.metadata?.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
 
               return (
-                <Pressable key={entrance.id} onPress={() => setSelectedEntrance(entrance.id.toString())}>
+                <Pressable
+                  key={entrance.id}
+                  onPress={() => {
+                    setSelectedEntrance(entrance.id.toString());
+                    setCurEntranceLabel(label);
+                    setPoi({
+                      id: entrance.id,
+                      building: buildingFeature,
+                      buildingName: configBuildingName(metadata.bld_name),
+                      entrance: label,
+                      entrances: entrances,
+                    });
+                  }}
+                >
                   <EntranceComponent
                     name={label}
                     Icons={[icon]}
@@ -384,7 +404,11 @@ const POIContent = ({ poi, allPOIs }: POIContentProps) => {
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 const POIBottomSheet = ({ ref, allPOIs, getDirections }: POIBottomSheetProps) => {
+=======
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIBottomSheetProps) => {
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   const bottomTabBarHeight = useBottomTabBarHeight();
 =======
 const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
@@ -401,16 +425,26 @@ const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
       handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
+      
       {({ data }) => {
         if (!data?.poi) return null;
+<<<<<<< HEAD
 <<<<<<< HEAD
         return <POIContent poi={data.poi} allPOIs={allPOIs} getDirections={getDirections} />;
 =======
         return <POIContent poi={data.poi} allPOIs={allPOIs} />;
 >>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
+=======
+        return <POIContent
+          poi={data.poi}
+          allPOIs={allPOIs}
+          handleReviews={handleReviews}
+          setPoi={setPoi}
+        />;
+>>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
       }}
     </BottomSheetModal>
   );
-};
+});
 
 export default POIBottomSheet;

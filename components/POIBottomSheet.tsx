@@ -1,27 +1,15 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
-<<<<<<< HEAD
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-<<<<<<< HEAD
 import { booleanPointInPolygon } from "@turf/turf";
 import { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
-=======
-import { ForwardedRef, useCallback, useEffect, useRef, useState } from "react";
-import { Text, View, Pressable, Image, ScrollView, TouchableOpacity } from "react-native";
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
-import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym } from "~/assets/map_icons/svg_icons";
-=======
-import { ForwardedRef, useCallback, useEffect, useState } from "react";
-import { Text, View, Pressable, Image, ScrollView } from "react-native";
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 import useMapIcons from "~/utils/useMapIcons";
 import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
 import buildingsData from '../assets/geojson/buildings_simple.json';
-import { searchPlaces, getPlaceDetails, formatOpeningHours } from "~/utils/googlePlaces";
+import { searchPlaces, getPlaceDetails, formatOpeningHours, PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 import React from "react";
-import { PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
 
 interface POIData {
@@ -66,38 +54,18 @@ const isEntranceInsideBuilding = (entrance: any, buildingFeature: any): boolean 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
-<<<<<<< HEAD
-<<<<<<< HEAD
-  getDirections: (target: any[]) => void;
-=======
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
   handleReviews: () => void;
   setPoi: (poi: POIReviewData | undefined) => void;
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
-<<<<<<< HEAD
-<<<<<<< HEAD
-  getDirections: (target: any[]) => void;
-}
-
-const POIContent = ({ poi, allPOIs, getDirections }: POIContentProps) => {
-=======
-}
-
-const POIContent = ({ poi, allPOIs }: POIContentProps) => {
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
   handleReviews: () => void;
   setPoi: (poi: POIReviewData | undefined) => void;
 }
 
 const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) => {
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   const mapIcons = useMapIcons();
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [hours, setHours] = useState<string>("Loading...");
@@ -159,14 +127,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
       });
       setEntrances(matched);
       setSelectedEntrance(matched[0]?.id?.toString() ?? "");
-<<<<<<< HEAD
-    } else if (allPOIs.length && buildingFeature) {
-      const matchedByGeometry = allPOIs.filter(
-        (p) => p.poi_type === "accessible_entrance" && isEntranceInsideBuilding(p, buildingFeature),
-      );
-      setEntrances(matchedByGeometry);
-      setSelectedEntrance(matchedByGeometry[0]?.id?.toString() ?? "");
-=======
 
       // Set default poi data as soon as entrances load
       if (matched[0]) {
@@ -176,7 +136,12 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           "Main Entrance";
         setCurEntranceLabel(defaultLabel);
       }
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
+    } else if (allPOIs.length && buildingFeature) {
+      const matchedByGeometry = allPOIs.filter(
+        (p) => p.poi_type === "accessible_entrance" && isEntranceInsideBuilding(p, buildingFeature),
+      );
+      setEntrances(matchedByGeometry);
+      setSelectedEntrance(matchedByGeometry[0]?.id?.toString() ?? "");
     } else {
       setEntrances([]);
     }
@@ -186,18 +151,18 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         const searchQuery = buildingName !== "Unknown Building"
           ? `${buildingName} UT Austin`
           : building?.Address_Full;
-        if (!searchQuery) { 
-          setHours("Hours not available"); 
+        if (!searchQuery) {
+          setHours("Hours not available");
           return;
         }
         // const predictions = await searchPlaces(searchQuery);
         const predictions: PlaceAutocompletePrediction[] = [{"description": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "structured_formatting": {"main_text": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "place_id": "ChIJdQqBe3e1RIYRYlcWXB0LfOs", "structured_formatting": {"main_text": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Global Auto Service, South 1st Street, Austin, Texas, USA", "place_id": "ChIJ_yNwDcK0RIYRILHOE9wmkXU", "structured_formatting": {"main_text": "Global Auto Service, South 1st Street, Austin, Texas, USA", "secondary_text": "South 1st Street, Austin, Texas, USA"}}, {"description": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "place_id": "ChIJwfBgVwC1RIYR0KeHkkuU39k", "structured_formatting": {"main_text": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "secondary_text": "Building, Speedway, Austin, Texas, USA"}}, {"description": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "place_id": "ChIJ_7wtSQC1RIYRNpEunpRENwg", "structured_formatting": {"main_text": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "secondary_text": "Speedway, Austin, Texas, USA"}}];
         if (!predictions.length) {
-          setHours("Hours not available"); 
-          return; 
+          setHours("Hours not available");
+          return;
         }
         // const details = await getPlaceDetails(predictions[0].place_id);
-        const details: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
+        const details: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
         if (!details?.opening_hours) {
           setHours("Hours not available");
           return;
@@ -252,11 +217,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
       <View style={{ padding: 24 }}>
 
         {/* Header */}
-<<<<<<< HEAD
-        <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2 }}>
-          {configBuildingName(metadata.bld_name)}
-        </Text>
-=======
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16,}}>
           <Text
             style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2,}}>
@@ -268,7 +228,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
             <Warning />
           </View>
         </View>
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
         {/* Address */}
         <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
@@ -344,11 +303,11 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
                 rawName.length > 0 &&
                 !rawName.match(/^(Point |kml_)/i) &&
                 !rawName.match(/^\([A-Z]+\)\s+[A-Z\s]+$/);
-              
+
               const cardinalLabel =
                 getCardinalLabel(entrance, buildingFeature) ??
                 getCardinalLabelFromNeighbors(entrance, entrances);
-              
+
               const label = isUsefulName ? rawName : (cardinalLabel ?? `Entrance ${idx + 1}`);
               const icon = entrance.metadata?.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
 
@@ -388,12 +347,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
           borderRadius: 9.31, alignItems: "center", flexDirection: "row",
           justifyContent: "center", marginBottom: 8,
-<<<<<<< HEAD
-        }}
-        onPress={() => getDirections(poi.location_geojson.coordinates)}>
-=======
         }}>
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
           <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "500" }}>
             Get Directions
           </Text>
@@ -403,17 +357,8 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   );
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-const POIBottomSheet = ({ ref, allPOIs, getDirections }: POIBottomSheetProps) => {
-=======
 const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIBottomSheetProps) => {
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
   const bottomTabBarHeight = useBottomTabBarHeight();
-=======
-const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
-  const bottomTabBarHeight = 50;
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
 
   return (
     <BottomSheetModal<POIData>
@@ -425,23 +370,15 @@ const POIBottomSheet = ({ ref, allPOIs }: POIBottomSheetProps) => {
       handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
-      
+
       {({ data }) => {
         if (!data?.poi) return null;
-<<<<<<< HEAD
-<<<<<<< HEAD
-        return <POIContent poi={data.poi} allPOIs={allPOIs} getDirections={getDirections} />;
-=======
-        return <POIContent poi={data.poi} allPOIs={allPOIs} />;
->>>>>>> 30e290a2b3e74d12e0d359073e6b74da796c8d6d
-=======
         return <POIContent
           poi={data.poi}
           allPOIs={allPOIs}
           handleReviews={handleReviews}
           setPoi={setPoi}
         />;
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
       }}
     </BottomSheetModal>
   );

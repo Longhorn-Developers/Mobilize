@@ -1,5 +1,4 @@
 // TanStack Query hooks for the Hono backend
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation, useQuery, useQueryClient, UseQueryResult } from "@tanstack/react-query";
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -114,7 +113,6 @@ export function useHealthCheck() {
 export function useInsertAvoidanceArea() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const bottomTabBarHeight = 50;
 
   return useMutation({
     mutationFn: (data: {

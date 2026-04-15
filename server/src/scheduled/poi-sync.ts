@@ -4,7 +4,6 @@ import { DOMParser } from "@xmldom/xmldom";
 import { kml } from "@tmcw/togeojson";
 
 import { pois } from '../db/schema';
-import type { Env } from '../index';
 
 const ACCESSIBLE_ENTRANCES_KML_URL = 'https://www.google.com/maps/d/kml?forcekml=1&mid=1B_X9WRe0kkTlPbfYpmOQz7pHSQs'; // Replace with actual KML data source URL
 

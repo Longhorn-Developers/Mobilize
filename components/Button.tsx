@@ -15,7 +15,6 @@ type ButtonProps = {
 } & TouchableOpacityProps;
 
 export const Button = forwardRef<View, ButtonProps>(
-<<<<<<< HEAD
   (
     {
       title,
@@ -30,38 +29,6 @@ export const Button = forwardRef<View, ButtonProps>(
   ) => {
     const variantStyle = getVariantStyle(variant, disabled);
     const textStyle = getTextVariantStyle(variant, disabled);
-=======
-  ({ title, children, variant = "primary", icon, ...touchableProps }, ref) => {
-    const getButtonStyle = () => {
-      switch (variant) {
-        case "disabled":
-          return styles.disabledButton;
-        case "ghost":
-          return styles.ghostButton;
-        case "gray":
-          return styles.grayButton;
-        case "secondary":
-          return styles.secondaryButton;
-        default:
-          return styles.primaryButton;
-      }
-    };
-
-    const getTextStyle = () => {
-      switch (variant) {
-        case "disabled":
-          return styles.disabledButtonText;
-        case "ghost":
-          return styles.ghostButtonText;
-        case "gray":
-          return styles.grayButtonText;
-        case "secondary":
-          return styles.ghostButtonText;
-        default:
-          return styles.primaryButtonText;
-      }
-    };
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 
     return (
       <TouchableOpacity
@@ -80,7 +47,6 @@ export const Button = forwardRef<View, ButtonProps>(
 
 Button.displayName = "Button";
 
-<<<<<<< HEAD
 const getVariantStyle = (
   variant: ButtonProps["variant"],
   disabled?: boolean
@@ -95,20 +61,6 @@ const getVariantStyle = (
     default:
       return styles.primaryButton;
   }
-=======
-const styles = {
-  button: "flex-row justify-center items-center rounded-md shadow-md py-2 px-4",
-  primaryButton: "bg-ut-burntorange",
-  secondaryButton: "border-ut-burntorange border-2",
-  disabledButton: "bg-ut-black/20",
-  ghostButton: "bg-transparent",
-  grayButton: "bg-ut-black/20",
-  buttonText: "text-lg font-semibold text-center",
-  primaryButtonText: "text-white",
-  disabledButtonText: "text-slate-700",
-  ghostButtonText: "text-ut-burntorange",
-  grayButtonText: "font-normal",
->>>>>>> f8797be6126544728afc887ead7c9e6f0fe7a84f
 };
 
 const getTextVariantStyle = (

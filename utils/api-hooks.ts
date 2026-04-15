@@ -116,7 +116,6 @@ export function useInsertAvoidanceArea() {
 
   return useMutation({
     mutationFn: (data: {
-      user_id: number;
       name: string;
       description?: string;
       boundary_geojson: Polygon;
@@ -149,7 +148,6 @@ export function useInsertAvoidanceAreaReport() {
 
   return useMutation({
     mutationFn: (data: {
-      user_id: number;
       avoidance_area_id: string;
       title: string;
       description?: string;

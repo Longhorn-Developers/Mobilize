@@ -11,6 +11,7 @@ import buildingsData from '../assets/geojson/buildings_simple.json';
 import { searchPlaces, getPlaceDetails, formatOpeningHours, PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 import React from "react";
 import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
+import { useTheme } from "~/utils/ThemeContext";
 
 interface POIData {
   poi: any;
@@ -67,10 +68,25 @@ interface POIContentProps {
 
 const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) => {
   const mapIcons = useMapIcons();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
-  const [hours, setHours] = useState<string>("Loading...");
   const [entrances, setEntrances] = useState<any[]>([]);
   const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
+  const [hours, setHours] = useState<string>("Hours not available");
+  const [rating] = useState<number>(0);
+  const [reviewCount] = useState<number>(0);
+
+  const renderStars = (value: number, size: number) => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const StarComponent = i < Math.floor(value) ? StarFill : StarBorder;
+      return (
+        <React.Fragment key={i}>
+          <StarComponent width={size} height={size} />
+        </React.Fragment>
+      );
+    });
+  };
 
   const metadata = poi.metadata || {};
 
@@ -172,20 +188,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
       fetchHours();
     }, [poi.id]);
 
-  const rating = 4.2;
-  const reviewCount = 18;
-
-  const renderStars = (rating: number, size: number) => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const StarComponent = i < Math.floor(rating) ? StarFill : StarBorder;
-      return (
-        <View key={i} style={{ marginHorizontal: 1 }}>
-          <StarComponent width={size} height={size} />
-        </View>
-      );
-    });
-  };
-
   interface EntranceProps {
     name: string;
     Icons: number[];
@@ -195,11 +197,11 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   const EntranceComponent = ({ name, Icons, selected }: EntranceProps) => (
     <View style={{
       width: 182, height: 82, borderRadius: 14, borderWidth: 2,
-      borderColor: selected ? "#BF5700" : "#333F4833",
-      backgroundColor: selected ? "#BF570033" : "#FFFFFF",
+      borderColor: selected ? "#BF5700" : (isDark ? "#52525B" : "#333F4833"),
+      backgroundColor: selected ? "#BF570033" : (isDark ? "#2C2C2E" : "#FFFFFF"),
       paddingHorizontal: 16, paddingVertical: 8, justifyContent: "center",
     }}>
-      <Text style={{ fontSize: 14, color: selected ? "#BF5700" : "#64748B", fontFamily: "Inter", fontWeight: "400", marginBottom: 8 }}>
+      <Text style={{ fontSize: 14, color: selected ? "#BF5700" : (isDark ? "#9CA3AF" : "#64748B"), fontFamily: "Inter", fontWeight: "400", marginBottom: 8 }}>
         {name}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -217,9 +219,9 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
       <View style={{ padding: 24 }}>
 
         {/* Header */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16,}}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Text
-            style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: "#1A2024", marginBottom: 2,}}>
+            style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
             {configBuildingName(metadata.bld_name)}
           </Text>
 
@@ -232,7 +234,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         {/* Address */}
         <View style={{ flexDirection: "row", marginBottom: 8, margin: 4, alignItems: "center", gap: 8 }}>
           <LocationPin />
-          <Text style={{ fontFamily: typography.body.medium_strong.fontFamily, fontWeight: "500", fontSize: 15.35, color: "#1A2024" }}>
+          <Text style={{ fontFamily: typography.body.medium_strong.fontFamily, fontWeight: "500", fontSize: 15.35, color: isDark ? "#D1D5DB" : "#1A2024" }}>
             {building?.Address_Full || "UT Campus"}
           </Text>
         </View>
@@ -242,13 +244,12 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           <View style={{ flexDirection: "row", marginRight: 12 }}>
             {renderStars(rating, 23.6)}
           </View>
-          <Text style={{ fontFamily: "Inter", fontSize: 15.35, fontWeight: "bold", marginRight: 24, color: "#1A2024" }}>
+          <Text style={{ fontFamily: "Inter", fontSize: 15.35, fontWeight: "bold", marginRight: 24, color: isDark ? "#F3F4F6" : "#1A2024" }}>
             {rating.toFixed(1)}
           </Text>
         </View>
 
         {/* Reviews */}
-        {/* TODO: Include review logic here when implemented */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Pressable
             style={{ marginBottom: 16 }}
@@ -263,13 +264,11 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
               handleReviews();
             }}
           >
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#64748B", fontWeight: "400" }}>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#9CA3AF" : "#64748B", fontWeight: "400" }}>
               Reviews ({reviewCount})
             </Text>
           </Pressable>
-          <Pressable
-            onPress={() => handleReviews()}
-          >
+          <Pressable onPress={() => handleReviews()}>
             <ChevronRight />
           </Pressable>
         </View>
@@ -277,21 +276,17 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         {/* Hours + Distance */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#B3B3B3", fontWeight: "500" }}>Hours</Text>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>{hours}</Text>
-          </View>
-          <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#B3B3B3", fontWeight: "500" }}>Distance</Text>
-            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>2.4 Mi</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Distance</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>On campus</Text>
           </View>
         </View>
 
         {/* Divider */}
-        <View style={{ alignSelf: "center", width: "95%", height: 3.5, borderRadius: 2, backgroundColor: "#D9D9D9", marginVertical: 16 }} />
+        <View style={{ alignSelf: "center", width: "95%", height: 3.5, borderRadius: 2, backgroundColor: isDark ? "#3A3A3C" : "#D9D9D9", marginVertical: 16 }} />
 
         {/* Access */}
         <View style={{ flexDirection: "row", marginBottom: 16, alignItems: "center", gap: 16 }}>
-          <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: "#1A2024", fontWeight: "600" }}>Access</Text>
+          <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>Access</Text>
           <InformationSym />
         </View>
 
@@ -359,15 +354,17 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
 
 const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
 
   return (
     <BottomSheetModal<POIData>
       ref={ref}
       bottomInset={bottomTabBarHeight}
-      backgroundStyle={{ borderRadius: 32 }}
+      backgroundStyle={{ borderRadius: 32, backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }}
       enableDynamicSizing={false}
       snapPoints={["50%"]}
-      handleIndicatorStyle={{ backgroundColor: colors.theme.majorgridline, width: 80 }}
+      handleIndicatorStyle={{ backgroundColor: isDark ? "#52525B" : colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
 

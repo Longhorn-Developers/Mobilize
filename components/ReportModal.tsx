@@ -6,7 +6,7 @@ import {
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   View,
@@ -14,6 +14,9 @@ import {
   TextInput,
   TouchableOpacity,
   ViewStyle,
+  Modal,
+  Dimensions, 
+  Platform
 } from "react-native";
 import { LatLng } from "react-native-maps";
 import Toast from "react-native-toast-message";
@@ -23,6 +26,9 @@ import colors from "~/types/colors";
 
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { Button } from "./Button";
+
+import { Camera, CameraType, CameraView } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
 const reportFormSchema = z.object({
   aaPoints: z
@@ -89,6 +95,37 @@ const ReportModal = ({
 
   const bottomTabBarHeight = useBottomTabBarHeight();
 
+  const [cameraPermission, setCameraPermission] = useState<boolean>(false);
+  const [galleryPermission, setGalleryPermission] = useState<boolean>(false);
+
+  const [cameraOn, setCameraOn] = useState<boolean>(false);
+  const [camera, setCamera] = useState(null);
+  const [imageUri, setImageUri] = useState(null);
+  const [facing, setFacing] = useState<CameraType>('back');
+
+  const permissionFunction = async () => {
+    // here is how you can get the camera permission
+    const cameraPermission = await Camera.requestCameraPermissionsAsync();
+
+    setCameraPermission(cameraPermission.status === 'granted');
+
+    const imagePermission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    console.log(imagePermission.status);
+
+    setGalleryPermission(imagePermission.status === 'granted');
+
+    console.log(imagePermission.status);
+    console.log(cameraPermission.status);
+
+    if (
+      imagePermission.status !== 'granted' &&
+      cameraPermission.status !== 'granted'
+    ) {
+      alert('Permission for media access needed.');
+    }
+  };
+
+
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
@@ -143,6 +180,81 @@ const ReportModal = ({
       });
     }
   };
+  
+
+    // Screen Ratio and image padding
+    const [imagePadding, setImagePadding] = useState(0);
+    const [ratio, setRatio] = useState('4:3'); 
+    const { height, width } = Dimensions.get('window');
+    const screenRatio = height / width;
+    const [isRatioSet, setIsRatioSet] =  useState(false);
+
+    const prepareRatio = async () => {
+      let desiredRatio = '4:3';  // Start with the system default
+      if (Platform.OS === 'android') {
+        setTimeout(async () => {}, 10) // for some reason, needed to make next line work
+      
+
+      camera.getAvailablePictureSizesAsync().then(
+        (ratios) => {
+
+          console.log(ratios)
+
+          // find the ratio that is closest to the screen ratio without going over
+          let distances = {};
+          let realRatios = {};
+          let minDistance = null;
+          for (const ratio of ratios) {
+            const parts = ratio.split(':');
+            const realRatio = parseInt(parts[0]) / parseInt(parts[1]);
+            realRatios[ratio] = realRatio;
+            const distance = screenRatio - realRatio; 
+            distances[ratio] = distance;
+            if (minDistance == null) {
+              minDistance = ratio;
+            } else {
+              if (distance >= 0 && distance < distances[minDistance]) {
+                minDistance = ratio;
+              }
+            }
+          }
+          // set the best match
+          desiredRatio = minDistance;
+          //  calculate the difference between the camera width and the screen height
+          const remainder = Math.floor(
+            (height - realRatios[desiredRatio] * width) / 2
+          );
+
+          setImagePadding(remainder);
+          setRatio(desiredRatio);
+          setIsRatioSet(true);
+        }
+      )
+    }
+  };
+
+  const setCameraReady = async () => {
+    if (!isRatioSet) {
+      await prepareRatio();
+    }
+  };
+  
+  const handleCamera = async () => {
+    if (!cameraPermission) {
+      await permissionFunction();
+    }
+
+    // after permissions check
+
+    if (!cameraPermission && !galleryPermission) {
+      // add error screen for no camera permissions here
+      return
+    }
+
+    setCameraOn(true);
+
+  }
+
 
   // Each step of the report process
   const steps: ReactNode[] = [
@@ -199,12 +311,62 @@ const ReportModal = ({
         render={({ field: { onBlur } }) => (
           <Button
             variant="gray"
+            onPress={handleCamera}
             onBlur={onBlur}
             title="Add Photo"
             icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
           />
         )}
       />
+      <Modal visible={cameraOn}> {/*Camera Preview Modal*/}
+          <CameraView
+            active={cameraOn}
+            style={
+              (isRatioSet ?
+              [{flex: 1}, imagePadding ? {marginTop: imagePadding, marginBottom: imagePadding}:{}]
+              :
+              {opacity: 0}
+              )
+            }
+            onCameraReady={setCameraReady}
+            pictureSize={ratio}
+            ref={setCamera}
+          > 
+          </CameraView>
+          <View style={{
+            flex: 1,
+            flexDirection: 'row', 
+            maxHeight: '10%', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            backgroundColor: '#00000000',
+            }}>
+              <TouchableOpacity style={{
+                  position: 'absolute',
+                  width: 75, //px
+                  height: 75,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: 10,
+                  borderRadius: 100,
+                  backgroundColor: '#eb934a',
+                }}
+                onPress={handleCamera}
+              >
+                <CameraPlusIcon style={{ marginRight: 0}} size={40}/>
+              </TouchableOpacity>
+              
+              <Button
+                style={{marginLeft: '50%'}}
+                variant="gray"
+                onPress={() => {setCameraOn(false)}}
+                title="Close"
+                icon={<XIcon style={{ marginRight: 0}} size={20} />}
+              />
+            
+          </View>
+          
+      </Modal>
     </View>,
 
     // Step 3: Review and submit

@@ -44,6 +44,8 @@ bower_components
 
 .lock-wscript
 
+pnpm-lock.yaml
+
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 
 build/Release

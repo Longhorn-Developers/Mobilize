@@ -6,7 +6,7 @@
 
 import { PlaceDetails } from "~/utils/googlePlaces";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 const buildingsData: GeoJSON.FeatureCollection = require("../assets/geojson/buildings_simple.json");
 
 export interface BuildingProperties {
@@ -97,6 +97,44 @@ export function findBuildingByName(name: string): BuildingProperties | null {
   }
 
   return prefixMatch ?? substringMatch ?? null;
+}
+
+/** Search campus buildings by abbreviation, name, or address. */
+export function searchBuildings(query: string, limit = 8): BuildingProperties[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+
+  const matches: BuildingProperties[] = [];
+  const seen = new Set<string>();
+
+  const pushMatch = (building: BuildingProperties | null) => {
+    if (!building || seen.has(building.Building_Abbr)) return;
+    seen.add(building.Building_Abbr);
+    matches.push(building);
+  };
+
+  pushMatch(findBuilding(query));
+  pushMatch(findBuildingByName(query));
+
+  for (const building of buildingIndex.values()) {
+    if (matches.length >= limit) break;
+
+    const abbr = building.Building_Abbr.toLowerCase();
+    const description = building.Description.toLowerCase();
+    const address = building.Address_Full.toLowerCase();
+
+    const isMatch =
+      abbr.startsWith(needle) ||
+      description.startsWith(needle) ||
+      description.includes(needle) ||
+      address.includes(needle);
+
+    if (isMatch) {
+      pushMatch(building);
+    }
+  }
+
+  return matches.slice(0, limit);
 }
 
 /**

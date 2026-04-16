@@ -1,7 +1,6 @@
-import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
 
 // UT Austin coordinates for biasing search results
@@ -13,10 +12,18 @@ const SEARCH_RADIUS = 2000; // 2km radius around UT campus
 const AUTOCOMPLETE_FIELD_MASK =
   "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat";
 
+const getPlacesApiKey = () =>
+  (
+    process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ??
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
+    ""
+  ).trim();
+
 const getPlacesHeaders = () => {
+  const apiKey = getPlacesApiKey();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY || "",
+    "X-Goog-Api-Key": apiKey,
   };
 
   if (Platform.OS === "ios") {
@@ -57,6 +64,22 @@ const logPlacesError = (label: string, data: any) => {
     return;
   }
 
+  if (
+    data?.error?.status === "INVALID_ARGUMENT" &&
+    typeof data?.error?.message === "string" &&
+    data.error.message.toLowerCase().includes("api key expired")
+  ) {
+    console.error(
+      `${label}: Google rejected the configured Places key as expired. Update EXPO_PUBLIC_GOOGLE_PLACES_API_KEY (or EXPO_PUBLIC_GOOGLE_MAPS_API_KEY) and restart Expo so the new env value is bundled.`,
+      {
+        code: data?.error?.code,
+        status: data?.error?.status,
+        message: data?.error?.message,
+      },
+    );
+    return;
+  }
+
   console.error(label, data);
 };
 
@@ -85,11 +108,11 @@ export interface PlaceDetails {
       lng: number;
     };
   };
-  photos?: Array<{
+  photos?: {
     photo_reference: string;
     height: number;
     width: number;
-  }>;
+  }[];
   types?: string[];
   rating?: number;
   user_ratings_total?: number;
@@ -136,7 +159,7 @@ export const searchPlaces = async (
     return [];
   }
 
-  if (!GOOGLE_PLACES_API_KEY) {
+  if (!getPlacesApiKey()) {
     console.error("Google Places API key is not configured");
     return [];
   }
@@ -204,7 +227,7 @@ export const getPlaceDetails = async (
     return null;
   }
 
-  if (!GOOGLE_PLACES_API_KEY) {
+  if (!getPlacesApiKey()) {
     console.error("Google Places API key is not configured");
     return null;
   }

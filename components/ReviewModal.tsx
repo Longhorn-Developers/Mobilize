@@ -1,4 +1,12 @@
 import {
+  Camera,
+  FillLayer,
+  LineLayer,
+  MapView,
+  PointAnnotation,
+  ShapeSource,
+} from "@rnmapbox/maps";
+import {
   XIcon,
   QuestionIcon,
   DotsThreeIcon,
@@ -6,9 +14,10 @@ import {
   ArrowUpIcon,
   InfoIcon,
 } from "phosphor-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import {
+  Pressable,
   View,
   Text,
   TextInput,
@@ -18,6 +27,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
+import { Wheelchair } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
 import {
@@ -29,13 +39,23 @@ import {
   useUpdateReview,
   useUpsertVote,
 } from "~/utils/api-hooks";
-
-import { Button } from "./Button";
-import { Wheelchair } from "~/assets/map_icons/svg_icons";
-import MapView, { Marker } from "react-native-maps";
 import useMapIcons from "~/utils/useMapIcons";
 import { getEntranceLabel } from "~/utils/utils";
-import { cssInterop } from "nativewind";
+
+import { Button } from "./Button";
+
+const MINI_MAP_STYLE_URL = "mapbox://styles/mapbox/outdoors-v12";
+const MINI_MAP_HEIGHT = 250;
+const MINI_MAP_ZOOM = 18;
+
+const miniMapFillLayerStyle = {
+  fillColor: "rgba(191,87,0,0.18)",
+};
+
+const miniMapLineLayerStyle = {
+  lineColor: "#BF5700",
+  lineWidth: 2,
+};
 
 const TouchableRating = ({
   control,
@@ -173,7 +193,7 @@ const ReviewCard = ({
   actionFn,
 }: {
   review: ReviewEntry;
-  activeUserId: number;
+  activeUserId: number | null;
   actionFn: () => void;
 }) => {
   const { mutateAsync: upsertVote } = useUpsertVote();
@@ -310,7 +330,7 @@ const ReviewsList = ({
 }: {
   className: string;
   reviews: ReviewEntry[];
-  activeUserId: number;
+  activeUserId: number | null;
   userHasReview: boolean;
   ListHeaderComponent: React.ComponentType<any> | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | null | undefined;
 }) => {
@@ -355,52 +375,124 @@ const MiniMap = ({
   building,
   selectedEntrance,
   entrances,
-  onSelectEntrance
+  onSelectEntrance,
 }: {
-  building: any,
-  selectedEntrance: number | null,
-  entrances: any[],
+  building: any;
+  selectedEntrance: number | null;
+  entrances: any[];
   onSelectEntrance: (entrance: any) => void;
 }) => {
   const mapIcons = useMapIcons();
 
-  const coords: [number, number][] = building.geometry.coordinates[0];
-  const bldLng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
-  const bldLat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+  const buildingFeature = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: building?.geometry
+        ? [
+            {
+              type: "Feature" as const,
+              properties: {},
+              geometry: building.geometry,
+            },
+          ]
+        : [],
+    }),
+    [building],
+  );
 
-  const center = {
-    latitude: bldLat,
-    longitude: bldLng,
-    latitudeDelta: 0.001,
-    longitudeDelta: 0.001,
-  }
+  const centerCoordinate = useMemo(() => {
+    const coords: [number, number][] = building?.geometry?.coordinates?.[0] ?? [];
+    if (coords.length === 0) {
+      return [-97.733, 30.282] as [number, number];
+    }
 
-  cssInterop(Marker, { className: "style" });
+    const bldLng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
+    const bldLat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+    return [bldLng, bldLat] as [number, number];
+  }, [building]);
 
   return (
-    <MapView
-      style={{ width: "100%", height: 250, borderRadius: 12 }}
-      region={center}
-      scrollEnabled={false}
-      zoomEnabled={false}
-      rotateEnabled={false}
+    <View
+      style={{
+        width: "100%",
+        height: MINI_MAP_HEIGHT,
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
     >
-      {/* Entrace POIs for specified building go here */}
-      {entrances.map((entrance) => (
-        <Marker
-          className={selectedEntrance === entrance.id ? "shadow-md shadow-ut-burntorange" : ""}
-          key={entrance.id}
-          coordinate={{
-            latitude: entrance.location_geojson.coordinates[1],
-            longitude: entrance.location_geojson.coordinates[0]
+      <MapView
+        style={{ flex: 1 }}
+        styleURL={MINI_MAP_STYLE_URL}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        compassEnabled={false}
+        attributionEnabled={false}
+        logoEnabled={false}
+      >
+        <Camera
+          animationMode="none"
+          defaultSettings={{
+            centerCoordinate,
+            zoomLevel: MINI_MAP_ZOOM,
           }}
-          image={entrance.metadata?.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor}
-          onPress={() => onSelectEntrance(entrance)}
         />
-      ))}
-    </MapView>
+
+        <ShapeSource id="review-mini-building" shape={buildingFeature}>
+          <FillLayer id="review-mini-building-fill" style={miniMapFillLayerStyle} />
+          <LineLayer id="review-mini-building-line" style={miniMapLineLayerStyle} />
+        </ShapeSource>
+
+        {entrances.map((entrance) => {
+          const isSelected = selectedEntrance === entrance.id;
+          const iconSource = entrance.metadata?.auto_opene
+            ? mapIcons.autoDoor
+            : mapIcons.manualDoor;
+
+          return (
+            <PointAnnotation
+              key={`review-mini-entrance-${entrance.id}`}
+              id={`review-mini-entrance-${entrance.id}`}
+              coordinate={[
+                entrance.location_geojson.coordinates[0],
+                entrance.location_geojson.coordinates[1],
+              ]}
+              onSelected={() => onSelectEntrance(entrance)}
+            >
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => onSelectEntrance(entrance)}
+              >
+                <View
+                  style={{
+                    borderRadius: 999,
+                    borderWidth: isSelected ? 2 : 0,
+                    borderColor: "#BF5700",
+                    backgroundColor: isSelected ? "rgba(255,255,255,0.96)" : "transparent",
+                    padding: isSelected ? 4 : 0,
+                    shadowColor: "#BF5700",
+                    shadowOpacity: isSelected ? 0.2 : 0,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 2 },
+                  }}
+                >
+                  <Image
+                    source={iconSource}
+                    style={{
+                      width: isSelected ? 26 : 22,
+                      height: isSelected ? 26 : 22,
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+            </PointAnnotation>
+          );
+        })}
+      </MapView>
+    </View>
   );
-}
+};
 
 interface ReviewModalProps {
   className?: string;
@@ -430,21 +522,22 @@ const ReviewModal = ({
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
   const { mutateAsync: deleteReview } = useDeleteReview();
-  const { data: myProfile } = useMyProfile();
+  const { data: myProfile, isLoading: isProfileLoading } = useMyProfile();
 
   // query reviews from db
-  const { data: reviews = [], isLoading } = useReviews(selectedPoiId);
+  const { data: reviews = [] } = useReviews(selectedPoiId);
 
-  const activeUserId = myProfile ? myProfile.id : 9999;
+  const activeUserId = myProfile?.id ?? null;
   const labelPoiMap: [string, any][] = entrances.map((entrance) => [getEntranceLabel(entrance, entrances, building), entrance]);
   const features: string[] = ["Power-assisted doors", "Ramps", "Others"];
 
   const { control, handleSubmit, watch, reset } = useForm<Review>();
   const rating = watch("rating");
 
-  const existingReview = reviews.find(
-    (review) => review.user_id === activeUserId,
-  );
+  const existingReview =
+    activeUserId == null
+      ? undefined
+      : reviews.find((review) => review.user_id === activeUserId);
   const isEditMode = !!existingReview;
 
   useEffect(() => {
@@ -467,7 +560,31 @@ const ReviewModal = ({
     }
   };
 
+  const handleOpenReviewForm = () => {
+    if (!myProfile?.id) {
+      Toast.show({
+        type: "error",
+        text2: "Your profile is still loading. Please try again in a moment.",
+        position: "bottom",
+        bottomOffset: 40 * 3,
+      });
+      return;
+    }
+
+    setFormState(1);
+  };
+
   const onSubmit = async (data: Review) => {
+    if (!myProfile?.id) {
+      Toast.show({
+        type: "error",
+        text2: "We couldn't load your profile yet. Please try again in a moment.",
+        position: "bottom",
+        bottomOffset: 40 * 3,
+      });
+      return;
+    }
+
     if (data.rating === 0) {
       // Warning if no rating selected
       Toast.show({
@@ -476,54 +593,59 @@ const ReviewModal = ({
         position: "bottom",
         bottomOffset: 40 * 3,
       });
-    } else {
-      // Post review (insert)
-      data.user_id = activeUserId;
-      data.poi_id = selectedPoiId;
-
-      // If review exists, edit existing review; otherwise, post new review
-      if (isEditMode) {
-        await updateReview({
-          id: existingReview.id,
-          rating: data.rating,
-          features: JSON.stringify(data.features),
-          content: data?.content ?? undefined,
-        });
-      } else {
-        await insertReview({
-          user_id: data.user_id,
-          poi_id: data.poi_id,
-          rating: data.rating,
-          features: JSON.stringify(data.features),
-          content: data?.content ?? undefined,
-        });
-      }
-
-      onExit();
+      return;
     }
+
+    const serializedFeatures = JSON.stringify(data.features ?? []);
+
+    // If review exists, edit existing review; otherwise, post new review
+    if (isEditMode) {
+      await updateReview({
+        id: existingReview.id,
+        poi_id: selectedPoiId,
+        rating: data.rating,
+        features: serializedFeatures,
+        content: data?.content ?? undefined,
+      });
+    } else {
+      await insertReview({
+        user_id: myProfile.id,
+        poi_id: selectedPoiId,
+        rating: data.rating,
+        features: serializedFeatures,
+        content: data?.content ?? undefined,
+      });
+    }
+
+    setIsMenuActive(false);
+    onExit();
   };
+
+  const isSubmitDisabled = !myProfile?.id || rating === 0;
 
   return (
     <>
       {/* Overlay */}
-      <View
+      <Pressable
         className="absolute bottom-0 left-0 right-0 top-0 bg-[#333F48]/50"
-        onTouchEnd={() => handleOutsidePress()}
+        onPress={handleOutsidePress}
       />
 
       {/* Main Modal */}
-      <View
-        className={`top-safe-offset-2 absolute left-6 right-6 z-30 gap-5 rounded-xl bg-white px-8 py-8 ${className}`}
-        onTouchEnd={() => handleOutsidePress()}
-      >
+      <View className={`top-safe-offset-2 absolute left-6 right-6 z-30 gap-5 rounded-xl bg-white px-8 py-8 ${className}`}>
         {/* Exit Button */}
-        <Button
-          variant="ghost"
-          title=""
-          className="absolute right-0 top-3 shadow-none"
-          onPress={onExit}
-          icon={<XIcon size={28} color={colors.ut.black} />}
-        />
+        <TouchableOpacity
+          accessibilityLabel="Close review modal"
+          accessibilityRole="button"
+          className="absolute right-2 top-2 z-10 rounded-full p-2"
+          hitSlop={12}
+          onPress={() => {
+            setIsMenuActive(false);
+            onExit();
+          }}
+        >
+          <XIcon size={28} color={colors.ut.black} />
+        </TouchableOpacity>
 
         {/* Headings */}
         <View className="gap-2">
@@ -617,11 +739,9 @@ const ReviewModal = ({
               {/* Leave a Review Button */}
               <Button
                 className="rounded-xl shadow-none mt-6"
-                title="Leave a Review"
-                onPress={() => {
-                  // query previously submitted review from user id
-                  setFormState(1);
-                }}
+                title={isProfileLoading ? "Loading profile..." : "Leave a Review"}
+                disabled={isProfileLoading || !myProfile?.id}
+                onPress={handleOpenReviewForm}
               />
             </View>
           </>
@@ -687,7 +807,8 @@ const ReviewModal = ({
               {/* Submit Button */}
               <Button
                 className={`gap-2 rounded-xl shadow-none`}
-                variant={`${(!rating && (!existingReview || rating === 0)) ? "disabled" : "primary"}`}
+                variant={isSubmitDisabled ? "disabled" : "primary"}
+                disabled={isSubmitDisabled}
                 onPress={handleSubmit(onSubmit)}
                 title={existingReview ? "Resubmit" : "Submit"}
               />

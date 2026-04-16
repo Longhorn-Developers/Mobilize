@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { useState, useEffect, useCallback, createContext } from "react";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -85,6 +85,7 @@ export function useAuth(): AuthContextType {
         if (response.ok) {
           const data = await safeJson(response);
           if (data.user) {
+            await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
             setAuthState({
               user: data.user,
               isLoading: false,

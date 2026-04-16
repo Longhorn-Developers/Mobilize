@@ -1,3 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { PencilSimpleLineIcon } from "phosphor-react-native";
 import { useState } from "react";
 import {
   View,
@@ -9,12 +12,13 @@ import {
   ActivityIndicator,
   Switch,
 } from "react-native";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PencilSimpleLineIcon } from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
 import { apiClient } from "~/utils/api-client";
+import { useAuth } from "~/utils/useAuth";
+
+const USER_KEY = "auth_user";
 
 export default function ProfileSetupScreen() {
   const [firstName, setFirstName] = useState("");
@@ -27,6 +31,7 @@ export default function ProfileSetupScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
+  const { refreshSession } = useAuth();
 
   const handleNext = async () => {
     if (!firstName.trim() || !lastName.trim() || !username.trim()) {
@@ -34,17 +39,44 @@ export default function ProfileSetupScreen() {
       return;
     }
 
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedUsername = username.trim();
+    const displayName = `${trimmedFirstName} ${trimmedLastName}`;
+
     setIsSaving(true);
     try {
       await apiClient.createProfile({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: username.trim(),
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        username: trimmedUsername,
         classYear: classYear.trim() || undefined,
         major: major.trim() || undefined,
         bio: bio.trim() || undefined,
         isAnonymous,
       });
+
+      const cachedUser = await AsyncStorage.getItem(USER_KEY);
+      if (cachedUser) {
+        try {
+          const parsedUser = JSON.parse(cachedUser);
+          await AsyncStorage.setItem(
+            USER_KEY,
+            JSON.stringify({
+              ...parsedUser,
+              name: displayName,
+              username: trimmedUsername,
+            }),
+          );
+        } catch {}
+      }
+
+      try {
+        await refreshSession();
+      } catch (refreshError) {
+        console.warn("Profile saved but session refresh failed:", refreshError);
+      }
+
       router.push("./mobility-preferences" as any);
     } catch (err: any) {
       const msg = err?.message ?? String(err);

@@ -1,34 +1,24 @@
 import "~/global.css";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Tabs } from "expo-router";
-import { router } from "expo-router";
+import { router, Tabs } from "expo-router";
 import { MapPinIcon, UserIcon } from "phosphor-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
+import { useAuth } from "~/utils/useAuth";
 
 export default function Layout() {
   const { colorScheme } = useTheme();
-  const checked = useRef(false);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-  // Step 3: Guard — redirect new users who bypassed onboarding back to profile-setup
+  // Guard authenticated users with incomplete setup back to profile onboarding.
   useEffect(() => {
-    if (checked.current) return;
-    checked.current = true;
-    AsyncStorage.multiGet(["auth_session_token", "auth_user"]).then(
-      ([[, token], [, userJson]]) => {
-        if (!token || !userJson) return; // unauthenticated users can still view the map
-        try {
-          const user = JSON.parse(userJson);
-          if (!user.username) {
-            router.replace("/auth/profile-setup");
-          }
-        } catch {}
-      },
-    );
-  }, []);
+    if (isLoading || !isAuthenticated) return;
+    if (!user?.username) {
+      router.replace("/auth/profile-setup");
+    }
+  }, [isAuthenticated, isLoading, user?.username]);
 
   const isDark = colorScheme === "dark";
 

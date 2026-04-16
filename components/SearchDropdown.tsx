@@ -1,14 +1,16 @@
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TouchableWithoutFeedback,
-  ActivityIndicator,
-} from "react-native";
 import { ClockIcon, MapPinIcon } from "phosphor-react-native";
-import colors from "~/types/colors";
 import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Text,
+  View,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from "react-native";
+
+import colors from "~/types/colors";
+import { searchBuildings } from "~/utils/buildingDatabase";
 import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/mapboxSearch";
 import { useTheme } from "~/utils/ThemeContext";
 
@@ -18,6 +20,7 @@ interface Location {
   address?: string;
   type?: "building" | "classroom" | "entrance" | "recent";
   place_id?: string;
+  source?: "local" | "remote";
 }
 
 interface SearchDropdownProps {
@@ -38,7 +41,7 @@ export const SearchDropdown = ({
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
 
-  const [googleResults, setGoogleResults] = useState<PlaceAutocompletePrediction[]>([]);
+  const [remoteResults, setRemoteResults] = useState<PlaceAutocompletePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const recentSearches: Location[] = [
@@ -49,12 +52,12 @@ export const SearchDropdown = ({
   useEffect(() => {
     const fetchPlaces = async () => {
       if (searchQuery.length < 2) {
-        setGoogleResults([]);
+        setRemoteResults([]);
         return;
       }
       setIsLoading(true);
       const results = await searchPlaces(searchQuery);
-      setGoogleResults(results);
+      setRemoteResults(results);
       setIsLoading(false);
     };
 
@@ -62,15 +65,29 @@ export const SearchDropdown = ({
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  const searchResults: Location[] = googleResults.map((prediction) => ({
+  const campusResults: Location[] = searchBuildings(searchQuery).map((building) => ({
+    id: `local_${building.Building_Abbr}`,
+    name: `${building.Building_Abbr} - ${building.Description}`,
+    address: building.Address_Full,
+    type: "building" as const,
+    place_id: `local_${building.Building_Abbr}`,
+    source: "local" as const,
+  }));
+
+  const searchResults: Location[] = remoteResults.map((prediction) => ({
     id: prediction.place_id,
     name: prediction.structured_formatting.main_text,
     address: prediction.structured_formatting.secondary_text,
     type: "building" as const,
     place_id: prediction.place_id,
+    source: "remote" as const,
   }));
 
-  const displayedLocations = searchQuery.length > 0 ? searchResults : recentSearches;
+  const displayedLocations = searchQuery.length > 0
+    ? [...campusResults, ...searchResults.filter((result) =>
+        !campusResults.some((campus) => campus.name === result.name && campus.address === result.address),
+      )]
+    : recentSearches;
 
   if (!visible) return null;
 
@@ -145,7 +162,7 @@ export const SearchDropdown = ({
               searchQuery.length > 0 ? (
                 <View className="items-center justify-center px-6 py-8">
                   <Text className={`text-center text-base ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                    No results found for "{searchQuery}"
+                    {`No results found for "${searchQuery}"`}
                   </Text>
                 </View>
               ) : null

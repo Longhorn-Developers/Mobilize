@@ -38,15 +38,17 @@ class ApiClient {
       });
 
       const text = await response.text();
+      const responsePreview =
+        text.slice(0, 120) || response.statusText || "Empty response body";
 
       console.log("API URL:", url);
       console.log("STATUS:", response.status);
-      console.log("RESPONSE PREVIEW:", text.slice(0, 120));
+      console.log("RESPONSE PREVIEW:", responsePreview);
 
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         throw new Error(
-          `Non-JSON response (${response.status}): ${text.slice(0, 100)}`
+          `Non-JSON response (${response.status} ${response.statusText}): ${responsePreview}`
         );
       }
 
@@ -295,5 +297,5 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient(
-    "https://mobilize-ut.longhorn-developers.workers.dev"
+  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:54321"
 );

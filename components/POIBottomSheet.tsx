@@ -1,17 +1,18 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
-import { ForwardedRef, useEffect, useState } from "react";
+import React, { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
+
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
-import useMapIcons from "~/utils/useMapIcons";
-import { typography } from '~/utils/typography';
 import colors from "~/types/colors";
-import buildingsData from '../assets/geojson/buildings_simple.json';
-import { searchPlaces, getPlaceDetails, formatOpeningHours, PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
-import React from "react";
-import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
+import { formatOpeningHours, PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 import { useTheme } from "~/utils/ThemeContext";
+import { typography } from '~/utils/typography';
+import useMapIcons from "~/utils/useMapIcons";
+import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
+
+import buildingsData from '../assets/geojson/buildings_simple.json';
 
 interface POIData {
   poi: any;
@@ -90,9 +91,9 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
 
   const metadata = poi.metadata || {};
 
-  const configBuildingName = (str: string) => {
+  const configBuildingName = (str?: string | null) => {
     return str ? str
-      .substring(6)
+      .replace(/^\([A-Za-z0-9]+\)\s*/, "")
       .toLowerCase()
       .split(' ')
       .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -186,7 +187,31 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         setHours(formatOpeningHours(details.opening_hours));
       };
       fetchHours();
-    }, [poi.id]);
+    }, [allPOIs, building?.Address_Full, buildingFeature, metadata.bld_name, metadata.name, poi.id]);
+
+  const openReviewsForCurrentEntrance = () => {
+    const selectedEntranceData =
+      entrances.find((entrance) => entrance.id.toString() === selectedEntrance) ??
+      entrances[0] ??
+      poi;
+
+    const fallbackLabel =
+      curEntranceLabel ||
+      (selectedEntranceData
+        ? getCardinalLabel(selectedEntranceData, buildingFeature) ??
+          getCardinalLabelFromNeighbors(selectedEntranceData, entrances) ??
+          "Main Entrance"
+        : "Main Entrance");
+
+    setPoi({
+      id: Number(selectedEntranceData?.id ?? poi.id),
+      building: buildingFeature,
+      buildingName: configBuildingName(metadata.bld_name || metadata.name),
+      entrance: fallbackLabel,
+      entrances,
+    });
+    handleReviews();
+  };
 
   interface EntranceProps {
     name: string;
@@ -253,28 +278,25 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Pressable
             style={{ marginBottom: 16 }}
-            onPress={() => {
-              setPoi({
-                id: Number(selectedEntrance),
-                building: buildingFeature,
-                buildingName: configBuildingName(metadata.bld_name),
-                entrance: curEntranceLabel,
-                entrances: entrances,
-              });
-              handleReviews();
-            }}
+            onPress={openReviewsForCurrentEntrance}
           >
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#9CA3AF" : "#64748B", fontWeight: "400" }}>
               Reviews ({reviewCount})
             </Text>
           </Pressable>
-          <Pressable onPress={() => handleReviews()}>
+          <Pressable onPress={openReviewsForCurrentEntrance}>
             <ChevronRight />
           </Pressable>
         </View>
 
         {/* Hours + Distance */}
         <View style={{ flexDirection: "row", marginBottom: 8, alignItems: "center", gap: 16 }}>
+          <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Hours</Text>
+            <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600", maxWidth: 180 }}>
+              {hours}
+            </Text>
+          </View>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Distance</Text>
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600" }}>On campus</Text>

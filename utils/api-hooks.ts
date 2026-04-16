@@ -1,5 +1,5 @@
 // TanStack Query hooks for the Hono backend
-import { useMutation, useQuery, useQueryClient, UseQueryResult } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -96,6 +96,7 @@ export function useReviews(poi_id: number) {
     queryKey: queryKeys.review(poi_id),
     queryFn: () => apiClient.getReviews(poi_id),
     enabled: !!poi_id,
+    retry: false,
   });
 }
 
@@ -214,13 +215,17 @@ export function useUpdateReview() {
   return useMutation({
     mutationFn: (data: {
       id: number;
+      poi_id: number;
       rating: number;
       features?: string;
       content?: string;
-    }) => apiClient.updateReview(data.id, data),
+    }) => {
+      const { id, poi_id: _, ...payload } = data;
+      return apiClient.updateReview(id, payload);
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.reviewById(variables.id),
+        queryKey: queryKeys.review(variables.poi_id),
       }); // refetch reviews
 
       Toast.show({

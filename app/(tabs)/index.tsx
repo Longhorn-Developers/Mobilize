@@ -1,3 +1,6 @@
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useIsFocused } from "@react-navigation/native";
 import Mapbox, {
   Camera,
   CircleLayer,
@@ -13,14 +16,12 @@ import Mapbox, {
   SymbolLayer,
   Terrain,
 } from "@rnmapbox/maps";
-import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as turf from "@turf/turf";
-import { Stack } from "expo-router";
+import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, InteractionManager, View } from "react-native";
+import { Image, InteractionManager, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
 import BarrierBottomSheet from "~/components/BarrierBottomSheet";
@@ -41,13 +42,16 @@ import {
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
-  getRoute,
 } from "~/utils/api-hooks";
-import decode from "~/utils/decode_polyline";
-import { PlaceDetails, searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
-import useMapIcons from "~/utils/useMapIcons";
-import { useAuth } from "~/utils/useAuth";
+import {
+  buildingToPlaceDetails,
+  findBuilding,
+} from "~/utils/buildingDatabase";
+import { searchPlaces, getPlaceDetails } from "~/utils/mapboxSearch";
 import { useTheme } from "~/utils/ThemeContext";
+import { useAuth } from "~/utils/useAuth";
+import useMapIcons from "~/utils/useMapIcons";
+
 import buildingsData from "../../assets/geojson/buildings_simple.json";
 
 // Initialise Mapbox
@@ -55,90 +59,19 @@ Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "");
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const UT_CENTER: [number, number] = [-97.733, 30.282];
-const BASE_ICON_SIZE = 16;
-const BASE_ZOOM = 16;
 const MIN_ZOOM_FOR_POIS = 16;
 const MIN_ZOOM_FOR_SIDEWALKS = 17;
 const MIN_ZOOM_FOR_BUILDINGS = 14;
 const MIN_ZOOM_FOR_BARRIERS = 16;
 const MIN_ZOOM_FOR_LABELS = 15;
 const MAX_ZOOM_FOR_LABELS = 17;
-const ICON_SCALE = 16;
-const MAX_ICON_SIZE = 50;
-const CLUSTER_RADIUS = 10;
-
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
 type LatLng = { latitude: number; longitude: number };
+type MapDetailMode = "simple" | "detailed";
 
 // ── POI clustering ─────────────────────────────────────────────────────────────
 
-function getPOISubtype(poi: any): string {
-  switch (poi.poi_type) {
-    case "accessible_entrance":
-      return `accessible_entrance__${poi.metadata?.auto_opene ? "auto" : "manual"}`;
-    default:
-      return poi.poi_type;
-  }
-}
-
-function clusterPOIs(pois: any[]): any[] {
-  const visited = new Set<number>();
-  const clusters: any[] = [];
-
-  for (let i = 0; i < pois.length; i++) {
-    if (visited.has(i)) continue;
-
-    const current = pois[i];
-    const currentSubtype = getPOISubtype(current);
-    const group = [current];
-    visited.add(i);
-
-    for (let j = i + 1; j < pois.length; j++) {
-      if (visited.has(j)) continue;
-
-      const candidate = pois[j];
-      if (getPOISubtype(candidate) !== currentSubtype) continue;
-
-      const pointA = turf.point([
-        current.location_geojson.coordinates[0],
-        current.location_geojson.coordinates[1],
-      ]);
-      const pointB = turf.point([
-        candidate.location_geojson.coordinates[0],
-        candidate.location_geojson.coordinates[1],
-      ]);
-      const distance = turf.distance(pointA, pointB, { units: "meters" });
-
-      if (distance <= CLUSTER_RADIUS) {
-        group.push(candidate);
-        visited.add(j);
-      }
-    }
-
-    if (group.length === 1) {
-      clusters.push(current);
-    } else {
-      const multiPoint = turf.multiPoint(
-        group.map((p) => [
-          p.location_geojson.coordinates[0],
-          p.location_geojson.coordinates[1],
-        ]),
-      );
-      const centroid = turf.centroid(multiPoint);
-      clusters.push({
-        ...current,
-        location_geojson: {
-          ...current.location_geojson,
-          coordinates: centroid.geometry.coordinates,
-        },
-        clusteredPOIs: group,
-      });
-    }
-  }
-
-  return clusters;
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -146,6 +79,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const isTabFocused = useIsFocused();
   const { user } = useAuth();
   const { colorScheme } = useTheme();
   const canReport = user?.role === "student";
@@ -169,11 +103,11 @@ export default function Home() {
 
   useEffect(() => {
     InteractionManager.runAfterInteractions(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       setSidewalksGeoJSON(require("../../assets/geojson/sidewalks_slim.json"));
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       setBuildingsGeoJSON(require("../../assets/geojson/buildings_simple.json"));
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       setBarriersGeoJSON(require("../../assets/geojson/UTA_Access_Barriers.json"));
     });
   }, []);
@@ -183,10 +117,10 @@ export default function Home() {
   const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
-  const [zoomLevel, setZoomLevel] = useState(15);
-  const [Route, setRoute] = useState<[number, number][] | null>(null);
+  const [Route] = useState<[number, number][] | null>(null);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
 
   // Reviews
   const [reviewKey, setReviewKey] = useState(0);
@@ -194,6 +128,7 @@ export default function Home() {
   const handleSetPoi = useCallback((poi: POIReviewData | undefined) => {
     setPoi(poi);
   }, []);
+  const showDetailedLayers = mapDetailMode === "detailed";
 
   // ── Data hooks ─────────────────────────────────────────────────────────────
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -260,8 +195,6 @@ export default function Home() {
     }),
     [POIs],
   );
-
-  const clusteredPOIs = useMemo(() => clusterPOIs(POIs || []), [POIs]);
 
   const reportGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
     if (aaPointsReport.length < 2) return null;
@@ -344,18 +277,6 @@ export default function Home() {
     };
   };
 
-  const getMapIcon = useCallback(
-    (poiType: any, metadata: any) => {
-      switch (poiType) {
-        case "accessible_entrance":
-          return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
-        default:
-          return undefined;
-      }
-    },
-    [mapIcons],
-  );
-
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const isPointValid = (point: LatLng) => {
@@ -385,14 +306,30 @@ export default function Home() {
     }
   };
 
-  const closeAllSheets = () => {
-    avoidanceAreaBottomSheetRef.current?.close();
-    poiBottomSheetRef.current?.close();
-    sidewalkBottomSheetRef.current?.close();
+  const closeAllSheets = useCallback(() => {
+    avoidanceAreaBottomSheetRef.current?.dismiss();
+    poiBottomSheetRef.current?.dismiss();
+    sidewalkBottomSheetRef.current?.dismiss();
     locationBottomSheetRef.current?.dismiss();
-    barrierBottomSheetRef.current?.close();
-    constructionBottomSheetRef.current?.close();
-  };
+    barrierBottomSheetRef.current?.dismiss();
+    constructionBottomSheetRef.current?.dismiss();
+    reviewSheetRef.current?.dismiss();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        closeAllSheets();
+        setPoi(undefined);
+        setIsSearchActive(false);
+        setSearchQuery("");
+        setIsReportMode(false);
+        setAAPointsReport([]);
+        setClickedPoint(null);
+        setReportStep(0);
+      };
+    }, [closeAllSheets]),
+  );
 
   const handleAvoidanceAreaPress = (polygonId: string) => {
     const area = (avoidanceAreas ?? []).find((a) => String(a.id) === polygonId);
@@ -417,43 +354,16 @@ export default function Home() {
   };
 
   /**
-   * Handle a tap on a campus building polygon.
-   * Queries Google Places for the building name, then opens LocationDetailsBottomSheet.
-   *
-   * TODO: In the future, use BuildingDatabase.ts to locally cache Google Places data
-   * for each building after the first query, and serve from the cache on subsequent
-   * taps. This reduces Google Places API usage and enables offline access.
-   * See utils/buildingDatabase.ts for the building index structure.
+   * Handle a tap on a campus building polygon using the local building database.
    */
-  const handleBuildingTap = useCallback(async (feature: GeoJSON.Feature) => {
+  const handleBuildingTap = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
-    const props = feature.properties as { Description?: string; Address_Full?: string } | null;
-    const query = props?.Description || props?.Address_Full || "";
-    if (!query) return;
-    const results = await searchPlaces(query);
-    if (results.length === 0) return;
-    const details = await getPlaceDetails(results[0].place_id);
-    if (details) locationBottomSheetRef.current?.present(details);
+    const props = feature.properties as { Building_Abbr?: string } | null;
+    const building = props?.Building_Abbr ? findBuilding(props.Building_Abbr) : null;
+    if (!building) return;
+    locationBottomSheetRef.current?.present(buildingToPlaceDetails(building));
   }, [isReportMode]);
 
-  const getDirections = (target: any[]) => {
-    const UT_TOWER = [-97.73942, 30.28614];
-    // TODO: replace avoidancePolygons with avoidanceAreas coordinates
-    const avoidancePolygons = (avoidanceAreas ?? []).map((area) => {
-      const geom = area.boundary_geojson as any;
-      return (geom?.coordinates?.[0] ?? []).map((coord: number[]) => [coord[1], coord[0]]);
-    });
-
-    getRoute([UT_TOWER, target.slice(0, 2)], avoidancePolygons).then((result) => {
-      if (result?.routes?.[0]?.geometry) {
-        setRoute(
-          decode(result.routes[0].geometry).map(
-            (coord: number[]) => [coord[0], coord[1]] as [number, number],
-          ),
-        );
-      }
-    });
-  };
 
   const handleSelectLocation = async (location: {
     id: string;
@@ -481,16 +391,33 @@ export default function Home() {
     }
 
     if (resolvedPlaceId) {
-      const placeDetails = await getPlaceDetails(resolvedPlaceId);
+      let placeDetails = null;
+      let matchingBuilding: any = null;
+
+      if (resolvedPlaceId.startsWith("local_")) {
+        const building = findBuilding(resolvedPlaceId.replace(/^local_/, ""));
+        if (building) {
+          placeDetails = buildingToPlaceDetails(building);
+          matchingBuilding =
+            (buildingsData as any).features?.find(
+              (feature: any) =>
+                feature?.properties?.Building_Abbr === building.Building_Abbr,
+            ) ?? null;
+        }
+      } else {
+        placeDetails = await getPlaceDetails(resolvedPlaceId);
+
+        if (placeDetails) {
+          matchingBuilding = findCampusBuildingFeature(
+            placeDetails.geometry.location.lat,
+            placeDetails.geometry.location.lng,
+            placeDetails.name,
+            placeDetails.formatted_address,
+          );
+        }
+      }
 
       if (placeDetails) {
-        const matchingBuilding = findCampusBuildingFeature(
-          placeDetails.geometry.location.lat,
-          placeDetails.geometry.location.lng,
-          placeDetails.name,
-          placeDetails.formatted_address,
-        );
-
         cameraRef.current?.setCamera({
           centerCoordinate: [
             placeDetails.geometry.location.lng,
@@ -506,7 +433,6 @@ export default function Home() {
           locationBottomSheetRef.current?.dismiss();
           poiBottomSheetRef.current?.present({ poi: buildingPoi });
         } else {
-          // Open the generic sheet when we cannot map the place to an official building.
           locationBottomSheetRef.current?.present(placeDetails);
         }
       }
@@ -537,7 +463,7 @@ export default function Home() {
   }, []);
 
   const handleExitReviewMode = () => {
-    reviewSheetRef.current?.forceClose();
+    reviewSheetRef.current?.dismiss();
   };
 
   const emptyPOIs = useMemo(() => [], []);
@@ -577,42 +503,46 @@ export default function Home() {
       )}
 
       {/* Bottom sheets */}
-      <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
-      <POIBottomSheet
-        ref={poiBottomSheetRef}
-        allPOIs={POIs ?? emptyPOIs}
-        handleReviews={handleEnterReviewMode}
-        setPoi={handleSetPoi}
-      />
-      <SidewalkBottomSheet ref={sidewalkBottomSheetRef} />
-      <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
-      <BarrierBottomSheet ref={barrierBottomSheetRef} />
-      <ConstructionBottomSheet ref={constructionBottomSheetRef} />
+      {isTabFocused ? (
+        <>
+          <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
+          <POIBottomSheet
+            ref={poiBottomSheetRef}
+            allPOIs={POIs ?? emptyPOIs}
+            handleReviews={handleEnterReviewMode}
+            setPoi={handleSetPoi}
+          />
+          <SidewalkBottomSheet ref={sidewalkBottomSheetRef} />
+          <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
+          <BarrierBottomSheet ref={barrierBottomSheetRef} />
+          <ConstructionBottomSheet ref={constructionBottomSheetRef} />
 
-      {/* Review Modal */}
-      <BottomSheetModal
-        ref={reviewSheetRef}
-        bottomInset={bottomTabBarHeight}
-        backgroundStyle={{ backgroundColor: "transparent" }}
-        enableDynamicSizing={false}
-        snapPoints={["100%"]}
-        enableContentPanningGesture={false}
-        handleComponent={null}
-        stackBehavior="push"
-        animationConfigs={{ duration: 0.1 }}
-        animateOnMount={false}
-      >
-        <ReviewModal
-          key={reviewKey}
-          className=""
-          poi_id={poi ? poi.id : 0}
-          entrances={poi ? poi.entrances : []}
-          entranceName={poi ? poi.entrance : "No Entrance Name Found"}
-          building={poi && poi.building}
-          buildingName={poi ? poi.buildingName : "No Building Name Found"}
-          onExit={handleExitReviewMode}
-        />
-      </BottomSheetModal>
+          {/* Review Modal */}
+          <BottomSheetModal
+            ref={reviewSheetRef}
+            bottomInset={bottomTabBarHeight}
+            backgroundStyle={{ backgroundColor: "transparent" }}
+            enableDynamicSizing={false}
+            snapPoints={["100%"]}
+            enableContentPanningGesture={false}
+            handleComponent={null}
+            stackBehavior="push"
+            animationConfigs={{ duration: 0.1 }}
+            animateOnMount={false}
+          >
+            <ReviewModal
+              key={reviewKey}
+              className=""
+              poi_id={poi ? poi.id : 0}
+              entrances={poi ? poi.entrances : []}
+              entranceName={poi ? poi.entrance : "No Entrance Name Found"}
+              building={poi && poi.building}
+              buildingName={poi ? poi.buildingName : "No Building Name Found"}
+              onExit={handleExitReviewMode}
+            />
+          </BottomSheetModal>
+        </>
+      ) : null}
 
       {/* ── Mapbox Map ─────────────────────────────────────────────────────── */}
       <MapView
@@ -646,7 +576,6 @@ export default function Home() {
             closeAllSheets();
           }
         }}
-        onCameraChanged={(state: any) => setZoomLevel(state.properties.zoom)}
       >
         {/* Camera */}
         <Camera
@@ -686,6 +615,7 @@ export default function Home() {
         />
 
         {/* ── 3D Campus Buildings + Abbreviation Labels ────────────────────── */}
+        {showDetailedLayers && (
         <ShapeSource
           id="campus-buildings"
           shape={buildingsGeoJSON}
@@ -743,8 +673,10 @@ export default function Home() {
             }}
           />
         </ShapeSource>
+        )}
 
         {/* ── Sidewalk accessibility overlay (zoom ≥ 17) ───────────────────── */}
+        {showDetailedLayers && (
         <ShapeSource
           id="sidewalks"
           shape={sidewalksGeoJSON}
@@ -789,6 +721,7 @@ export default function Home() {
             }}
           />
         </ShapeSource>
+        )}
 
         {/* ── Avoidance areas ──────────────────────────────────────────────── */}
         <ShapeSource
@@ -833,6 +766,7 @@ export default function Home() {
         </ShapeSource>
 
         {/* ── Accessibility barriers (points) ──────────────────────────────── */}
+        {showDetailedLayers && (
         <ShapeSource
           id="barriers"
           shape={barriersGeoJSON}
@@ -861,6 +795,7 @@ export default function Home() {
             }}
           />
         </ShapeSource>
+        )}
 
         {/* ── In-progress report polygon ────────────────────────────────────── */}
         {reportGeoJSON && (
@@ -934,6 +869,54 @@ export default function Home() {
         )}
       </MapView>
 
+      {!isReportMode && (
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 16,
+            flexDirection: "row",
+            borderRadius: 999,
+            padding: 4,
+            backgroundColor: isDark ? "rgba(28,28,30,0.92)" : "rgba(255,255,255,0.96)",
+            shadowColor: "#000",
+            shadowOpacity: 0.14,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 4,
+          }}
+        >
+          {(["simple", "detailed"] as const).map((mode) => {
+            const active = mapDetailMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => setMapDetailMode(mode)}
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 9,
+                  backgroundColor: active
+                    ? "#BF5700"
+                    : "transparent",
+                }}
+              >
+                <Text
+                  style={{
+                    color: active ? "#FFFFFF" : isDark ? "#E5E7EB" : "#334155",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {mode}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       {isReportMode ? (
         <>
           <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
@@ -963,6 +946,8 @@ export default function Home() {
             onExit={() => {
               setClickedPoint(null);
               setIsReportMode(false);
+              setAAPointsReport([]);
+              setReportStep(0);
             }}
           />
         </>
@@ -970,7 +955,12 @@ export default function Home() {
         <Button
           className="absolute bottom-4 right-4"
           title="Report"
-          onPress={() => setIsReportMode(true)}
+          onPress={() => {
+            closeAllSheets();
+            setIsSearchActive(false);
+            setSearchQuery("");
+            setIsReportMode(true);
+          }}
           style={{
             position: "absolute",
             bottom: 16,

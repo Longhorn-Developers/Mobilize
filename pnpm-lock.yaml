@@ -24,61 +24,67 @@ importers:
         specifier: 7.4.0
         version: 7.4.0(@react-navigation/native@7.2.2(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-safe-area-context@5.6.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-screens@4.16.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@react-navigation/native':
-        specifier: 7.2.2
+        specifier: ^7.1.6
         version: 7.2.2(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@rnmapbox/maps':
+        specifier: ^10.3.0
+        version: 10.3.0(expo@54.0.33)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@tanstack/react-query':
-        specifier: 5.90.7
+        specifier: ^5.90.7
         version: 5.90.7(react@19.1.0)
       '@turf/turf':
-        specifier: 7.2.0
+        specifier: ^7.2.0
         version: 7.2.0
       '@types/geojson':
-        specifier: 7946.0.16
+        specifier: ^7946.0.16
         version: 7946.0.16
       better-auth:
-        specifier: 1.4.5
+        specifier: ^1.4.5
         version: 1.4.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       clsx:
-        specifier: 2.1.1
+        specifier: ^2.1.1
         version: 2.1.1
       drizzle-orm:
-        specifier: 0.44.7
+        specifier: ^0.44.7
         version: 0.44.7(kysely@0.28.15)
       expo:
-        specifier: 54.0.33
+        specifier: '>=54.0.0-0 <55.0.0'
         version: 54.0.33(@babel/core@7.28.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-constants:
-        specifier: 18.0.13
+        specifier: ~18.0.13
         version: 18.0.13(expo@54.0.33)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))
       expo-dev-client:
-        specifier: 6.0.20
+        specifier: ^6.0.20
         version: 6.0.20(expo@54.0.33)
       expo-device:
-        specifier: 8.0.10
+        specifier: ~8.0.10
         version: 8.0.10(expo@54.0.33)
       expo-font:
-        specifier: 14.0.11
+        specifier: ~14.0.11
         version: 14.0.11(expo@54.0.33)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-linking:
-        specifier: 8.0.11
+        specifier: ~8.0.11
         version: 8.0.11(expo@54.0.33)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-modules-core:
+        specifier: ~3.0.29
+        version: 3.0.29(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-network:
-        specifier: 8.0.8
+        specifier: ~8.0.8
         version: 8.0.8(expo@54.0.33)(react@19.1.0)
       expo-router:
-        specifier: 6.0.23
+        specifier: ~6.0.23
         version: 6.0.23(@expo/metro-runtime@6.1.2)(@types/react@19.1.17)(expo-constants@18.0.13)(expo-linking@8.0.11)(expo@54.0.33)(react-dom@19.1.0(react@19.1.0))(react-native-gesture-handler@2.28.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-reanimated@4.1.5(@babel/core@7.28.0)(react-native-worklets@0.5.1(@babel/core@7.28.0)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-safe-area-context@5.6.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-screens@4.16.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-web@0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-status-bar:
-        specifier: 3.0.9
+        specifier: ~3.0.9
         version: 3.0.9(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-system-ui:
-        specifier: 6.0.9
+        specifier: ~6.0.9
         version: 6.0.9(expo@54.0.33)(react-native-web@0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))
       expo-web-browser:
-        specifier: 15.0.10
+        specifier: ~15.0.10
         version: 15.0.10(expo@54.0.33)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))
       geojson:
-        specifier: 0.5.0
+        specifier: ^0.5.0
         version: 0.5.0
       nativewind:
         specifier: latest
@@ -93,7 +99,7 @@ importers:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
       react-hook-form:
-        specifier: 7.61.1
+        specifier: ^7.61.1
         version: 7.61.1(react@19.1.0)
       react-native:
         specifier: 0.81.5
@@ -102,19 +108,16 @@ importers:
         specifier: ^0.2.3
         version: 0.2.3(react-native-reanimated@4.1.5(@babel/core@7.28.0)(react-native-worklets@0.5.1(@babel/core@7.28.0)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-safe-area-context@5.6.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native-svg@15.12.1(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(tailwindcss@3.4.17)
       react-native-gesture-handler:
-        specifier: 2.28.0
+        specifier: ~2.28.0
         version: 2.28.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
-      react-native-maps:
-        specifier: 1.20.1
-        version: 1.20.1(react-native-web@0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-reanimated:
-        specifier: 4.1.5
+        specifier: ~4.1.5
         version: 4.1.5(@babel/core@7.28.0)(react-native-worklets@0.5.1(@babel/core@7.28.0)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-safe-area-context:
-        specifier: 5.6.0
+        specifier: ~5.6.0
         version: 5.6.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-screens:
-        specifier: 4.16.0
+        specifier: ~4.16.0
         version: 4.16.0(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-svg:
         specifier: 15.12.1
@@ -1836,6 +1839,22 @@ packages:
   '@react-navigation/routers@7.5.3':
     resolution: {integrity: sha512-1tJHg4KKRJuQ1/EvJxatrMef3NZXEPzwUIUZ3n1yJ2t7Q97siwRtbynRpQG9/69ebbtiZ8W3ScOZF/OmhvM4Rg==}
 
+  '@rnmapbox/maps@10.3.0':
+    resolution: {integrity: sha512-g5A6hkz6imuA5qy3EGQIbtaofBUbP2YiiyKzj7GJ9ryRXC9gRsnVaJ/8pmAts+0/aIZ5o5w63eboTKjCdO2HrQ==}
+    peerDependencies:
+      expo: '>=47.0.0'
+      mapbox-gl: ^2.9.0
+      react: '>=17.0.0'
+      react-dom: '>= 17.0.0'
+      react-native: '>=0.79'
+    peerDependenciesMeta:
+      expo:
+        optional: true
+      mapbox-gl:
+        optional: true
+      react-dom:
+        optional: true
+
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
@@ -1870,6 +1889,9 @@ packages:
     peerDependencies:
       react: ^18 || ^19
 
+  '@turf/along@6.5.0':
+    resolution: {integrity: sha512-LLyWQ0AARqJCmMcIEAXF4GEu8usmd4Kbz3qk1Oy5HoRNpZX47+i5exQtmIWKdqJ1MMhW26fCTXgpsEs5zgJ5gw==}
+
   '@turf/along@7.3.4':
     resolution: {integrity: sha512-PvIoXin0I1t3nRwJz7uqR6fsxDMqdGwJq90qGOeqkNwlZqlF+5o2wKHPwYwi0RXZhLvxRP5qlbNIvV8ADdbWxw==}
 
@@ -1887,6 +1909,9 @@ packages:
 
   '@turf/bbox@7.3.4':
     resolution: {integrity: sha512-D5ErVWtfQbEPh11yzI69uxqrcJmbPU/9Y59f1uTapgwAwQHQztDWgsYpnL3ns8r1GmPWLP8sGJLVTIk2TZSiYA==}
+
+  '@turf/bearing@6.5.0':
+    resolution: {integrity: sha512-dxINYhIEMzgDOztyMZc20I7ssYVNEpSv04VbMo5YPQsqa80KO3TFvbuCahMsCAW5z8Tncc8dwBlEFrmRjJG33A==}
 
   '@turf/bearing@7.3.4':
     resolution: {integrity: sha512-zvFjapyFaOrM8nBtAND7f4yb0BJV0jyj6cyoXyTYqLY+3Hn0eHgL0M8lwxDLbTom5KfqYDHDVDQC3+VSfypoEA==}
@@ -1984,6 +2009,9 @@ packages:
   '@turf/convex@7.3.4':
     resolution: {integrity: sha512-zeNv0fFdOoHuOQB7nl6OLb0DyjvzDvm0e3zlFkph50GF9pEKOmkCSmlniw681aWL2aRBdWZBnON3rRzOS+9C7Q==}
 
+  '@turf/destination@6.5.0':
+    resolution: {integrity: sha512-4cnWQlNC8d1tItOz9B4pmJdWpXqS0vEvv65bI/Pj/genJnsL7evI0/Xw42RvEGROS481MPiU80xzvwxEvhQiMQ==}
+
   '@turf/destination@7.3.4':
     resolution: {integrity: sha512-YxoUJwkKmTHiRFQxMQOP0tz8Vy+ga5EXl+C+F/WubjDLwT1AJu5y8CNIjLvWyjPWckj/vZG4u/1js5bx6MLADA==}
 
@@ -1995,6 +2023,9 @@ packages:
 
   '@turf/distance-weight@7.3.4':
     resolution: {integrity: sha512-dVMNEmIluKgn7iQTmzJJOe0UASRNmmSdFX1boAev5MISaW3AvPiURCCOV+lTIeoaQbWRpEAESbAp6JIimXFr8Q==}
+
+  '@turf/distance@6.5.0':
+    resolution: {integrity: sha512-xzykSLfoURec5qvQJcfifw/1mJa+5UwByZZ5TZ8iaqjGYN0vomhV9aiSLeYdUGtYRESZ+DYC/OzY+4RclZYgMg==}
 
   '@turf/distance@7.3.4':
     resolution: {integrity: sha512-9drWgd46uHPPyzgrcRQLgSvdS/SjVlQ6ZIBoRQagS5P2kSjUbcOXHIMeOSPwfxwlKhEtobLyr+IiR2ns1TfF8w==}
@@ -2020,6 +2051,9 @@ packages:
   '@turf/great-circle@7.3.4':
     resolution: {integrity: sha512-JvfzWFL9efP+xKtOnKzGvwEIXfaN0CLZoPPxNnWa/cVisLs9FVMlC9PWnuL3/3aqH5VhBHPddmU8ipzNE6KIIA==}
 
+  '@turf/helpers@6.5.0':
+    resolution: {integrity: sha512-VbI1dV5bLFzohYYdgqwikdMVpe7pJ9X3E+dlr425wa2/sMJqYDhTO++ec38/pcPvPE6oD9WEEeU3Xu3gza+VPw==}
+
   '@turf/helpers@7.3.4':
     resolution: {integrity: sha512-U/S5qyqgx3WTvg4twaH0WxF3EixoTCfDsmk98g1E3/5e2YKp7JKYZdz0vivsS5/UZLJeZDEElOSFH4pUgp+l7g==}
 
@@ -2031,6 +2065,9 @@ packages:
 
   '@turf/intersect@7.3.4':
     resolution: {integrity: sha512-VsqMEMeRWWs2mjwI7sTlUgH1cEfugTGhQ0nF8ncHG7YKd9HUUTzIKpn9FJeoguPWIYITcy1ar4yJEOU/hteBVw==}
+
+  '@turf/invariant@6.5.0':
+    resolution: {integrity: sha512-Wv8PRNCtPD31UVbdJE/KVAWKe7l6US+lJItRR/HOEW3eh+U/JwRCSUl/KZ7bmjM/C+zLNoreM2TU6OoLACs4eg==}
 
   '@turf/invariant@7.3.4':
     resolution: {integrity: sha512-88Eo4va4rce9sNZs6XiMJowWkikM3cS2TBhaCKlU+GFHdNf8PFEpiU42VDU8q5tOF6/fu21Rvlke5odgOGW4AQ==}
@@ -2047,6 +2084,9 @@ packages:
   '@turf/kinks@7.3.4':
     resolution: {integrity: sha512-LZTKELWxvXl0vc9ZxVgi0v07fO9+2FrZOam2B10fz/eGjy3oKNazU5gjggbnc499wEIcJS4hN+VyjQZrmsJAdQ==}
 
+  '@turf/length@6.5.0':
+    resolution: {integrity: sha512-5pL5/pnw52fck3oRsHDcSGrj9HibvtlrZ0QNy2OcW8qBFDNgZ4jtl6U7eATVoyWPKBHszW3dWETW+iLV7UARig==}
+
   '@turf/length@7.3.4':
     resolution: {integrity: sha512-Dg1GnQ/B2go5NIWXt91N4L7XTjIgIWCftBSYIXkrpIM7QGjItzglek0Z5caytvb8ZRWXzZOGs8//+Q5we91WuQ==}
 
@@ -2056,6 +2096,9 @@ packages:
   '@turf/line-chunk@7.3.4':
     resolution: {integrity: sha512-xWEHR99EpUO5ZPEZhMfa0QvnFZC0W+QLxB1GcJcSeJAQ5ZMXUXY8doKF1Nztk0eppawMprEEO3nQWLvQoR4z2g==}
 
+  '@turf/line-intersect@6.5.0':
+    resolution: {integrity: sha512-CS6R1tZvVQD390G9Ea4pmpM6mJGPWoL82jD46y0q1KSor9s6HupMIo1kY4Ny+AEYQl9jd21V3Scz20eldpbTVA==}
+
   '@turf/line-intersect@7.3.4':
     resolution: {integrity: sha512-XygbTvHa6A+v6l2ZKYtS8AAWxwmrPxKxfBbdH75uED1JvdytSLWYTKGlcU3soxd9sYb4x/g9sDvRIVyU6Lucrg==}
 
@@ -2064,6 +2107,9 @@ packages:
 
   '@turf/line-overlap@7.3.4':
     resolution: {integrity: sha512-3GBECiwNAQ2MmSwiqAHMweIl+EiePK0Jx4fXxF1KFE+NGCDv/MbGcEYfAbmsTg8mg6oRI9D8fJZzrT44DHpHXA==}
+
+  '@turf/line-segment@6.5.0':
+    resolution: {integrity: sha512-jI625Ho4jSuJESNq66Mmi290ZJ5pPZiQZruPVpmHkUw257Pew0alMmb6YrqYNnLUuiVVONxAAKXUVeeUGtycfw==}
 
   '@turf/line-segment@7.3.4':
     resolution: {integrity: sha512-UeISzf/JHoWEY5yeoyvKwA5epWcvJMCpCwbIMolvfTC5pp+IVozjHPVCRvRWuzmbmAvetcW0unL5bjqi0ADmuQ==}
@@ -2083,6 +2129,9 @@ packages:
   '@turf/mask@7.3.4':
     resolution: {integrity: sha512-FJIlSk8m0AiqzNoLSMdYuhDRif6aeOYVdW/WxjEjpUoMalwy2w5MMlZqJB9zxt/xSrMq6lvTWJgZfZfGL2s4ZQ==}
 
+  '@turf/meta@6.5.0':
+    resolution: {integrity: sha512-RrArvtsV0vdsCBegoBtOalgdSOfkBrTJ07VkpiCnq/491W67hnMWmDu7e6Ztw0C3WldRYTXkg3SumfdzZxLBHA==}
+
   '@turf/meta@7.3.4':
     resolution: {integrity: sha512-tlmw9/Hs1p2n0uoHVm1w3ugw1I6L8jv9YZrcdQa4SH5FX5UY0ATrKeIvfA55FlL//PGuYppJp+eyg/0eb4goqw==}
 
@@ -2094,6 +2143,9 @@ packages:
 
   '@turf/nearest-neighbor-analysis@7.3.4':
     resolution: {integrity: sha512-8EZlDy5poU0t7BDy8KTzOmfiGsAs2kWuB3/kgI4sMdbThKVk2P4hHKuToCSGvqAzwSy3B2qKYM1N6JeVWytu+w==}
+
+  '@turf/nearest-point-on-line@6.5.0':
+    resolution: {integrity: sha512-WthrvddddvmymnC+Vf7BrkHGbDOUu6Z3/6bFYUGv1kxw8tiZ6n83/VG6kHz4poHOfS0RaNflzXSkmCi64fLBlg==}
 
   '@turf/nearest-point-on-line@7.3.4':
     resolution: {integrity: sha512-DQrP3lRju83rIXFN68tUEpc7ki/eRwdwBkK2CTT4RAcyCxbcH2NGJPQv8dYiww/Ar77u1WLVn+aINXZH904dWw==}
@@ -2238,6 +2290,9 @@ packages:
 
   '@types/geojson@7946.0.16':
     resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
+
+  '@types/geojson@7946.0.8':
+    resolution: {integrity: sha512-1rkryxURpr6aWP7R786/UQOkJ3PcpQiWkAXBmdWc7ryFWqN6a4xfK7BtjXvFBKO9LjQ+MWQSWxYeZX1OApnArA==}
 
   '@types/geokdbush@1.1.5':
     resolution: {integrity: sha512-jIsYnXY+RQ/YCyBqeEHxYN9mh+7PqKJUJUp84wLfZ7T2kqyVPNaXwZuvf1A2uQUkrvVqEbsG94ff8jH32AlLvA==}
@@ -2996,6 +3051,10 @@ packages:
   data-view-byte-offset@1.0.1:
     resolution: {integrity: sha512-BS8PfmtDGnrgYdOonGZQdLZslWIeCGFP9tpan0hi1Co2Zr2NKADsvGYA8XxuG/4UWgJ6Cjtv+YJnB6MM69QGlQ==}
     engines: {node: '>= 0.4'}
+
+  debounce@2.2.0:
+    resolution: {integrity: sha512-Xks6RUDLZFdz8LIdR6q0MTH44k7FikOmnh5xkSjMig6ch45afc8sjTjRQf3P6ax8dMgcQrYO/AR2RGWURrruqw==}
+    engines: {node: '>=18'}
 
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
@@ -3768,6 +3827,9 @@ packages:
 
   geojson-polygon-self-intersections@1.2.2:
     resolution: {integrity: sha512-6XRNF4CsRHYmR9z5YuIk5f/aOototnDf0dgMqYGcS7y1l57ttt6MAIAxl3rXyas6lq1HEbTuLMh4PgvO+OV42w==}
+
+  geojson-rbush@3.2.0:
+    resolution: {integrity: sha512-oVltQTXolxvsz1sZnutlSuLDEcQAKYC/uXt9zDzJJ6bu0W+baTI8LZBaTup5afzibEH4N3jlq2p+a152wlBJ7w==}
 
   geojson@0.5.0:
     resolution: {integrity: sha512-/Bx5lEn+qRF4TfQ5aLu6NH+UKtvIv7Lhc487y/c8BdludrCTpiWf9wyI0RTyqg49MFefIAvFDuEi5Dfd/zgNxQ==}
@@ -5118,17 +5180,6 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
-
-  react-native-maps@1.20.1:
-    resolution: {integrity: sha512-NZI3B5Z6kxAb8gzb2Wxzu/+P2SlFIg1waHGIpQmazDSCRkNoHNY4g96g+xS0QPSaG/9xRBbDNnd2f2/OW6t6LQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      react: '>= 17.0.1'
-      react-native: '>= 0.64.3'
-      react-native-web: '>= 0.11'
-    peerDependenciesMeta:
-      react-native-web:
-        optional: true
 
   react-native-reanimated@4.1.5:
     resolution: {integrity: sha512-UA6VUbxwhRjEw2gSNrvhkusUq3upfD3Cv+AnB07V+kC8kpvwRVI+ivwY95ePbWNFkFpP+Y2Sdw1WHpHWEV+P2Q==}
@@ -7826,6 +7877,21 @@ snapshots:
     dependencies:
       nanoid: 3.3.11
 
+  '@rnmapbox/maps@10.3.0(expo@54.0.33)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@turf/along': 6.5.0
+      '@turf/distance': 6.5.0
+      '@turf/helpers': 6.5.0
+      '@turf/length': 6.5.0
+      '@turf/nearest-point-on-line': 6.5.0
+      '@types/geojson': 7946.0.16
+      debounce: 2.2.0
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0)
+    optionalDependencies:
+      expo: 54.0.33(@babel/core@7.28.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      react-dom: 19.1.0(react@19.1.0)
+
   '@rtsao/scc@1.1.0': {}
 
   '@sinclair/typebox@0.27.10': {}
@@ -7858,6 +7924,14 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.90.7
       react: 19.1.0
+
+  '@turf/along@6.5.0':
+    dependencies:
+      '@turf/bearing': 6.5.0
+      '@turf/destination': 6.5.0
+      '@turf/distance': 6.5.0
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
 
   '@turf/along@7.3.4':
     dependencies:
@@ -7904,6 +7978,11 @@ snapshots:
       '@turf/meta': 7.3.4
       '@types/geojson': 7946.0.16
       tslib: 2.8.1
+
+  '@turf/bearing@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
 
   '@turf/bearing@7.3.4':
     dependencies:
@@ -8191,6 +8270,11 @@ snapshots:
       concaveman: 1.2.1
       tslib: 2.8.1
 
+  '@turf/destination@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
+
   '@turf/destination@7.3.4':
     dependencies:
       '@turf/helpers': 7.3.4
@@ -8224,6 +8308,11 @@ snapshots:
       '@turf/meta': 7.3.4
       '@types/geojson': 7946.0.16
       tslib: 2.8.1
+
+  '@turf/distance@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
 
   '@turf/distance@7.3.4':
     dependencies:
@@ -8289,6 +8378,8 @@ snapshots:
       arc: 0.2.0
       tslib: 2.8.1
 
+  '@turf/helpers@6.5.0': {}
+
   '@turf/helpers@7.3.4':
     dependencies:
       '@types/geojson': 7946.0.16
@@ -8327,6 +8418,10 @@ snapshots:
       polyclip-ts: 0.16.8
       tslib: 2.8.1
 
+  '@turf/invariant@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+
   '@turf/invariant@7.3.4':
     dependencies:
       '@turf/helpers': 7.3.4
@@ -8364,6 +8459,12 @@ snapshots:
       '@types/geojson': 7946.0.16
       tslib: 2.8.1
 
+  '@turf/length@6.5.0':
+    dependencies:
+      '@turf/distance': 6.5.0
+      '@turf/helpers': 6.5.0
+      '@turf/meta': 6.5.0
+
   '@turf/length@7.3.4':
     dependencies:
       '@turf/distance': 7.3.4
@@ -8388,6 +8489,14 @@ snapshots:
       '@turf/meta': 7.3.4
       '@types/geojson': 7946.0.16
       tslib: 2.8.1
+
+  '@turf/line-intersect@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
+      '@turf/line-segment': 6.5.0
+      '@turf/meta': 6.5.0
+      geojson-rbush: 3.2.0
 
   '@turf/line-intersect@7.3.4':
     dependencies:
@@ -8416,6 +8525,12 @@ snapshots:
       '@types/geojson': 7946.0.16
       fast-deep-equal: 3.1.3
       tslib: 2.8.1
+
+  '@turf/line-segment@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
+      '@turf/meta': 6.5.0
 
   '@turf/line-segment@7.3.4':
     dependencies:
@@ -8473,6 +8588,10 @@ snapshots:
       polyclip-ts: 0.16.8
       tslib: 2.8.1
 
+  '@turf/meta@6.5.0':
+    dependencies:
+      '@turf/helpers': 6.5.0
+
   '@turf/meta@7.3.4':
     dependencies:
       '@turf/helpers': 7.3.4
@@ -8508,6 +8627,16 @@ snapshots:
       '@turf/nearest-point': 7.3.4
       '@types/geojson': 7946.0.16
       tslib: 2.8.1
+
+  '@turf/nearest-point-on-line@6.5.0':
+    dependencies:
+      '@turf/bearing': 6.5.0
+      '@turf/destination': 6.5.0
+      '@turf/distance': 6.5.0
+      '@turf/helpers': 6.5.0
+      '@turf/invariant': 6.5.0
+      '@turf/line-intersect': 6.5.0
+      '@turf/meta': 6.5.0
 
   '@turf/nearest-point-on-line@7.3.4':
     dependencies:
@@ -9013,6 +9142,8 @@ snapshots:
   '@types/estree@1.0.8': {}
 
   '@types/geojson@7946.0.16': {}
+
+  '@types/geojson@7946.0.8': {}
 
   '@types/geokdbush@1.1.5':
     dependencies:
@@ -9883,6 +10014,8 @@ snapshots:
       call-bound: 1.0.4
       es-errors: 1.3.0
       is-data-view: 1.0.2
+
+  debounce@2.2.0: {}
 
   debug@2.6.9:
     dependencies:
@@ -10817,6 +10950,14 @@ snapshots:
   geojson-polygon-self-intersections@1.2.2:
     dependencies:
       rbush: 2.0.2
+
+  geojson-rbush@3.2.0:
+    dependencies:
+      '@turf/bbox': 7.3.4
+      '@turf/helpers': 6.5.0
+      '@turf/meta': 6.5.0
+      '@types/geojson': 7946.0.8
+      rbush: 3.0.1
 
   geojson@0.5.0: {}
 
@@ -12291,14 +12432,6 @@ snapshots:
     dependencies:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0)
-
-  react-native-maps@1.20.1(react-native-web@0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
-    dependencies:
-      '@types/geojson': 7946.0.16
-      react: 19.1.0
-      react-native: 0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0)
-    optionalDependencies:
-      react-native-web: 0.21.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
 
   react-native-reanimated@4.1.5(@babel/core@7.28.0)(react-native-worklets@0.5.1(@babel/core@7.28.0)(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:

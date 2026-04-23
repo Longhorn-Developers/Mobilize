@@ -49,7 +49,9 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const { user } = useAuth();
-  const canComment = user?.role === "student";
+  const canComment =
+    user?.role === "student" ||
+    user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
 
   const polygon: Polygon | null = area.boundary_geojson
     ? { type: "Polygon", coordinates: [area.boundary_geojson.coordinates[0]] }
@@ -71,13 +73,17 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
     },
   });
 
-  const handleAddComment = (data: CommentFormData) => {
-    insertAvoidanceAreaReport({
-      avoidance_area_id: areaId,
-      title: "User Comment",
-      description: data.content,
-    });
-    reset();
+  const handleAddComment = async (data: CommentFormData) => {
+    try {
+      await insertAvoidanceAreaReport({
+        avoidance_area_id: areaId,
+        title: "User Comment",
+        description: data.content,
+      });
+      reset();
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+    }
   };
 
   const formatTimeAgo = (dateStr: string | Date) => {
@@ -261,7 +267,9 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
                     )}
                   />
                   <TouchableOpacity
-                    onPress={handleSubmit(handleAddComment)}
+                    onPress={handleSubmit((data) => {
+                      void handleAddComment(data);
+                    })}
                     disabled={!isValid}
                     className={`ml-2 ${isValid ? "opacity-100" : "opacity-50"}`}
                   >

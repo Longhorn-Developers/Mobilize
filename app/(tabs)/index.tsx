@@ -70,6 +70,20 @@ const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", feature
 type LatLng = { latitude: number; longitude: number };
 type MapDetailMode = "simple" | "detailed";
 
+const extractBuildingAbbreviation = (value?: string | null): string | null => {
+  if (!value) return null;
+  const parenMatch = value.match(/\(([A-Za-z0-9]{2,8})\)/);
+  if (parenMatch?.[1]) return parenMatch[1].toUpperCase();
+  const leadingCodeMatch = value.match(/^([A-Za-z0-9]{2,8})\b/);
+  if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
+  return null;
+};
+
+const isEntrancePoi = (poi: any) => {
+  const poiType = String(poi?.poi_type ?? "").toLowerCase();
+  return poiType.includes("entrance") && !poiType.includes("ramp");
+};
+
 // ── POI clustering ─────────────────────────────────────────────────────────────
 
 
@@ -82,7 +96,9 @@ export default function Home() {
   const isTabFocused = useIsFocused();
   const { user } = useAuth();
   const { colorScheme } = useTheme();
-  const canReport = user?.role === "student";
+  const canReport =
+    user?.role === "student" ||
+    user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
   const isDark = colorScheme === "dark";
 
   // ── Refs ───────────────────────────────────────────────────────────────────
@@ -100,6 +116,7 @@ export default function Home() {
   const [sidewalksGeoJSON, setSidewalksGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
   const [buildingsGeoJSON, setBuildingsGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
   const [barriersGeoJSON, setBarriersGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
+  const [rampsGeoJSON, setRampsGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
 
   useEffect(() => {
     InteractionManager.runAfterInteractions(() => {
@@ -109,6 +126,7 @@ export default function Home() {
       setBuildingsGeoJSON(require("../../assets/geojson/buildings_simple.json"));
        
       setBarriersGeoJSON(require("../../assets/geojson/UTA_Access_Barriers.json"));
+      setRampsGeoJSON(require("../../assets/geojson/Ramps.json"));
     });
   }, []);
 
@@ -183,15 +201,17 @@ export default function Home() {
   const poiGeoJSON = useMemo(
     (): GeoJSON.FeatureCollection => ({
       type: "FeatureCollection",
-      features: (POIs ?? []).map((poi) => ({
-        type: "Feature" as const,
-        id: String(poi.id),
-        properties: {
+      features: (POIs ?? [])
+        .filter(isEntrancePoi)
+        .map((poi) => ({
+          type: "Feature" as const,
           id: String(poi.id),
-          icon: poi.metadata?.auto_opene ? "autoDoor" : "manualDoor",
-        },
-        geometry: poi.location_geojson as GeoJSON.Geometry,
-      })),
+          properties: {
+            id: String(poi.id),
+            icon: poi.metadata?.auto_opene ? "autoDoor" : "manualDoor",
+          },
+          geometry: poi.location_geojson as GeoJSON.Geometry,
+        })),
     }),
     [POIs],
   );
@@ -249,33 +269,69 @@ export default function Home() {
     return null;
   };
 
-  const buildPoiFromCampusBuilding = (
+  const isPoiInsideBuilding = (poi: any, buildingFeature: any) => {
+    const coords = poi?.location_geojson?.coordinates;
+    if (!coords?.length || !buildingFeature?.geometry) return false;
+    const point = turf.point([Number(coords[0]), Number(coords[1])]);
+    return turf.booleanPointInPolygon(point, buildingFeature as any);
+  };
+
+  const findEntrancePoiForBuilding = useCallback((buildingFeature: any) => {
+    const entrances = (POIs ?? []).filter(isEntrancePoi);
+    if (!entrances.length || !buildingFeature) return null;
+
+    const buildingAbbr = String(buildingFeature?.properties?.Building_Abbr ?? "").toUpperCase();
+    if (buildingAbbr) {
+      const abbreviationMatch = entrances.find((entry) => {
+        const entryAbbr =
+          extractBuildingAbbreviation(entry?.metadata?.bld_name) ??
+          extractBuildingAbbreviation(entry?.metadata?.name);
+        return entryAbbr === buildingAbbr;
+      });
+      if (abbreviationMatch) return abbreviationMatch;
+    }
+
+    const geometryMatch = entrances.find((entry) => isPoiInsideBuilding(entry, buildingFeature));
+    return geometryMatch ?? null;
+  }, [POIs]);
+
+  const buildPoiFromCampusBuilding = useCallback((
     placeDetails: any,
     buildingFeature: any,
   ) => {
-    const buildingAbbr = buildingFeature?.properties?.Building_Abbr;
-    const buildingName = buildingFeature?.properties?.Description;
-
-    if (!buildingAbbr || !buildingName) {
+    if (!buildingFeature) {
       return null;
     }
 
+    const matchedEntrance = findEntrancePoiForBuilding(buildingFeature);
+    if (matchedEntrance) {
+      return matchedEntrance;
+    }
+
+    const buildingAbbr = buildingFeature?.properties?.Building_Abbr;
+    const buildingName = buildingFeature?.properties?.Description;
+    if (!buildingName) return null;
+
+    const centroidCoords = turf.centerOfMass(buildingFeature as any)?.geometry?.coordinates as
+      | [number, number]
+      | undefined;
+    const lng = placeDetails?.geometry?.location?.lng ?? centroidCoords?.[0];
+    const lat = placeDetails?.geometry?.location?.lat ?? centroidCoords?.[1];
+    if (lng == null || lat == null) return null;
+
     return {
-      id: `search-${placeDetails.place_id ?? buildingAbbr}`,
+      id: `search-${placeDetails?.place_id ?? buildingAbbr ?? buildingName}`,
       poi_type: "accessible_entrance",
       location_geojson: {
         type: "Point",
-        coordinates: [
-          placeDetails.geometry.location.lng,
-          placeDetails.geometry.location.lat,
-        ],
+        coordinates: [lng, lat],
       },
       metadata: {
         name: buildingName,
-        bld_name: `(${buildingAbbr}) ${buildingName}`,
+        bld_name: buildingAbbr ? `(${buildingAbbr}) ${buildingName}` : buildingName,
       },
     };
-  };
+  }, [findEntrancePoiForBuilding]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -331,6 +387,18 @@ export default function Home() {
     }, [closeAllSheets]),
   );
 
+  useEffect(() => {
+    if (isTabFocused) return;
+    closeAllSheets();
+    setPoi(undefined);
+    setIsSearchActive(false);
+    setSearchQuery("");
+    setIsReportMode(false);
+    setAAPointsReport([]);
+    setClickedPoint(null);
+    setReportStep(0);
+  }, [isTabFocused, closeAllSheets]);
+
   const handleAvoidanceAreaPress = (polygonId: string) => {
     const area = (avoidanceAreas ?? []).find((a) => String(a.id) === polygonId);
     if (!area) return;
@@ -353,16 +421,55 @@ export default function Home() {
     constructionBottomSheetRef.current?.present({ construction: { id, description } });
   };
 
+  const handleRampPress = useCallback((feature: GeoJSON.Feature) => {
+    if (isReportMode) return;
+
+    const geometry = feature.geometry as GeoJSON.Point | null;
+    if (!geometry || geometry.type !== "Point") return;
+    const [lng, lat] = geometry.coordinates as [number, number];
+    const properties = (feature.properties ?? {}) as Record<string, any>;
+    const rampAreaAbbr = String(properties.Area_Description ?? "").toUpperCase();
+
+    const features = ((buildingsData as any).features ?? []) as any[];
+    const buildingMatchByAbbreviation = rampAreaAbbr
+      ? features.find((entry) => String(entry?.properties?.Building_Abbr ?? "").toUpperCase() === rampAreaAbbr)
+      : null;
+    const buildingFeature =
+      buildingMatchByAbbreviation ??
+      findCampusBuildingFeature(lat, lng);
+    if (!buildingFeature) return;
+
+    const buildingPoi = buildPoiFromCampusBuilding(
+      {
+        place_id: `ramp-${properties.ObjectId ?? properties.GlobalID ?? feature.id ?? "unknown"}`,
+        geometry: { location: { lat, lng } },
+      },
+      buildingFeature,
+    );
+
+    if (buildingPoi) {
+      locationBottomSheetRef.current?.dismiss();
+      poiBottomSheetRef.current?.present({ poi: buildingPoi });
+    }
+  }, [isReportMode, buildPoiFromCampusBuilding]);
+
   /**
    * Handle a tap on a campus building polygon using the local building database.
    */
   const handleBuildingTap = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
+    const buildingPoi = buildPoiFromCampusBuilding(null, feature);
+    if (buildingPoi) {
+      locationBottomSheetRef.current?.dismiss();
+      poiBottomSheetRef.current?.present({ poi: buildingPoi });
+      return;
+    }
+
     const props = feature.properties as { Building_Abbr?: string } | null;
     const building = props?.Building_Abbr ? findBuilding(props.Building_Abbr) : null;
     if (!building) return;
     locationBottomSheetRef.current?.present(buildingToPlaceDetails(building));
-  }, [isReportMode]);
+  }, [isReportMode, buildPoiFromCampusBuilding]);
 
 
   const handleSelectLocation = async (location: {
@@ -463,7 +570,8 @@ export default function Home() {
   }, []);
 
   const handleExitReviewMode = () => {
-    reviewSheetRef.current?.dismiss();
+    closeAllSheets();
+    setPoi(undefined);
   };
 
   const emptyPOIs = useMemo(() => [], []);
@@ -479,7 +587,10 @@ export default function Home() {
         <SearchBar
           onPress={() => setIsSearchActive(true)}
           onChangeText={handleSearchChange}
-          onClear={() => setSearchQuery("")}
+          onClear={() => {
+            setSearchQuery("");
+            setIsSearchActive(false);
+          }}
           value={searchQuery}
           editable={isSearchActive}
           isActive={isSearchActive}
@@ -574,6 +685,8 @@ export default function Home() {
             }
           } else {
             closeAllSheets();
+            setIsSearchActive(false);
+            setSearchQuery("");
           }
         }}
       >
@@ -592,6 +705,7 @@ export default function Home() {
           images={{
             autoDoor: require("../../assets/map_icons/auto_door.png"),
             manualDoor: require("../../assets/map_icons/manual_door.png"),
+            rampIcon: require("../../assets/map_icons/ramp.png"),
           }}
         />
 
@@ -615,7 +729,6 @@ export default function Home() {
         />
 
         {/* ── 3D Campus Buildings + Abbreviation Labels ────────────────────── */}
-        {showDetailedLayers && (
         <ShapeSource
           id="campus-buildings"
           shape={buildingsGeoJSON}
@@ -673,7 +786,6 @@ export default function Home() {
             }}
           />
         </ShapeSource>
-        )}
 
         {/* ── Sidewalk accessibility overlay (zoom ≥ 17) ───────────────────── */}
         {showDetailedLayers && (
@@ -851,7 +963,7 @@ export default function Home() {
             onPress={(e: any) => {
               featureTappedRef.current = true;
               const id = e.features[0]?.properties?.id;
-              const poi = (POIs ?? []).find((p) => String(p.id) === id);
+              const poi = (POIs ?? []).filter(isEntrancePoi).find((p) => String(p.id) === id);
               if (poi) handlePOIPress(poi);
             }}
           >
@@ -861,6 +973,29 @@ export default function Home() {
               style={{
                 iconImage: ["get", "icon"],
                 iconSize: 0.35,
+                iconAllowOverlap: true,
+                iconAnchor: "bottom",
+              }}
+            />
+          </ShapeSource>
+        )}
+
+        {!isReportMode && (
+          <ShapeSource
+            id="ramps"
+            shape={rampsGeoJSON}
+            onPress={(e: any) => {
+              featureTappedRef.current = true;
+              const feature = e.features[0];
+              if (feature) handleRampPress(feature as GeoJSON.Feature);
+            }}
+          >
+            <SymbolLayer
+              id="ramp-symbols"
+              minZoomLevel={MIN_ZOOM_FOR_POIS}
+              style={{
+                iconImage: "rampIcon",
+                iconSize: 0.22,
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
               }}

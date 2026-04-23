@@ -63,7 +63,7 @@ export const SearchBar = ({
         autoFocus
         returnKeyType="search"
       />
-      {value.length > 0 && (
+      {(isActive || value.length > 0) && (
         <TouchableOpacity onPress={onClear} activeOpacity={0.7}>
           <XIcon size={20} color={iconColor} />
         </TouchableOpacity>

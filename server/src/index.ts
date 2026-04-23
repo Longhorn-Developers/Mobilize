@@ -20,16 +20,48 @@ type Variables = {
   db: ReturnType<typeof drizzle>;
 };
 
-const getProfile = async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
-  const auth = c.get("auth");
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return null;
+type GoogleTokenResponse = {
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  scope?: string;
+  id_token?: string;
+};
 
+type GoogleUserInfo = {
+  email: string;
+  name?: string;
+  picture?: string;
+};
+
+const isGoogleTokenResponse = (value: unknown): value is GoogleTokenResponse => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).access_token === "string"
+  );
+};
+
+const isGoogleUserInfo = (value: unknown): value is GoogleUserInfo => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).email === "string"
+  );
+};
+
+const getProfile = async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
   const db = c.get("db");
+  const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
+  const user = await getAuthUser(db, token);
+  if (!user) return null;
+  const normalizedUser = await ensureStudentRole(db, user);
+
   const profile = await db
     .select()
     .from(schema.profiles)
-    .where(eq(schema.profiles.user_id, session.user.id))
+    .where(eq(schema.profiles.user_id, normalizedUser.id))
     .get();
 
   return profile ?? null;
@@ -62,19 +94,33 @@ async function getAuthUser(db: any, token: string | undefined) {
     .get()) ?? null;
 }
 
+async function ensureStudentRole(db: any, user: any) {
+  const email = String(user?.email ?? "").toLowerCase();
+  if (email.endsWith("@utexas.edu") && user.role !== "student") {
+    await db
+      .update(schema.users)
+      .set({ role: "student", updatedAt: new Date() })
+      .where(eq(schema.users.id, user.id));
+    return { ...user, role: "student" };
+  }
+  return user;
+}
+
 /** Returns the user or responds 401 (returns Response). Caller must check. */
 async function requireAuth(c: any, db: any) {
   const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
   const user = await getAuthUser(db, token);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
-  return user;
+  return ensureStudentRole(db, user);
 }
 
 /** Returns the user only if role === "student", otherwise responds 403. */
 async function requireStudent(c: any, db: any) {
   const result = await requireAuth(c, db);
   if (result instanceof Response) return result;
-  if (result.role !== "student") return c.json({ error: "Forbidden — student account required" }, 403);
+  if (result.role !== "student") {
+    return c.json({ error: "Forbidden - student account required" }, 403);
+  }
   return result;
 }
 
@@ -131,7 +177,7 @@ app.get("/avoidance_areas/:id", async (c) => {
   const areaId = Number(c.req.param("id"));
 
   if (isNaN(areaId)) {
-    return c.text("Invalid Area ID", 400);
+    return c.json({ error: "Invalid Area ID" }, 400);
   }
 
   const area = await db
@@ -146,7 +192,7 @@ app.get("/avoidance_areas/:id", async (c) => {
     .get();
 
   if (!area) {
-    return c.text("Area not found", 404);
+    return c.json({ error: "Area not found" }, 404);
   }
 
   return c.json(area);
@@ -163,13 +209,13 @@ app.post("/avoidance_areas", async (c) => {
     body = await c.req.json();
   } catch (e) {
     console.error("Error parsing JSON body:", e);
-    return c.text("Invalid JSON body", 400);
+    return c.json({ error: "Invalid JSON body" }, 400);
   }
 
   const { name, description, boundary_geojson } = body;
 
   if (!name || !boundary_geojson) {
-    return c.text("Missing required fields", 400);
+    return c.json({ error: "Missing required fields" }, 400);
   }
 
   const result = await db
@@ -192,7 +238,7 @@ app.get("/avoidance_areas/:id/reports", async (c) => {
   const areaId = c.req.param("id");
 
   if (!areaId) {
-    return c.text("Area ID is required", 400);
+    return c.json({ error: "Area ID is required" }, 400);
   }
 
   const reports = await db
@@ -239,17 +285,14 @@ app.post("/avoidance_areas/:id/reports", async (c) => {
 
 // GET current active profile (legacy)
 app.get("/profiles/me", async (c) => {
-  const auth = c.get("auth");
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
   const db = c.get("db");
+  const user = await requireAuth(c, db);
+  if (user instanceof Response) return user;
+
   const profile = await db
     .select()
     .from(schema.profiles)
-    .where(eq(schema.profiles.user_id, session.user.id))
+    .where(eq(schema.profiles.user_id, user.id))
     .get();
 
   if (!profile) {
@@ -508,7 +551,11 @@ app.get("/api/auth/callback/google", async (c) => {
       return c.json({ error: "Token exchange failed" }, 500);
     }
 
-    const tokens = await tokenResponse.json();
+    const tokenPayload: unknown = await tokenResponse.json();
+    if (!isGoogleTokenResponse(tokenPayload)) {
+      return c.json({ error: "Invalid Google token response" }, 500);
+    }
+    const tokens = tokenPayload;
 
     const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -518,7 +565,11 @@ app.get("/api/auth/callback/google", async (c) => {
       return c.json({ error: "Failed to get user info" }, 500);
     }
 
-    const googleUser = await userInfoResponse.json();
+    const userPayload: unknown = await userInfoResponse.json();
+    if (!isGoogleUserInfo(userPayload)) {
+      return c.json({ error: "Invalid Google user response" }, 500);
+    }
+    const googleUser = userPayload;
     console.log("Google user:", googleUser.email);
 
     const auth = createAuth(c.env);
@@ -683,23 +734,12 @@ app.get("/api/me", async (c) => {
   if (!token) return c.json({ user: null }, 401);
 
   const db = c.get("db");
-  const session = await db
-    .select()
-    .from(schema.session)
-    .where(eq(schema.session.token, token))
-    .get();
-
-  if (!session || new Date(session.expiresAt) < new Date()) {
+  const authUser = await getAuthUser(db, token);
+  if (!authUser) {
     return c.json({ user: null }, 401);
   }
 
-  const user = await db
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.id, session.userId))
-    .get();
-
-  if (!user) return c.json({ user: null }, 401);
+  const user = await ensureStudentRole(db, authUser);
 
   const profile = await db
     .select()
@@ -716,16 +756,14 @@ app.get("/api/me", async (c) => {
 app.get("/reviews", async (c) => {
   try {
     const db = c.get("db");
-    const poiId = Number(c.req.query("poi_id"));
-
-    if (!poiId) {
+    const poiIdParam = Number(c.req.query("poi_id"));
+    if (!Number.isFinite(poiIdParam) || poiIdParam <= 0) {
       return c.json({ error: "POI ID is required" }, 400);
     }
+    const poiId = Math.trunc(poiIdParam);
 
+    // Optional profile context: authenticated users receive user_vote, anonymous users receive null.
     const profile = await getProfile(c);
-    if (!profile) {
-      return c.json({ error: "Profile not found" }, 404);
-    }
 
     const reviewsList = await db
       .select({
@@ -763,7 +801,7 @@ app.get("/reviews", async (c) => {
       };
 
       summary.vote_count += vote.vote;
-      if (vote.user_id === profile.id) {
+      if (profile && vote.user_id === profile.id) {
         summary.user_vote = vote.vote;
       }
 
@@ -792,9 +830,7 @@ app.post("/reviews", async (c) => {
     const db = c.get("db");
 
     const profile = await getProfile(c);
-    if (!profile) {
-      return c.json({ error: "Profile not found" }, 404);
-    }
+    if (!profile) return c.json({ error: "Profile not found" }, 404);
 
     let body;
     try {
@@ -805,21 +841,60 @@ app.post("/reviews", async (c) => {
     }
 
     const { poi_id, rating, features, content } = body;
+    const normalizedPoiId = Number(poi_id);
+    const normalizedRating = Number(rating);
 
-    if (!rating || !poi_id) {
+    if (
+      !Number.isFinite(normalizedPoiId) ||
+      normalizedPoiId <= 0 ||
+      !Number.isFinite(normalizedRating) ||
+      normalizedRating <= 0
+    ) {
       return c.json({ error: "Missing required fields" }, 400);
     }
 
-    const result = await db
-      .insert(schema.reviews)
-      .values({
-        user_id: profile.id,
-        poi_id,
-        rating,
-        features,
-        content,
-      })
-      .returning();
+    const poi = await db
+      .select({ id: schema.pois.id })
+      .from(schema.pois)
+      .where(eq(schema.pois.id, Math.trunc(normalizedPoiId)))
+      .get();
+    if (!poi) {
+      return c.json({ error: "Invalid POI ID" }, 400);
+    }
+
+    const existingReview = await db
+      .select()
+      .from(schema.reviews)
+      .where(
+        and(
+          eq(schema.reviews.user_id, profile.id),
+          eq(schema.reviews.poi_id, Math.trunc(normalizedPoiId)),
+          isNull(schema.reviews.deleted_at),
+        ),
+      )
+      .orderBy(desc(schema.reviews.updated_at))
+      .get();
+
+    const result = existingReview
+      ? await db
+          .update(schema.reviews)
+          .set({
+            rating: Math.trunc(normalizedRating),
+            features: features ?? null,
+            content: content ?? null,
+          })
+          .where(eq(schema.reviews.id, existingReview.id))
+          .returning()
+      : await db
+          .insert(schema.reviews)
+          .values({
+            user_id: profile.id,
+            poi_id: Math.trunc(normalizedPoiId),
+            rating: Math.trunc(normalizedRating),
+            features: features ?? null,
+            content: content ?? null,
+          })
+          .returning();
 
     return c.json(result);
   } catch (error) {

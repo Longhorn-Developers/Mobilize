@@ -6,7 +6,6 @@ import { Text, View, Pressable, Image, ScrollView } from "react-native";
 
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
-import { formatOpeningHours, PlaceAutocompletePrediction, PlaceDetails } from "~/utils/googlePlaces";
 import { useTheme } from "~/utils/ThemeContext";
 import { typography } from '~/utils/typography';
 import useMapIcons from "~/utils/useMapIcons";
@@ -39,6 +38,11 @@ const extractBuildingAbbr = (value?: string | null): string | null => {
   if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
 
   return null;
+};
+
+const isEntrancePoi = (entry: any) => {
+  const poiType = String(entry?.poi_type ?? "").toLowerCase();
+  return poiType.includes("entrance") && !poiType.includes("ramp");
 };
 
 const isEntranceInsideBuilding = (entrance: any, buildingFeature: any): boolean => {
@@ -74,7 +78,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [entrances, setEntrances] = useState<any[]>([]);
   const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
-  const [hours, setHours] = useState<string>("Hours not available");
   const [rating] = useState<number>(0);
   const [reviewCount] = useState<number>(0);
 
@@ -91,103 +94,86 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
 
   const metadata = poi.metadata || {};
 
-  const configBuildingName = (str?: string | null) => {
-    return str ? str
-      .replace(/^\([A-Za-z0-9]+\)\s*/, "")
+  const formatBuildingName = (value?: string | null): string | null => {
+    if (!value) return null;
+    const cleaned = value.replace(/^\([A-Za-z0-9]+\)\s*/, "").trim();
+    if (!cleaned) return null;
+    return cleaned
       .toLowerCase()
-      .split(' ')
+      .split(/\s+/)
       .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ') : "Unknown Building";
+      .join(" ");
   };
 
-  const getBuildingAbbr = (str: string) => {
+  const getBuildingAbbr = (str?: string | null) => {
     return extractBuildingAbbr(str) ?? "";
   };
 
-  const findBuildingByAbbreviation = (abbreviation: string) => {
-    const feature = buildingsData.features.find(
-      (f: any) => f.properties?.Building_Abbr === abbreviation
-    );
-    return feature ? feature.properties : null;
-  };
-
   const findBuildingFeature = (abbreviation: string) => {
+    if (!abbreviation) return null;
     return buildingsData.features.find(
       (f: any) => f.properties?.Building_Abbr === abbreviation
     ) ?? null;
   };
 
-  const buildingAbbr = getBuildingAbbr(metadata.bld_name);
-  const buildingFeature = findBuildingFeature(buildingAbbr);
-  const building = findBuildingByAbbreviation(buildingAbbr);
+  const findBuildingContainingPoi = (entry: any) => {
+    const coords = entry?.location_geojson?.coordinates;
+    if (!coords?.length) return null;
+    const point = { type: "Point", coordinates: [coords[0], coords[1]] };
+    return (
+      buildingsData.features.find((feature: any) =>
+        feature?.geometry ? booleanPointInPolygon(point as any, feature as any) : false,
+      ) ?? null
+    );
+  };
+
+  const metadataAbbr =
+    getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
+  const buildingFeature =
+    findBuildingFeature(metadataAbbr) || findBuildingContainingPoi(poi);
+  const building = buildingFeature?.properties ?? null;
+  const buildingName =
+    formatBuildingName(metadata.bld_name) ??
+    formatBuildingName(building?.Description) ??
+    formatBuildingName(metadata.name) ??
+    "Unknown Building";
 
   useEffect(() => {
     const currentAbbr =
       getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
-    const currentBuildingName = normalizeText(configBuildingName(metadata.bld_name));
+    const currentBuildingName = normalizeText(buildingName);
     const fallbackName = normalizeText(metadata.name);
 
-    if (currentAbbr && allPOIs.length) {
-      const matched = allPOIs.filter((p) => {
-        if (p.poi_type !== "accessible_entrance") return false;
+    const matched = allPOIs.filter((entry) => {
+      if (!isEntrancePoi(entry)) return false;
 
-        const entranceAbbr =
-          getBuildingAbbr(p.metadata?.bld_name) || getBuildingAbbr(p.metadata?.name);
-        const entranceName = normalizeText(p.metadata?.bld_name || p.metadata?.name);
+      const entranceAbbr =
+        getBuildingAbbr(entry.metadata?.bld_name) ||
+        getBuildingAbbr(entry.metadata?.name);
+      const entranceName = normalizeText(entry.metadata?.bld_name || entry.metadata?.name);
 
-        return (
-          (currentAbbr && entranceAbbr === currentAbbr) ||
-          (buildingFeature ? isEntranceInsideBuilding(p, buildingFeature) : false) ||
-          (!!currentBuildingName && entranceName.includes(currentBuildingName)) ||
-          (!!fallbackName && entranceName.includes(fallbackName))
-        );
-      });
-      setEntrances(matched);
-      setSelectedEntrance(matched[0]?.id?.toString() ?? "");
-
-      // Set default poi data as soon as entrances load
-      if (matched[0]) {
-        const defaultLabel =
-          getCardinalLabel(matched[0], buildingFeature) ??
-          getCardinalLabelFromNeighbors(matched[0], matched) ??
-          "Main Entrance";
-        setCurEntranceLabel(defaultLabel);
-      }
-    } else if (allPOIs.length && buildingFeature) {
-      const matchedByGeometry = allPOIs.filter(
-        (p) => p.poi_type === "accessible_entrance" && isEntranceInsideBuilding(p, buildingFeature),
+      return (
+        (currentAbbr && entranceAbbr === currentAbbr) ||
+        (buildingFeature ? isEntranceInsideBuilding(entry, buildingFeature) : false) ||
+        (!!currentBuildingName && entranceName.includes(currentBuildingName)) ||
+        (!!fallbackName && entranceName.includes(fallbackName))
       );
-      setEntrances(matchedByGeometry);
-      setSelectedEntrance(matchedByGeometry[0]?.id?.toString() ?? "");
-    } else {
-      setEntrances([]);
+    });
+
+    setEntrances(matched);
+    setSelectedEntrance(matched[0]?.id?.toString() ?? "");
+
+    if (matched[0]) {
+      const defaultLabel =
+        getCardinalLabel(matched[0], buildingFeature) ??
+        getCardinalLabelFromNeighbors(matched[0], matched) ??
+        "Main Entrance";
+      setCurEntranceLabel(defaultLabel);
+      return;
     }
 
-    const fetchHours = async () => {
-        const buildingName = configBuildingName(metadata.bld_name);
-        const searchQuery = buildingName !== "Unknown Building"
-          ? `${buildingName} UT Austin`
-          : building?.Address_Full;
-        if (!searchQuery) {
-          setHours("Hours not available");
-          return;
-        }
-        // const predictions = await searchPlaces(searchQuery);
-        const predictions: PlaceAutocompletePrediction[] = [{"description": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "structured_formatting": {"main_text": "Texas Global at The University of Texas at Austin, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "place_id": "ChIJdQqBe3e1RIYRYlcWXB0LfOs", "structured_formatting": {"main_text": "Texas Global Passport Services, Nueces Street, Austin, TX, USA", "secondary_text": "Nueces Street, Austin, TX, USA"}}, {"description": "Global Auto Service, South 1st Street, Austin, Texas, USA", "place_id": "ChIJ_yNwDcK0RIYRILHOE9wmkXU", "structured_formatting": {"main_text": "Global Auto Service, South 1st Street, Austin, Texas, USA", "secondary_text": "South 1st Street, Austin, Texas, USA"}}, {"description": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "place_id": "ChIJwfBgVwC1RIYR0KeHkkuU39k", "structured_formatting": {"main_text": "UT Austin Global Sustainability Leadership Institute (GSLI), Building, Speedway, Austin, Texas, USA", "secondary_text": "Building, Speedway, Austin, Texas, USA"}}, {"description": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "place_id": "ChIJ_7wtSQC1RIYRNpEunpRENwg", "structured_formatting": {"main_text": "UT Austin Center for Global Business (CGB), Speedway, Austin, Texas, USA", "secondary_text": "Speedway, Austin, Texas, USA"}}];
-        if (!predictions.length) {
-          setHours("Hours not available");
-          return;
-        }
-        // const details = await getPlaceDetails(predictions[0].place_id);
-        const details: PlaceDetails = {"formatted_address": "2400 Nueces St Suite B, Austin, TX 78705, USA", "geometry": {"location": {"lat": 30.2883838, "lng": -97.7434334}}, "name": "Texas Global at The University of Texas at Austin", "opening_hours": {"open_now": false, "weekday_text": ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 8:00 AM – 5:00 PM", "Wednesday: 8:00 AM – 5:00 PM", "Thursday: 8:00 AM – 5:00 PM", "Friday: 8:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"]}, "photos": [{"height": 600, "photo_reference": "places/ChIJ5SpAob21RIYRT11gcy0lxGk/photos/AU_ZVEETycqzGQt78dQ9OKgsaZ5Of5mcNsKiLGPx5tyrdwiMV5rkqey5kt_UqV9_nyb3tpqCcGhewVolb3GPvIc57JF3ch2MGX_uWkULCJHslMdqvQv0Wfx20s0nyg_otTsBP1WBmHTTmOEjSkesELcomhx9HHAWNNlOyWvCnF-l5Hu4oUnKQQWgYN7p6PeDNhKUFMxrhvKB_h_QY_sJZ-_bX3XzoA9_w5cIMohgazlJhLsTOOJ9Q183tF_nl6me6VfDH3P3hTJz6VjtOj1t7mR3LwCib4mOE5BRR_N4gAWd9OEX3A", "width": 1110}], "place_id": "ChIJ5SpAob21RIYRT11gcy0lxGk", "rating": 5, "types": ["academic_department", "point_of_interest", "establishment"], "user_ratings_total": 5};
-        if (!details?.opening_hours) {
-          setHours("Hours not available");
-          return;
-        }
-        setHours(formatOpeningHours(details.opening_hours));
-      };
-      fetchHours();
-    }, [allPOIs, building?.Address_Full, buildingFeature, metadata.bld_name, metadata.name, poi.id]);
+    setCurEntranceLabel("");
+  }, [allPOIs, buildingFeature, buildingName, metadata.bld_name, metadata.name]);
 
   const openReviewsForCurrentEntrance = () => {
     const selectedEntranceData =
@@ -203,10 +189,15 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           "Main Entrance"
         : "Main Entrance");
 
+    const resolvedPoiId = Number(selectedEntranceData?.id ?? poi.id);
+    if (!Number.isFinite(resolvedPoiId)) {
+      return;
+    }
+
     setPoi({
-      id: Number(selectedEntranceData?.id ?? poi.id),
+      id: resolvedPoiId,
       building: buildingFeature,
-      buildingName: configBuildingName(metadata.bld_name || metadata.name),
+      buildingName,
       entrance: fallbackLabel,
       entrances,
     });
@@ -247,7 +238,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Text
             style={{ flex: 1, flexWrap: "wrap", fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
-            {configBuildingName(metadata.bld_name)}
+            {buildingName}
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
@@ -294,7 +285,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#6B7280" : "#B3B3B3", fontWeight: "500" }}>Hours</Text>
             <Text style={{ fontFamily: "Inter", fontSize: 15.35, color: isDark ? "#F3F4F6" : "#1A2024", fontWeight: "600", maxWidth: 180 }}>
-              {hours}
+              Hours not available
             </Text>
           </View>
           <View style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
@@ -315,17 +306,11 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         <View style={{ marginBottom: 16 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", gap: 8 }}>
             {entrances.length > 0 ? entrances.map((entrance, idx) => {
-              const rawName = entrance.metadata?.name ?? "";
-              const isUsefulName =
-                rawName.length > 0 &&
-                !rawName.match(/^(Point |kml_)/i) &&
-                !rawName.match(/^\([A-Z]+\)\s+[A-Z\s]+$/);
-
               const cardinalLabel =
                 getCardinalLabel(entrance, buildingFeature) ??
                 getCardinalLabelFromNeighbors(entrance, entrances);
 
-              const label = isUsefulName ? rawName : (cardinalLabel ?? `Entrance ${idx + 1}`);
+              const label = cardinalLabel ?? `Entrance ${idx + 1}`;
               const icon = entrance.metadata?.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
 
               return (
@@ -337,7 +322,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
                     setPoi({
                       id: entrance.id,
                       building: buildingFeature,
-                      buildingName: configBuildingName(metadata.bld_name),
+                      buildingName,
                       entrance: label,
                       entrances: entrances,
                     });

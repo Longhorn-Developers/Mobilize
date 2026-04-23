@@ -80,23 +80,26 @@ const TouchableRating = ({
 // Entrances
 const EntranceButtons = ({
   className,
-  firstSelectedPoiId,
+  selectedPoiId,
   labelPoiMap,
   control,
   onButtonPress,
 }: {
   className: string;
-  firstSelectedPoiId: number,
+  selectedPoiId: number,
   labelPoiMap: [string, any][];
   control: Control<Review>;
   onButtonPress: (entrance: any) => void;
 }) => {
-  const [selectedEntrance, setSelectedEntrance] = useState(firstSelectedPoiId);
   const { field } = useController({
     control,
-    defaultValue: firstSelectedPoiId,
+    defaultValue: selectedPoiId,
     name: "poi_id",
   });
+
+  useEffect(() => {
+    field.onChange(selectedPoiId);
+  }, [field, selectedPoiId]);
 
   return (
     <View className={className}>
@@ -104,14 +107,13 @@ const EntranceButtons = ({
         <TouchableOpacity
           key={entry[1].id}
           className={`rounded-full border-2 px-2 py-1
-            ${selectedEntrance !== entry[1].id ? "border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
+            ${selectedPoiId !== entry[1].id ? "border-ut-black/50 bg-white" : "border-ut-burntorange/40 bg-ut-burntorange/20"}`}
           onPress={() => {
-            setSelectedEntrance(entry[1].id);
             onButtonPress(entry[1]);
             field.onChange(entry[1].id);
           }}
         >
-          <Text className={`text-sm font-semibold ${selectedEntrance !== entry[1].id ? "color-black" : "color-ut-burntorange"}`}>{entry[0]}</Text>
+          <Text className={`text-sm font-semibold ${selectedPoiId !== entry[1].id ? "color-black" : "color-ut-burntorange"}`}>{entry[0]}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -518,6 +520,11 @@ const ReviewModal = ({
   const [selectedPoiId, setSelectedPoiId] = useState(poi_id);
   const [selectedEntranceName, setSelectedEntranceName] = useState<string>(entranceName);
 
+  useEffect(() => {
+    setSelectedPoiId(poi_id);
+    setSelectedEntranceName(entranceName);
+  }, [poi_id, entranceName]);
+
   // Api Client Hooks
   const { mutateAsync: insertReview } = useInsertReview();
   const { mutateAsync: updateReview } = useUpdateReview();
@@ -597,12 +604,22 @@ const ReviewModal = ({
     }
 
     const serializedFeatures = JSON.stringify(data.features ?? []);
+    const normalizedPoiId = Number(selectedPoiId);
+    if (!Number.isFinite(normalizedPoiId) || normalizedPoiId <= 0) {
+      Toast.show({
+        type: "error",
+        text2: "Please select a valid entrance.",
+        position: "bottom",
+        bottomOffset: 40 * 3,
+      });
+      return;
+    }
 
     // If review exists, edit existing review; otherwise, post new review
     if (isEditMode) {
       await updateReview({
         id: existingReview.id,
-        poi_id: selectedPoiId,
+        poi_id: normalizedPoiId,
         rating: data.rating,
         features: serializedFeatures,
         content: data?.content ?? undefined,
@@ -610,7 +627,7 @@ const ReviewModal = ({
     } else {
       await insertReview({
         user_id: myProfile.id,
-        poi_id: selectedPoiId,
+        poi_id: normalizedPoiId,
         rating: data.rating,
         features: serializedFeatures,
         content: data?.content ?? undefined,
@@ -773,7 +790,7 @@ const ReviewModal = ({
               {/* Entrance Buttons */}
               <EntranceButtons
                 className="flex flex-row flex-wrap gap-2"
-                firstSelectedPoiId={selectedPoiId}
+                selectedPoiId={selectedPoiId}
                 labelPoiMap={labelPoiMap}
                 control={control}
                 onButtonPress={handleSelectEntrance}

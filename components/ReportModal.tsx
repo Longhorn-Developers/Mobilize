@@ -101,8 +101,6 @@ const ReportModal = ({
 
   const [cameraOn, setCameraOn] = useState<boolean>(false);
   const [camera, setCamera] = useState(null);
-  const [imageUri, setImageUri] = useState(null);
-  const [facing, setFacing] = useState<CameraType>('back');
 
   const permissionFunction = async () => {
     // here is how you can get the camera permission
@@ -168,6 +166,9 @@ const ReportModal = ({
     if (!state.error) {
       if (currentStep === steps.length - 1) {
         // Last step submit
+        if (getValues("name") === "") {
+          setValue("name", "Avoidance Area");
+        }
         handleSubmit(handleFormSubmit)();
       } else {
         // Go to next

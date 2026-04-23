@@ -378,7 +378,8 @@ export default function Home() {
 
               await insertAvoidanceArea({
                 user_id: 1, // TODO: REPLACE Temporary user ID
-                name: data.description,
+                name: data.name,
+                description: data.description,
                 boundary_geojson: {
                   type: "Polygon",
                   coordinates: [

@@ -314,6 +314,7 @@ app.post('/avoidance_areas', async (c) => {
 	}
 
 	const { user_id, name, description, boundary_geojson } = body;
+  console.log(body);
 
 	if (!user_id || !name || !boundary_geojson) {
 		return c.text('Missing required fields', 400);

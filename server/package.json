@@ -10,7 +10,9 @@
 		"gen": "drizzle-kit generate",
 		"types": "wrangler types",
 		"seed": "wrangler d1 execute mobilize-db --local --file=./seed.sql && curl http://localhost:54321/cdn-cgi/handler/scheduled",
-		"migrate": "wrangler d1 migrations apply mobilize-db"
+		"migrate": "pnpm run migrate:remote",
+		"migrate:remote": "wrangler d1 migrations apply mobilize-db",
+		"migrate:local": "wrangler d1 migrations apply mobilize-db --local"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",

@@ -12,6 +12,16 @@ import {
 } from "~/types/database";
 
 const SESSION_TOKEN_KEY = "auth_session_token";
+const IS_DEV = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+
+const safeJsonParse = <T>(value: string | null | undefined): T | null => {
+  if (!value || typeof value !== "string") return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+};
 
 class ApiClient {
   private baseUrl: string;
@@ -41,22 +51,38 @@ class ApiClient {
       const responsePreview =
         text.slice(0, 120) || response.statusText || "Empty response body";
 
-      console.log("API URL:", url);
-      console.log("STATUS:", response.status);
-      console.log("RESPONSE PREVIEW:", responsePreview);
+      if (IS_DEV) {
+        console.log("API URL:", url);
+        console.log("STATUS:", response.status);
+        console.log("RESPONSE PREVIEW:", responsePreview);
+      }
 
       const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
+      const isJson = contentType.includes("application/json");
+      const parsedBody = isJson ? safeJsonParse<any>(text) : null;
+
+      if (!response.ok) {
+        const hint =
+          parsedBody?.error?.details?.hint ||
+          parsedBody?.details?.hint ||
+          null;
+        const apiMessage =
+          parsedBody?.error?.message ||
+          parsedBody?.error ||
+          parsedBody?.message ||
+          responsePreview;
+        throw new Error(
+          `API Error ${response.status}: ${apiMessage}${hint ? ` (${hint})` : ""}`,
+        );
+      }
+
+      if (!isJson) {
         throw new Error(
           `Non-JSON response (${response.status} ${response.statusText}): ${responsePreview}`
         );
       }
 
-      if (!response.ok) {
-        throw new Error(`API Error ${response.status}: ${text}`);
-      }
-
-      return JSON.parse(text);
+      return (parsedBody as T) ?? ({} as T);
     } catch (error) {
       console.error(`API request failed for ${url}:`, error);
       throw error;
@@ -116,13 +142,17 @@ class ApiClient {
 
   // Get current active profile
   async getMyProfile() {
-    const profile = await this.request<Profile>("/profiles/me");
-    return profile;
+    try {
+      const me = await this.getMe();
+      return (me?.profile as Profile | null) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   // Get the current user + profile from /api/me
-  async getMe(): Promise<{ user: any; profile: any }> {
-    return this.authRequest<{ user: any; profile: any }>("/api/me");
+  async getMe(): Promise<{ user: any; profile: any; onboardingComplete?: boolean }> {
+    return this.authRequest<{ user: any; profile: any; onboardingComplete?: boolean }>("/api/me");
   }
 
   // Get all POIs
@@ -130,18 +160,26 @@ class ApiClient {
     const pois = await this.request<POIRaw[]>("/pois");
     return pois.map((poi) => ({
       ...poi,
-      location_geojson: JSON.parse(poi.location_geojson as any),
-      metadata: poi.metadata ? JSON.parse(poi.metadata as any) : null,
+      location_geojson:
+        safeJsonParse<any>(poi.location_geojson as any) ??
+        ({ type: "Point", coordinates: [0, 0] } as any),
+      metadata: safeJsonParse<Record<string, any>>(poi.metadata as any),
     }));
   }
 
   // Get all avoidance areas
   async getAvoidanceAreas() {
     const areas = await this.request<AvoidanceAreaRaw[]>("/avoidance_areas");
-    return areas.map((area) => ({
-      ...area,
-      boundary_geojson: JSON.parse(area.boundary_geojson as any),
-    }));
+    return areas
+      .map((area) => {
+        const boundary = safeJsonParse<any>(area.boundary_geojson as any);
+        if (!boundary) return null;
+        return {
+          ...area,
+          boundary_geojson: boundary,
+        };
+      })
+      .filter(Boolean) as any;
   }
 
   // fetch construction areas (proxied through server to avoid mobile network issues)
@@ -152,9 +190,13 @@ class ApiClient {
   // Get single avoidance area by ID
   async getAvoidanceArea(id: string) {
     const area = await this.request<AvoidanceAreaDetailRaw>(`/avoidance_areas/${id}`);
+    const boundary = safeJsonParse<any>(area.boundary_geojson as any);
+    if (!boundary) {
+      throw new Error("Avoidance area geometry could not be parsed");
+    }
     return {
       ...area,
-      boundary_geojson: JSON.parse(area.boundary_geojson as any),
+      boundary_geojson: boundary,
     };
   }
 
@@ -198,7 +240,7 @@ class ApiClient {
 
     return reviews.map((review) => ({
       ...review,
-      features: review.features ? JSON.parse(review.features) : [],
+      features: safeJsonParse<string[]>(review.features) ?? [],
     })) as ReviewEntry[];
   }
 
@@ -221,6 +263,7 @@ class ApiClient {
     id: number,
     data: {
       rating: number;
+      poi_id?: number;
       features?: string;
       content?: string;
     },
@@ -282,6 +325,7 @@ class ApiClient {
     bio?: string;
     mobilityPreference?: string;
     isAnonymous?: boolean;
+    onboardingComplete?: boolean;
   }) {
     return this.authRequest<{ success: boolean; profile: any }>("/api/profile", {
       method: "PUT",

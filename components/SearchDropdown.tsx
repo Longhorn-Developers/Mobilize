@@ -1,12 +1,12 @@
-import { ClockIcon, MapPinIcon } from "phosphor-react-native";
-import { useEffect, useState } from "react";
+import { ClockIcon, MapPinIcon, XIcon } from "phosphor-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Text,
-  View,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  View,
 } from "react-native";
 
 import colors from "~/types/colors";
@@ -43,51 +43,76 @@ export const SearchDropdown = ({
 
   const [remoteResults, setRemoteResults] = useState<PlaceAutocompletePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const requestIdRef = useRef(0);
 
   const recentSearches: Location[] = [
     { id: "1", name: "Texas Union Building", address: "2100 Guadalupe St", type: "recent" },
-    { id: "2", name: "PCL (Perry-Castañeda Library)", address: "101 E 21st St", type: "recent" },
+    { id: "2", name: "PCL (Perry-Castaneda Library)", address: "101 E 21st St", type: "recent" },
   ];
 
   useEffect(() => {
+    if (!visible) {
+      setRemoteResults([]);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchPlaces = async () => {
-      if (searchQuery.length < 2) {
+      if (searchQuery.trim().length < 2) {
         setRemoteResults([]);
+        setIsLoading(false);
         return;
       }
+
+      const currentRequestId = ++requestIdRef.current;
       setIsLoading(true);
-      const results = await searchPlaces(searchQuery);
-      setRemoteResults(results);
-      setIsLoading(false);
+
+      try {
+        const results = await searchPlaces(searchQuery);
+        if (currentRequestId === requestIdRef.current) {
+          setRemoteResults(results);
+        }
+      } finally {
+        if (currentRequestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
+      }
     };
 
     const timeoutId = setTimeout(fetchPlaces, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, visible]);
 
   const campusResults: Location[] = searchBuildings(searchQuery).map((building) => ({
     id: `local_${building.Building_Abbr}`,
     name: `${building.Building_Abbr} - ${building.Description}`,
     address: building.Address_Full,
-    type: "building" as const,
+    type: "building",
     place_id: `local_${building.Building_Abbr}`,
-    source: "local" as const,
+    source: "local",
   }));
 
   const searchResults: Location[] = remoteResults.map((prediction) => ({
     id: prediction.place_id,
     name: prediction.structured_formatting.main_text,
     address: prediction.structured_formatting.secondary_text,
-    type: "building" as const,
+    type: "building",
     place_id: prediction.place_id,
-    source: "remote" as const,
+    source: "remote",
   }));
 
-  const displayedLocations = searchQuery.length > 0
-    ? [...campusResults, ...searchResults.filter((result) =>
-        !campusResults.some((campus) => campus.name === result.name && campus.address === result.address),
-      )]
-    : recentSearches;
+  const displayedLocations =
+    searchQuery.trim().length > 0
+      ? [
+          ...campusResults,
+          ...searchResults.filter(
+            (result) =>
+              !campusResults.some(
+                (campus) => campus.name === result.name && campus.address === result.address,
+              ),
+          ),
+        ]
+      : recentSearches;
 
   if (!visible) return null;
 
@@ -113,11 +138,11 @@ export const SearchDropdown = ({
         <Text className={`text-base font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
           {item.name}
         </Text>
-        {item.address && (
+        {item.address ? (
           <Text className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
             {item.address}
           </Text>
-        )}
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -132,16 +157,23 @@ export const SearchDropdown = ({
         className="absolute left-4 right-4 z-10 rounded-2xl shadow-2xl"
         style={{ top: topOffset, backgroundColor: dropdownBg }}
       >
-        {displayedLocations.length > 0 && (
+        {displayedLocations.length > 0 ? (
           <View
             style={{ borderBottomColor: dividerColor, borderBottomWidth: 1 }}
-            className="px-5 py-2"
+            className="flex-row items-center justify-between px-5 py-2"
           >
-            <Text className={`text-xs font-semibold uppercase ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-              {searchQuery.length > 0 ? "Results" : "Recent"}
+            <Text
+              className={`text-xs font-semibold uppercase ${
+                isDark ? "text-gray-500" : "text-gray-500"
+              }`}
+            >
+              {searchQuery.trim().length > 0 ? "Results" : "Recent"}
             </Text>
+            <TouchableOpacity onPress={onDismiss} hitSlop={8}>
+              <XIcon size={16} color={iconColor} />
+            </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         {isLoading ? (
           <View className="items-center justify-center py-8">
@@ -159,9 +191,11 @@ export const SearchDropdown = ({
             scrollEnabled={displayedLocations.length > 5}
             style={{ maxHeight: 300 }}
             ListEmptyComponent={
-              searchQuery.length > 0 ? (
+              searchQuery.trim().length > 0 ? (
                 <View className="items-center justify-center px-6 py-8">
-                  <Text className={`text-center text-base ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                  <Text
+                    className={`text-center text-base ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                  >
                     {`No results found for "${searchQuery}"`}
                   </Text>
                 </View>

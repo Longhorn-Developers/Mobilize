@@ -11,6 +11,11 @@
     "ios": "expo run:ios",
     "android": "adb reverse tcp:54321 tcp:54321 && expo run:android",
     "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "typecheck:server": "pnpm --dir server exec tsc --noEmit",
+    "test:server": "pnpm --dir server run test -- --run",
+    "migrate:server:local": "pnpm --dir server run migrate:local",
+    "migrate:server:remote": "pnpm --dir server run migrate:remote",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write"
   },

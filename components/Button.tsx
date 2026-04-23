@@ -28,15 +28,17 @@ export const Button = forwardRef<View, ButtonProps>(
     },
     ref
   ) => {
-    const variantStyle = getVariantStyle(variant, disabled);
-    const textStyle = getTextVariantStyle(variant, disabled);
+    const computedDisabled = Boolean(disabled || variant === "disabled");
+    const variantStyle = getVariantStyle(variant, computedDisabled);
+    const textStyle = getTextVariantStyle(variant, computedDisabled);
 
     return (
       <TouchableOpacity
         ref={ref}
         style={[styles.button, variantStyle, style]}
-        activeOpacity={0.8}
-        disabled={disabled}
+        activeOpacity={computedDisabled ? 1 : 0.8}
+        disabled={computedDisabled}
+        accessibilityState={{ disabled: computedDisabled }}
         {...props}
       >
         {icon}
@@ -55,6 +57,8 @@ const getVariantStyle = (
   if (disabled) return styles.disabledButton;
 
   switch (variant) {
+    case "secondary":
+      return styles.secondaryButton;
     case "ghost":
       return styles.ghostButton;
     case "gray":
@@ -71,6 +75,8 @@ const getTextVariantStyle = (
   if (disabled) return styles.disabledText;
 
   switch (variant) {
+    case "secondary":
+      return styles.secondaryText;
     case "ghost":
       return styles.ghostText;
     case "gray":
@@ -94,8 +100,14 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: "#BF5700", // UT burnt orange
   },
+  secondaryButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#BF5700",
+  },
   disabledButton: {
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderWidth: 0,
   },
   ghostButton: {
     backgroundColor: "transparent",
@@ -113,8 +125,11 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "white",
   },
+  secondaryText: {
+    color: "#BF5700",
+  },
   disabledText: {
-    color: "black",
+    color: "rgba(0,0,0,0.45)",
   },
   ghostText: {
     color: "#BF5700",

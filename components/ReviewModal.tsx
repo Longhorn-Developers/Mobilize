@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import {
+  ActivityIndicator,
   Pressable,
   View,
   Text,
@@ -200,47 +201,29 @@ const ReviewCard = ({
 }) => {
   const { mutateAsync: upsertVote } = useUpsertVote();
   const { mutateAsync: deleteVote } = useDeleteVote();
+  const [isVoting, setIsVoting] = useState(false);
 
-  const [upvoteSelected, setUpvoteSelected] = useState(false);
-  const [downvoteSelected, setDownvoteSelected] = useState(false);
-
-  // lol anti-complexity solution: render votes and mutate db separately
   const handleVote = async (vote: 1 | -1) => {
-    console.log(review.user_vote);
+    if (isVoting) return;
+    setIsVoting(true);
     try {
-      if (review.user_vote === vote) {
-        // User already voted this way (remove their vote)
-        review.user_vote = 0;
-        review.vote_count -= vote;
+      const currentVote = review.user_vote ?? 0;
+      if (currentVote === vote) {
         await deleteVote(review.id);
       } else {
-        if (review.user_vote === -vote) {
-          // User voted differently previously (remove old & allow new vote)
-          review.vote_count += 2 * vote;
-        } else {
-          // User hasnt voted yet (allow vote)
-          review.vote_count += vote;
-        }
-        review.user_vote = vote;
         await upsertVote({
           review_id: review.id,
           vote,
         });
       }
-      if (vote === 1) {
-        setUpvoteSelected(prevState => !prevState);
-        setDownvoteSelected(false);
-      } else if (vote === -1) {
-        setDownvoteSelected(prevState => !prevState);
-        setUpvoteSelected(false);
-      } else {
-        setUpvoteSelected(false);
-        setDownvoteSelected(false);
-      }
     } catch (error) {
       console.log(error);
+    } finally {
+      setIsVoting(false);
     }
-  }
+  };
+
+  const currentVote = review.user_vote ?? 0;
 
   const elapsed_seconds: number =
     (new Date().getTime() - new Date(review.updated_at).getTime()) / 1000;
@@ -300,9 +283,10 @@ const ReviewCard = ({
                 {/* Upvote */}
                 <TouchableOpacity
                   className=""
+                  disabled={isVoting}
                   onPress={async () => await handleVote(1)}
                 >
-                  <ArrowUpIcon size={20} weight="bold" color={upvoteSelected ? "#BF5700" : "#334155"} />
+                  <ArrowUpIcon size={20} weight="bold" color={currentVote === 1 ? "#BF5700" : "#334155"} />
                 </TouchableOpacity>
                 <Text className="color-slate-700 text-lg">
                   {review.vote_count}
@@ -310,9 +294,10 @@ const ReviewCard = ({
                 {/* Downvote */}
                 <TouchableOpacity
                   className=""
+                  disabled={isVoting}
                   onPress={async () => await handleVote(-1)}
                 >
-                  <ArrowDownIcon size={20} weight="bold" color={downvoteSelected ? "#BF5700" : "#334155"} />
+                  <ArrowDownIcon size={20} weight="bold" color={currentVote === -1 ? "#BF5700" : "#334155"} />
                 </TouchableOpacity>
               </View>
             )}
@@ -519,6 +504,8 @@ const ReviewModal = ({
   const [isMenuActive, setIsMenuActive] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState(poi_id);
   const [selectedEntranceName, setSelectedEntranceName] = useState<string>(entranceName);
+  const [editingReview, setEditingReview] = useState<ReviewEntry | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setSelectedPoiId(poi_id);
@@ -532,7 +519,11 @@ const ReviewModal = ({
   const { data: myProfile, isLoading: isProfileLoading } = useMyProfile();
 
   // query reviews from db
-  const { data: reviews = [] } = useReviews(selectedPoiId);
+  const {
+    data: reviews = [],
+    isLoading: isReviewsLoading,
+    isError: isReviewsError,
+  } = useReviews(selectedPoiId);
 
   const activeUserId = myProfile?.id ?? null;
   const labelPoiMap: [string, any][] = entrances.map((entrance) => [getEntranceLabel(entrance, entrances, building), entrance]);
@@ -545,15 +536,18 @@ const ReviewModal = ({
     activeUserId == null
       ? undefined
       : reviews.find((review) => review.user_id === activeUserId);
-  const isEditMode = !!existingReview;
+  const isEditMode = !!editingReview;
 
   useEffect(() => {
+    if (formState === 1 && editingReview) {
+      return;
+    }
     if (existingReview) {
       reset(existingReview);
     } else {
       reset({rating: 0, features: [], content: ""});
     }
-  }, [existingReview, existingReview?.id, selectedPoiId, reset]);
+  }, [editingReview, existingReview, existingReview?.id, formState, selectedPoiId, reset]);
 
   const handleSelectEntrance = (entrance: any) => {
     // const found = entrances.find()
@@ -564,7 +558,9 @@ const ReviewModal = ({
   const handleOutsidePress = () => {
     if (isMenuActive) {
       setIsMenuActive(false);
+      return;
     }
+    onExit();
   };
 
   const handleOpenReviewForm = () => {
@@ -578,6 +574,7 @@ const ReviewModal = ({
       return;
     }
 
+    setEditingReview(existingReview ?? null);
     setFormState(1);
   };
 
@@ -615,30 +612,55 @@ const ReviewModal = ({
       return;
     }
 
-    // If review exists, edit existing review; otherwise, post new review
-    if (isEditMode) {
-      await updateReview({
-        id: existingReview.id,
-        poi_id: normalizedPoiId,
-        rating: data.rating,
-        features: serializedFeatures,
-        content: data?.content ?? undefined,
+    setIsSubmitting(true);
+    try {
+      if (editingReview && editingReview.poi_id !== normalizedPoiId) {
+        await insertReview({
+          user_id: myProfile.id,
+          poi_id: normalizedPoiId,
+          rating: data.rating,
+          features: serializedFeatures,
+          content: data?.content ?? undefined,
+        });
+        await deleteReview({
+          id: editingReview.id,
+          poi_id: editingReview.poi_id,
+        });
+      } else if (editingReview) {
+        await updateReview({
+          id: editingReview.id,
+          poi_id: normalizedPoiId,
+          rating: data.rating,
+          features: serializedFeatures,
+          content: data?.content ?? undefined,
+        });
+      } else {
+        await insertReview({
+          user_id: myProfile.id,
+          poi_id: normalizedPoiId,
+          rating: data.rating,
+          features: serializedFeatures,
+          content: data?.content ?? undefined,
+        });
+      }
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text2: error?.message ?? "Could not submit review. Please try again.",
+        position: "bottom",
+        bottomOffset: 40 * 3,
       });
-    } else {
-      await insertReview({
-        user_id: myProfile.id,
-        poi_id: normalizedPoiId,
-        rating: data.rating,
-        features: serializedFeatures,
-        content: data?.content ?? undefined,
-      });
+      return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     setIsMenuActive(false);
+    setEditingReview(null);
     onExit();
   };
 
-  const isSubmitDisabled = !myProfile?.id || rating === 0;
+  const isSubmitDisabled = !myProfile?.id || rating === 0 || isSubmitting;
 
   return (
     <>
@@ -700,66 +722,94 @@ const ReviewModal = ({
             {/* Reviews List Section */}
             <View className="">
               {/* List of Reviews for a given POI */}
-              <ReviewsList
-                className="max-h-80"
-                reviews={reviews.filter(
-                  (review) => review.user_id !== activeUserId,
-                )}
-                activeUserId={activeUserId}
-                userHasReview={!!existingReview}
-                ListHeaderComponent={
-                  // Active User Review Card
-                  existingReview && (
-                    <View className="mb-6">
-                      <ReviewCard
-                        review={existingReview}
-                        activeUserId={activeUserId}
-                        actionFn={() => setIsMenuActive((prev) => !prev)}
-                      />
+              {isReviewsLoading ? (
+                <View className="items-center py-8">
+                  <ActivityIndicator size="small" color={colors.ut.burntorange} />
+                  <Text className="mt-2 color-slate-500">Loading reviews...</Text>
+                </View>
+              ) : isReviewsError ? (
+                <View className="items-center py-8">
+                  <Text className="text-center color-slate-500">
+                    Could not load reviews right now.
+                  </Text>
+                </View>
+              ) : (
+                <ReviewsList
+                  className="max-h-80"
+                  reviews={reviews.filter(
+                    (review) => review.user_id !== activeUserId,
+                  )}
+                  activeUserId={activeUserId}
+                  userHasReview={!!existingReview}
+                  ListHeaderComponent={
+                    // Active User Review Card
+                    existingReview && (
+                      <View className="mb-6">
+                        <ReviewCard
+                          review={existingReview}
+                          activeUserId={activeUserId}
+                          actionFn={() => setIsMenuActive((prev) => !prev)}
+                        />
 
-                      {/* Edit/Delete Menu */}
-                      <View className="">
-                        {existingReview && isMenuActive && (
-                          <View className="absolute -bottom-2 left-1/3">
-                            <View className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 shadow-md shadow-black/20">
-                              {/* Edit Button */}
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setIsMenuActive(false);
-                                  setFormState(1);
-                                }}
-                              >
-                                <Text className="text-lg color-gray-500">Edit</Text>
-                              </TouchableOpacity>
-                              {/* Divider */}
-                              <View className="border-t border-slate-600" />
-                              {/* Delete Button (current functionality: soft delete-change update deleted_at field) */}
-                              <TouchableOpacity
-                                onPress={async () => {
-                                  await deleteReview({
-                                    id: existingReview.id,
-                                    poi_id: existingReview.poi_id,
-                                  });
-                                  setIsMenuActive(false);
-                                }}
-                              >
-                                <Text className="text-lg color-red-700">Delete</Text>
-                              </TouchableOpacity>
+                        {/* Edit/Delete Menu */}
+                        <View className="">
+                          {existingReview && isMenuActive && (
+                            <View className="absolute -bottom-2 left-1/3">
+                              <View className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 shadow-md shadow-black/20">
+                                {/* Edit Button */}
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    setIsMenuActive(false);
+                                    setEditingReview(existingReview);
+                                    setFormState(1);
+                                  }}
+                                >
+                                  <Text className="text-lg color-gray-500">Edit</Text>
+                                </TouchableOpacity>
+                                {/* Divider */}
+                                <View className="border-t border-slate-600" />
+                                {/* Delete Button (current functionality: soft delete-change update deleted_at field) */}
+                                <TouchableOpacity
+                                  onPress={async () => {
+                                    try {
+                                      await deleteReview({
+                                        id: existingReview.id,
+                                        poi_id: existingReview.poi_id,
+                                      });
+                                    } catch (error: any) {
+                                      Toast.show({
+                                        type: "error",
+                                        text2: error?.message ?? "Could not delete review.",
+                                        position: "bottom",
+                                        bottomOffset: 40 * 3,
+                                      });
+                                    }
+                                    setIsMenuActive(false);
+                                  }}
+                                >
+                                  <Text className="text-lg color-red-700">Delete</Text>
+                                </TouchableOpacity>
+                              </View>
                             </View>
-                          </View>
-                        )}
+                          )}
+                        </View>
                       </View>
-                    </View>
-                  )
-                }
-              />
+                    )
+                  }
+                />
+              )}
               {/* Leave a Review Button */}
               <Button
                 className="rounded-xl shadow-none mt-6"
                 title={isProfileLoading ? "Loading profile..." : "Leave a Review"}
-                disabled={isProfileLoading || !myProfile?.id}
+                disabled={isProfileLoading || isReviewsLoading || !myProfile?.id}
                 onPress={handleOpenReviewForm}
               />
+              {!isProfileLoading && !myProfile?.id ? (
+                <Text className="mt-2 text-center color-slate-500">
+                  Sign in and complete profile setup to leave a review.
+                </Text>
+              ) : null}
             </View>
           </>
         ) : (
@@ -814,7 +864,7 @@ const ReviewModal = ({
               <Text className="">Share your experience (optional)</Text>
               <ReviewContentInput
                 name="content"
-                defaultValue={existingReview?.content || ""}
+                defaultValue={editingReview?.content || ""}
                 control={control}
               />
             </View>
@@ -827,7 +877,7 @@ const ReviewModal = ({
                 variant={isSubmitDisabled ? "disabled" : "primary"}
                 disabled={isSubmitDisabled}
                 onPress={handleSubmit(onSubmit)}
-                title={existingReview ? "Resubmit" : "Submit"}
+                title={isSubmitting ? "Submitting..." : isEditMode ? "Resubmit" : "Submit"}
               />
 
               {/* Cancel Button */}

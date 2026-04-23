@@ -127,10 +127,48 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
     );
   };
 
+  const findNearestBuildingContainingPoi = (entry: any) => {
+    const coords = entry?.location_geojson?.coordinates;
+    if (!coords?.length) return null;
+    const [lng, lat] = coords as [number, number];
+
+    let nearest: any = null;
+    let nearestDistanceSq = Number.POSITIVE_INFINITY;
+
+    for (const feature of buildingsData.features as any[]) {
+      const ring: [number, number][] = feature?.geometry?.coordinates?.[0] ?? [];
+      if (!ring.length) continue;
+
+      const centroid = ring.reduce(
+        (acc, [x, y]) => {
+          acc[0] += x;
+          acc[1] += y;
+          return acc;
+        },
+        [0, 0],
+      );
+
+      const centerLng = centroid[0] / ring.length;
+      const centerLat = centroid[1] / ring.length;
+      const dx = centerLng - lng;
+      const dy = centerLat - lat;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq < nearestDistanceSq) {
+        nearestDistanceSq = distanceSq;
+        nearest = feature;
+      }
+    }
+
+    const MAX_SNAP_DISTANCE_SQ = 0.002 * 0.002;
+    return nearestDistanceSq <= MAX_SNAP_DISTANCE_SQ ? nearest : null;
+  };
+
   const metadataAbbr =
     getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
   const buildingFeature =
-    findBuildingFeature(metadataAbbr) || findBuildingContainingPoi(poi);
+    findBuildingFeature(metadataAbbr) ||
+    findBuildingContainingPoi(poi) ||
+    findNearestBuildingContainingPoi(poi);
   const building = buildingFeature?.properties ?? null;
   const buildingName =
     formatBuildingName(metadata.bld_name) ??

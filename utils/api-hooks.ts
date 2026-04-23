@@ -220,7 +220,7 @@ export function useUpdateReview() {
       features?: string;
       content?: string;
     }) => {
-      const { id, poi_id: _, ...payload } = data;
+      const { id, ...payload } = data;
       return apiClient.updateReview(id, payload);
     },
     onSuccess: (_, variables) => {
@@ -286,8 +286,8 @@ export function useUpsertVote() {
       apiClient.upsertVote(data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.votes(variables.review_id),
-      }); // refetch vote data
+        queryKey: ["review"],
+      }); // refetch review lists with vote counts
 
       console.log(`[useUpsertVote] Vote upserted for review with id ${variables.review_id}!`);
     },
@@ -306,8 +306,8 @@ export function useDeleteVote() {
       apiClient.deleteVote(review_id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.votes(variables),
-      });
+        queryKey: ["review"],
+      }); // refetch review lists with vote counts
 
       console.log(`[useUpsertVote] Vote deleted for review with id ${variables}!`);
     },

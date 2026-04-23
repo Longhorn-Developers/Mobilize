@@ -1,31 +1,32 @@
-import { useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
 import {
+  MonitorIcon,
+  MoonIcon,
+  PencilSimpleLineIcon,
+  SignInIcon,
+  SignOutIcon,
+  SunIcon,
+} from "phosphor-react-native";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Switch,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  Switch,
 } from "react-native";
-import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  PencilSimpleLineIcon,
-  SignOutIcon,
-  SignInIcon,
-  MoonIcon,
-  SunIcon,
-  MonitorIcon,
-} from "phosphor-react-native";
 
 import { Button } from "~/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
 import { useTheme, type ThemeMode } from "~/utils/ThemeContext";
+import { useAuth } from "~/utils/useAuth";
 
 const SESSION_TOKEN_KEY = "auth_session_token";
 const USER_KEY = "auth_user";
@@ -51,6 +52,7 @@ type ProfileData = {
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const { colorScheme, themeMode, setThemeMode } = useTheme();
+  const { signOut } = useAuth();
   const isDark = colorScheme === "dark";
 
   const [isEditing, setIsEditing] = useState(false);
@@ -140,7 +142,7 @@ export default function ProfileTab() {
       setSaved(snap);
       setIsEditing(false);
       Alert.alert("Saved", "Profile updated successfully.");
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "Could not save profile. Please try again.");
     }
   };
@@ -161,15 +163,7 @@ export default function ProfileTab() {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
-          const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-          if (token) {
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
-            await fetch(`${apiUrl}/api/auth/signout`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-            }).catch(() => {});
-          }
-          await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
+          await signOut();
           setStoredUser(null);
           setProfile(null);
         },
@@ -392,7 +386,7 @@ export default function ProfileTab() {
           ) : (
             <Button
               title="Sign In with Google"
-              onPress={() => router.push("../auth/signup" as any)}
+              onPress={() => router.push("../welcome" as any)}
               icon={<SignInIcon size={20} color="white" />}
             />
           )}

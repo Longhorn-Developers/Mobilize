@@ -175,11 +175,18 @@ cd server
 pnpm gen
 ```
 
-**Apply database migrations:**
+**Apply database migrations (remote D1):**
 
 ```bash
 cd server
 pnpm migrate
+```
+
+**Apply database migrations (local D1 used by `wrangler dev`):**
+
+```bash
+cd server
+pnpm migrate:local
 ```
 
 **Regenerate types:**

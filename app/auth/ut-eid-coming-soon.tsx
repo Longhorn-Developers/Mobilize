@@ -25,7 +25,7 @@ export default function UTEidComingSoonScreen() {
         <Text className="mb-8 text-center text-base text-gray-600 dark:text-gray-300">
           This flow is coming soon. For now, use Continue with Google.
         </Text>
-        <Button title="Back to Sign In" onPress={() => router.replace("/welcome")} />
+        <Button title="Back to Sign In" onPress={() => router.replace("../welcome" as any)} />
       </View>
     </View>
   );

@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  ScrollView,
   Text,
   TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
+  View,
 } from "react-native";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Button } from "~/components/Button";
 import { apiClient } from "~/utils/api-client";
+import { useAuth } from "~/utils/useAuth";
 
 type MobilityOption = { id: string; title: string };
 
@@ -29,6 +29,7 @@ export default function MobilityPreferencesScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
+  const { refreshSession } = useAuth();
 
   useEffect(() => {
     AsyncStorage.getItem("auth_user").then((json) => {
@@ -40,19 +41,22 @@ export default function MobilityPreferencesScreen() {
   }, []);
 
   const handleNext = async () => {
-    if (!selectedOption) {
-      router.replace("/(tabs)");
-      return;
-    }
-
     setIsSaving(true);
     try {
-      await apiClient.updateProfile({ mobilityPreference: selectedOption });
+      if (selectedOption) {
+        await apiClient.updateProfile({
+          mobilityPreference: selectedOption,
+          onboardingComplete: true,
+        });
+      } else {
+        await apiClient.updateProfile({ onboardingComplete: true });
+      }
+      await refreshSession();
     } catch (err) {
       console.warn("Could not save mobility preference:", err);
     } finally {
       setIsSaving(false);
-      router.replace("/(tabs)");
+      router.replace("../(tabs)" as any);
     }
   };
 
@@ -65,7 +69,7 @@ export default function MobilityPreferencesScreen() {
         {/* Header */}
         <View className="mb-8 mt-8">
           <Text className="text-center text-xl font-medium text-gray-900 dark:text-white">
-            Hi {userName || "there"}, let's get to know more about you!
+            Hi {userName || "there"}, let us get to know more about you!
           </Text>
         </View>
 

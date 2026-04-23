@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
+import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/components/Button";
@@ -8,7 +8,7 @@ export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
 
   const handleUTEIDContinue = () => {
-    router.push("./auth/login" as any);
+    router.push("./auth/ut-eid-coming-soon" as any);
   };
 
   // Step 2 fix: route through the real OAuth flow, not directly to profile-setup

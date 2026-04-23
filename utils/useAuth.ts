@@ -1,34 +1,33 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { useState, useEffect, useCallback, createContext } from "react";
+import {
+  ReactNode,
+  createElement,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Trim trailing slash so URLs like "https://host/" + "/api/me" don't
-// produce double-slash paths that some proxies/tunnels reject.
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:54321").replace(/\/$/, "");
+const SESSION_TOKEN_KEY = "auth_session_token";
+const USER_KEY = "auth_user";
 
-/**
- * Safely parse a fetch Response as JSON.
- * If the server returns HTML (e.g. a devtunnel auth page or proxy error),
- * throws a descriptive error rather than "Unexpected character: <".
- */
 async function safeJson(response: Response) {
-  const ct = response.headers.get("content-type") ?? "";
-  if (!ct.includes("application/json")) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
     const body = await response.text().catch(() => "(unreadable body)");
     throw new Error(
-      `API returned non-JSON (${response.status} ${response.statusText}). ` +
-      `Is the API server reachable?\n${body.slice(0, 200)}`
+      `API returned non-JSON (${response.status} ${response.statusText}): ${body.slice(0, 200)}`,
     );
   }
   return response.json();
 }
-
-// Storage keys
-const SESSION_TOKEN_KEY = "auth_session_token";
-const USER_KEY = "auth_user";
 
 export type User = {
   id: string;
@@ -44,6 +43,8 @@ export type User = {
 
 type AuthState = {
   user: User | null;
+  profile: any | null;
+  onboardingComplete: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
 };
@@ -57,210 +58,164 @@ type AuthContextType = AuthState & {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function useAuth(): AuthContextType {
+async function fetchMe(sessionToken: string) {
+  const response = await fetch(`${API_URL}/api/me`, {
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await safeJson(response);
+  if (!data?.user) {
+    return null;
+  }
+
+  return {
+    user: data.user as User,
+    profile: data.profile ?? null,
+    onboardingComplete: Boolean(data.onboardingComplete),
+  };
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
+    profile: null,
+    onboardingComplete: false,
     isLoading: true,
     isAuthenticated: false,
   });
 
-  // Load stored session on mount
-  useEffect(() => {
-    loadStoredSession();
-  }, []);
-
-  const loadStoredSession = async () => {
-    try {
-      const userJson = await AsyncStorage.getItem(USER_KEY);
-      const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-
-      if (userJson && sessionToken) {
-        // Verify session is still valid
-        const response = await fetch(`${API_URL}/api/me`, {
-          headers: {
-            Authorization: `Bearer ${sessionToken}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await safeJson(response);
-          if (data.user) {
-            await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-            setAuthState({
-              user: data.user,
-              isLoading: false,
-              isAuthenticated: true,
-            });
-            return;
-          }
-        }
-      }
-
-      // No valid session
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    } catch (error) {
-      console.error("Error loading session:", error);
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    }
-  };
-
-  const signInWithGoogle = useCallback(async (): Promise<{
-    success: boolean;
-    error?: string;
-    isNewUser?: boolean;
-  }> => {
-    try {
-      // Create a redirect URL for the app (deep link back into Expo)
-      const redirectUrl = Linking.createURL("auth/callback");
-
-      // The server-side redirect_uri Google must call back to
-      const redirectUri = `${API_URL}/api/auth/callback/google`;
-
-      // Build the auth URL pointing to your server
-      const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
-
-      // Open the OAuth flow in a browser
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-
-      if (result.type === "success" && result.url) {
-        // Parse the callback URL
-        const url = new URL(result.url);
-        const token = url.searchParams.get("token") || url.searchParams.get("session_token");
-        const error = url.searchParams.get("error");
-
-        if (error) {
-          console.error("OAuth error:", error);
-          return { success: false, error };
-        }
-
-        if (token) {
-          // Store the session token
-          await AsyncStorage.setItem(SESSION_TOKEN_KEY, token);
-
-          // Fetch user data
-          const response = await fetch(`${API_URL}/api/me`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (response.ok) {
-            const data = await safeJson(response);
-
-            if (data.user) {
-              await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-
-              setAuthState({
-                user: data.user,
-                isLoading: false,
-                isAuthenticated: true,
-              });
-
-              // Check if this is a new user (no username set yet means they need profile setup)
-              const isNewUser = !data.user.username;
-
-              return { success: true, isNewUser };
-            }
-          }
-        }
-
-        // If we got here without a token, try to get session from cookies
-        // This handles the case where Better Auth uses cookies instead of URL params
-        const meResponse = await fetch(`${API_URL}/api/me`, {
-          credentials: "include",
-        });
-
-        if (meResponse.ok) {
-          const data = await safeJson(meResponse);
-          if (data.user) {
-            await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-            
-            setAuthState({
-              user: data.user,
-              isLoading: false,
-              isAuthenticated: true,
-            });
-
-            return { success: true, isNewUser: !data.user.username };
-          }
-        }
-      }
-
-      if (result.type === "cancel") {
-        return { success: false, error: "Authentication cancelled" };
-      }
-
-      if (result.type === "dismiss") {
-        return { success: false, error: "Authentication dismissed" };
-      }
-
-      return { success: false, error: "Authentication failed" };
-    } catch (error) {
-      console.error("Google sign in error:", error);
-      return { success: false, error: String(error) };
-    }
-  }, []);
-
-  const signOut = useCallback(async () => {
-    try {
-      const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-
-      if (sessionToken) {
-        // Call backend signout
-        await fetch(`${API_URL}/api/auth/signout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${sessionToken}`,
-            Cookie: `better-auth.session_token=${sessionToken}`,
-          },
-          credentials: "include",
-        });
-      }
-
-      // Clear stored data
-      await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
-
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    } catch (error) {
-      console.error("Sign out error:", error);
-      // Clear local state even if server call fails
-      await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    }
-  }, []);
-
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
-    return AsyncStorage.getItem(SESSION_TOKEN_KEY);
+  const clearSession = useCallback(async () => {
+    await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
+    setAuthState({
+      user: null,
+      profile: null,
+      onboardingComplete: false,
+      isLoading: false,
+      isAuthenticated: false,
+    });
   }, []);
 
   const refreshSession = useCallback(async () => {
-    await loadStoredSession();
+    try {
+      const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+      if (!sessionToken) {
+        await clearSession();
+        return;
+      }
+
+      const me = await fetchMe(sessionToken);
+      if (!me) {
+        await clearSession();
+        return;
+      }
+
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+      setAuthState({
+        user: me.user,
+        profile: me.profile,
+        onboardingComplete: me.onboardingComplete,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+    } catch (error) {
+      console.error("Error refreshing session:", error);
+      await clearSession();
+    }
+  }, [clearSession]);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      const redirectUrl = Linking.createURL("auth/callback");
+      const redirectUri = `${API_URL}/api/auth/callback/google`;
+      const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+
+      if (result.type !== "success" || !result.url) {
+        const cancelled = result.type === "cancel" || result.type === "dismiss";
+        return {
+          success: false,
+          error: cancelled ? "Authentication cancelled" : "Authentication failed",
+        };
+      }
+
+      const callbackUrl = new URL(result.url);
+      const token = callbackUrl.searchParams.get("session_token") || callbackUrl.searchParams.get("token");
+      const error = callbackUrl.searchParams.get("error");
+
+      if (error) {
+        return { success: false, error };
+      }
+      if (!token) {
+        return { success: false, error: "No session token returned from OAuth callback" };
+      }
+
+      await AsyncStorage.setItem(SESSION_TOKEN_KEY, token);
+      const me = await fetchMe(token);
+      if (!me) {
+        await clearSession();
+        return { success: false, error: "Unable to load user after sign-in" };
+      }
+
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+      setAuthState({
+        user: me.user,
+        profile: me.profile,
+        onboardingComplete: me.onboardingComplete,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+
+      return { success: true, isNewUser: !me.onboardingComplete };
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      return { success: false, error: String(error) };
+    }
+  }, [clearSession]);
+
+  const signOut = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+      if (token && API_URL) {
+        await fetch(`${API_URL}/api/auth/signout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } finally {
+      await clearSession();
+    }
+  }, [clearSession]);
+
+  const getAccessToken = useCallback(async () => {
+    return AsyncStorage.getItem(SESSION_TOKEN_KEY);
   }, []);
 
-  return {
-    ...authState,
-    signInWithGoogle,
-    signOut,
-    getAccessToken,
-    refreshSession,
-  };
+  const value = useMemo<AuthContextType>(
+    () => ({
+      ...authState,
+      signInWithGoogle,
+      signOut,
+      getAccessToken,
+      refreshSession,
+    }),
+    [authState, signInWithGoogle, signOut, getAccessToken, refreshSession],
+  );
+
+  return createElement(AuthContext.Provider, { value }, children);
 }
 
-// Export context for potential Provider usage
-export { AuthContext };
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
+}

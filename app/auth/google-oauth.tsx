@@ -1,7 +1,7 @@
-import { CaretLeft } from "phosphor-react-native";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { CaretLeft } from "phosphor-react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/components/Button";
@@ -13,27 +13,27 @@ export default function GoogleOAuthScreen() {
   const insets = useSafeAreaInsets();
   const { signInWithGoogle } = useAuth();
 
-  useEffect(() => {
-    handleGoogleSignIn();
-  }, []);
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     const result = await signInWithGoogle();
-
     if (result.success) {
       if (result.isNewUser) {
-        router.replace("/auth/profile-setup");
+        router.replace("./profile-setup" as any);
       } else {
-        router.replace("/(tabs)");
+        router.replace("../(tabs)" as any);
       }
-    } else {
-      setIsLoading(false);
-      setError(result.error || "Authentication failed");
+      return;
     }
-  };
+
+    setIsLoading(false);
+    setError(result.error || "Authentication failed");
+  }, [signInWithGoogle]);
+
+  useEffect(() => {
+    void handleGoogleSignIn();
+  }, [handleGoogleSignIn]);
 
   if (error) {
     return (
@@ -44,13 +44,19 @@ export default function GoogleOAuthScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           className="mb-4 mt-4"
-          style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
+          style={{
+            width: 24,
+            height: 24,
+            paddingTop: 4,
+            paddingBottom: 4,
+            paddingLeft: 7,
+            paddingRight: 7,
+          }}
         >
           <CaretLeft size={24} color="#BF5700" />
         </TouchableOpacity>
 
         <View className="flex-1 items-center justify-center">
-          <Text className="mb-4 text-6xl">⚠️</Text>
           <Text className="mb-4 text-center text-xl font-semibold text-gray-900 dark:text-white">
             Authentication Failed
           </Text>
@@ -73,13 +79,20 @@ export default function GoogleOAuthScreen() {
       <TouchableOpacity
         onPress={() => router.back()}
         className="mb-4 mt-4"
-        style={{ width: 24, height: 24, paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7 }}
+        style={{
+          width: 24,
+          height: 24,
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 7,
+          paddingRight: 7,
+        }}
       >
         <CaretLeft size={24} color="#BF5700" />
       </TouchableOpacity>
 
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#BF5700" />
+        {isLoading ? <ActivityIndicator size="large" color="#BF5700" /> : null}
         <Text className="mt-4 text-center text-lg text-gray-600 dark:text-gray-400">
           Connecting to Google...
         </Text>

@@ -1,47 +1,21 @@
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from "react-native";
 import { router } from "expo-router";
+import {
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/components/Button";
-import colors from "~/types/colors";
 
 export default function SignupScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const insets = useSafeAreaInsets();
 
-  const handleSignup = () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
-      return;
-    }
-
-    // TODO: Implement actual signup logic
-    console.log("Signup with:", { email, password });
-    router.push("./profile-setup" as any);
-  };
-
   const handleGoogleSignup = () => {
-    // Navigate to Google OAuth screen
     router.push("./google-oauth" as any);
   };
 
   const handleUTEIDContinue = () => {
-    router.push("./login" as any);
+    router.push("./ut-eid-coming-soon" as any);
   };
 
   return (

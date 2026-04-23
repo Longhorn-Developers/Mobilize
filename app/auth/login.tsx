@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CaretLeft } from "phosphor-react-native";
+import { useState } from "react";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/components/Button";
 
@@ -16,9 +16,7 @@ export default function LoginScreen() {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
-    // TODO: Implement UT Shibboleth/CAS OAuth
-    console.log("Login with:", { utEid, password });
-    router.push("../" as any);
+    Alert.alert("Coming Soon", "UT EID sign-in is not available yet. Please use Continue with Google.");
   };
 
   const handleForgotPassword = () => {

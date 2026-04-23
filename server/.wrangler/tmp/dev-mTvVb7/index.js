@@ -33511,12 +33511,12 @@ var require_lib = __commonJS({
   }
 });
 
-// .wrangler/tmp/bundle-wEGMdn/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-dZKpE8/middleware-loader.entry.ts
 init_modules_watch_stub();
 init_virtual_unenv_global_polyfill_cloudflare_unenv_preset_node_process();
 init_performance2();
 
-// .wrangler/tmp/bundle-wEGMdn/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-dZKpE8/middleware-insertion-facade.js
 init_modules_watch_stub();
 init_virtual_unenv_global_polyfill_cloudflare_unenv_preset_node_process();
 init_performance2();
@@ -77020,6 +77020,7 @@ var profiles = sqliteTable("profiles", {
   mobility_preference: text("mobility_preference"),
   // "walking" | "wheelchair" | "cane" | "other"
   is_anonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(false),
+  onboarding_completed_at: integer("onboarding_completed_at", { mode: "timestamp" }),
   created_at: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updated_at: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`)
 });
@@ -77037,7 +77038,8 @@ var reviews = sqliteTable(
     deleted_at: integer("deleted_at", { mode: "timestamp" })
   },
   (table) => [
-    index("poi_deleted_idx").on(table.poi_id, table.deleted_at)
+    index("poi_deleted_idx").on(table.poi_id, table.deleted_at),
+    index("reviews_user_poi_deleted_idx").on(table.user_id, table.poi_id, table.deleted_at)
   ]
 );
 var votes = sqliteTable(
@@ -77940,6 +77942,52 @@ async function syncPOIs(env3) {
 __name(syncPOIs, "syncPOIs");
 
 // src/index.ts
+var jsonError = /* @__PURE__ */ __name((c, status, code, message2, details) => {
+  return c.json(
+    {
+      error: {
+        code,
+        message: message2,
+        details: details ?? null
+      }
+    },
+    status
+  );
+}, "jsonError");
+var getErrorMessage = /* @__PURE__ */ __name((error49) => {
+  if (error49 instanceof Error) return error49.message;
+  return String(error49 ?? "Unknown error");
+}, "getErrorMessage");
+var isMissingTableError = /* @__PURE__ */ __name((error49) => {
+  const message2 = getErrorMessage(error49);
+  return /no such table/i.test(message2);
+}, "isMissingTableError");
+var jsonInternalError = /* @__PURE__ */ __name((c, fallbackMessage, error49) => {
+  if (isMissingTableError(error49)) {
+    return jsonError(
+      c,
+      503,
+      "INTERNAL_ERROR",
+      "Database schema is missing required tables. Apply D1 migrations in this environment.",
+      {
+        hint: "Run `pnpm --dir server run migrate:local` for wrangler dev, or `pnpm --dir server run migrate:remote` for deployed environments.",
+        cause: getErrorMessage(error49)
+      }
+    );
+  }
+  return jsonError(c, 500, "INTERNAL_ERROR", fallbackMessage, getErrorMessage(error49));
+}, "jsonInternalError");
+var REQUIRED_TABLES = [
+  "user",
+  "session",
+  "profiles",
+  "pois",
+  "reviews",
+  "votes",
+  "avoidance_areas",
+  "avoidance_area_reports"
+];
+var hasLoggedTableDiagnostics = false;
 var isGoogleTokenResponse = /* @__PURE__ */ __name((value) => {
   return typeof value === "object" && value !== null && typeof value.access_token === "string";
 }, "isGoogleTokenResponse");
@@ -77955,6 +78003,14 @@ var getProfile = /* @__PURE__ */ __name(async (c) => {
   const profile = await db.select().from(profiles).where(eq(profiles.user_id, normalizedUser.id)).get();
   return profile ?? null;
 }, "getProfile");
+var getMissingTables = /* @__PURE__ */ __name(async (d1) => {
+  const result = await d1.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
+  const presentTables = new Set(
+    (result.results ?? []).map((row) => String(row.name))
+  );
+  return REQUIRED_TABLES.filter((tableName) => !presentTables.has(tableName));
+}, "getMissingTables");
+var isProfileOnboardingComplete = /* @__PURE__ */ __name((profile) => Boolean(profile?.onboarding_completed_at), "isProfileOnboardingComplete");
 var app = new Hono2();
 app.use("/*", cors({
   origin: "*",
@@ -77981,7 +78037,9 @@ __name(ensureStudentRole, "ensureStudentRole");
 async function requireAuth(c, db) {
   const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
   const user = await getAuthUser(db, token);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+  }
   return ensureStudentRole(db, user);
 }
 __name(requireAuth, "requireAuth");
@@ -77989,11 +78047,27 @@ async function requireStudent(c, db) {
   const result = await requireAuth(c, db);
   if (result instanceof Response) return result;
   if (result.role !== "student") {
-    return c.json({ error: "Forbidden - student account required" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Student account required");
   }
   return result;
 }
 __name(requireStudent, "requireStudent");
+async function requireCompletedProfile(c) {
+  const profile = await getProfile(c);
+  if (!profile) {
+    return jsonError(c, 404, "NOT_FOUND", "Profile not found");
+  }
+  if (!isProfileOnboardingComplete(profile)) {
+    return jsonError(
+      c,
+      403,
+      "FORBIDDEN",
+      "Complete onboarding before posting reviews or votes"
+    );
+  }
+  return profile;
+}
+__name(requireCompletedProfile, "requireCompletedProfile");
 function encodeOAuthState(nonce, callbackURL, redirectUri) {
   const payload = JSON.stringify({ n: nonce, cb: callbackURL, ru: redirectUri });
   return btoa(payload).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -78013,10 +78087,40 @@ __name(decodeOAuthState, "decodeOAuthState");
 app.use("/*", async (c, next) => {
   c.set("auth", createAuth(c.env));
   c.set("db", drizzle(c.env.mobilize_db, { schema: schema_exports }));
+  if (!hasLoggedTableDiagnostics) {
+    hasLoggedTableDiagnostics = true;
+    try {
+      const missingTables = await getMissingTables(c.env.mobilize_db);
+      if (missingTables.length > 0) {
+        console.error("[startup] Missing required tables:", missingTables.join(", "));
+      } else {
+        console.log("[startup] Table diagnostics OK");
+      }
+    } catch (error49) {
+      console.error("[startup] Failed to run table diagnostics:", error49);
+    }
+  }
   await next();
 });
 var pendingCallbacks = /* @__PURE__ */ new Map();
 app.get("/", (c) => c.json({ status: "ok" }));
+app.get("/health", async (c) => {
+  try {
+    const missingTables = await getMissingTables(c.env.mobilize_db);
+    if (missingTables.length > 0) {
+      return c.json(
+        {
+          status: "degraded",
+          missingTables
+        },
+        500
+      );
+    }
+    return c.json({ status: "ok", missingTables: [] });
+  } catch (error49) {
+    return jsonError(c, 500, "INTERNAL_ERROR", "Health check failed", String(error49));
+  }
+});
 app.get("/pois", async (c) => {
   const db = c.get("db");
   const pois2 = await db.select().from(pois);
@@ -78031,7 +78135,7 @@ app.get("/avoidance_areas/:id", async (c) => {
   const db = c.get("db");
   const areaId = Number(c.req.param("id"));
   if (isNaN(areaId)) {
-    return c.json({ error: "Invalid Area ID" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid Area ID");
   }
   const area = await db.select({
     ...getTableColumns(avoidance_areas),
@@ -78039,7 +78143,7 @@ app.get("/avoidance_areas/:id", async (c) => {
     profile_avatar_url: profiles.avatar_url
   }).from(avoidance_areas).leftJoin(profiles, eq(avoidance_areas.user_id, profiles.user_id)).where(eq(avoidance_areas.id, areaId)).get();
   if (!area) {
-    return c.json({ error: "Area not found" }, 404);
+    return jsonError(c, 404, "NOT_FOUND", "Area not found");
   }
   return c.json(area);
 });
@@ -78052,11 +78156,11 @@ app.post("/avoidance_areas", async (c) => {
     body = await c.req.json();
   } catch (e) {
     console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
   const { name, description, boundary_geojson } = body;
   if (!name || !boundary_geojson) {
-    return c.json({ error: "Missing required fields" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Missing required fields");
   }
   const result = await db.insert(avoidance_areas).values({
     user_id: user.id,
@@ -78070,7 +78174,7 @@ app.get("/avoidance_areas/:id/reports", async (c) => {
   const db = c.get("db");
   const areaId = c.req.param("id");
   if (!areaId) {
-    return c.json({ error: "Area ID is required" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Area ID is required");
   }
   const reports = await db.select({
     ...getTableColumns(avoidance_area_reports),
@@ -78081,12 +78185,17 @@ app.get("/avoidance_areas/:id/reports", async (c) => {
 });
 app.post("/avoidance_areas/:id/reports", async (c) => {
   const id = parseInt(c.req.param("id"));
-  if (isNaN(id)) return c.json({ error: "Invalid id" }, 400);
+  if (isNaN(id)) return jsonError(c, 400, "BAD_REQUEST", "Invalid id");
   const db = c.get("db");
   const user = await requireStudent(c, db);
   if (user instanceof Response) return user;
-  const body = await c.req.json();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch (error49) {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+  if (!body.title) return jsonError(c, 400, "BAD_REQUEST", "title is required");
   const result = await db.insert(avoidance_area_reports).values({
     user_id: user.id,
     avoidance_area_id: id,
@@ -78103,7 +78212,7 @@ app.get("/profiles/me", async (c) => {
   if (user instanceof Response) return user;
   const profile = await db.select().from(profiles).where(eq(profiles.user_id, user.id)).get();
   if (!profile) {
-    return c.json({ error: "Profile Not Found -> prompt login/signup" }, 404);
+    return jsonError(c, 404, "NOT_FOUND", "Profile not found");
   }
   return c.json(profile);
 });
@@ -78111,15 +78220,25 @@ app.post("/api/profile", async (c) => {
   const db = c.get("db");
   const user = await requireAuth(c, db);
   if (user instanceof Response) return user;
-  const body = await c.req.json();
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
   const { firstName, lastName, username: username2, classYear, major, bio } = body;
   if (!firstName || !lastName || !username2) {
-    return c.json({ error: "firstName, lastName, and username are required" }, 400);
+    return jsonError(
+      c,
+      400,
+      "BAD_REQUEST",
+      "firstName, lastName, and username are required"
+    );
   }
   const displayName = `${firstName.trim()} ${lastName.trim()}`;
   const existingUser = await db.select().from(users).where(eq(users.username, username2)).get();
   if (existingUser && existingUser.id !== user.id) {
-    return c.json({ error: "Username already taken" }, 409);
+    return jsonError(c, 409, "CONFLICT", "Username already taken");
   }
   await db.update(users).set({ username: username2.trim(), name: displayName, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, user.id));
   const existing = await db.select().from(profiles).where(eq(profiles.user_id, user.id)).get();
@@ -78131,6 +78250,7 @@ app.post("/api/profile", async (c) => {
       major: major ?? existing.major,
       bio: bio ?? existing.bio,
       is_anonymous: isAnonymous,
+      onboarding_completed_at: existing.onboarding_completed_at ?? null,
       updated_at: /* @__PURE__ */ new Date()
     }).where(eq(profiles.user_id, user.id));
   } else {
@@ -78141,6 +78261,7 @@ app.post("/api/profile", async (c) => {
       major: major ?? null,
       bio: bio ?? null,
       is_anonymous: isAnonymous,
+      onboarding_completed_at: null,
       created_at: /* @__PURE__ */ new Date(),
       updated_at: /* @__PURE__ */ new Date()
     });
@@ -78152,7 +78273,12 @@ app.put("/api/profile", async (c) => {
   const db = c.get("db");
   const user = await requireAuth(c, db);
   if (user instanceof Response) return user;
-  const body = await c.req.json();
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
   const existing = await db.select().from(profiles).where(eq(profiles.user_id, user.id)).get();
   const updates = { updated_at: /* @__PURE__ */ new Date() };
   if (body.displayName !== void 0) updates.display_name = body.displayName;
@@ -78161,6 +78287,8 @@ app.put("/api/profile", async (c) => {
   if (body.bio !== void 0) updates.bio = body.bio;
   if (body.mobilityPreference !== void 0) updates.mobility_preference = body.mobilityPreference;
   if (body.isAnonymous !== void 0) updates.is_anonymous = body.isAnonymous;
+  if (body.onboardingComplete === true) updates.onboarding_completed_at = /* @__PURE__ */ new Date();
+  if (body.onboardingComplete === false) updates.onboarding_completed_at = null;
   if (existing) {
     await db.update(profiles).set(updates).where(eq(profiles.user_id, user.id));
   } else {
@@ -78171,6 +78299,8 @@ app.put("/api/profile", async (c) => {
       major: body.major ?? null,
       bio: body.bio ?? null,
       mobility_preference: body.mobilityPreference ?? null,
+      is_anonymous: body.isAnonymous ?? false,
+      onboarding_completed_at: body.onboardingComplete === true ? /* @__PURE__ */ new Date() : null,
       created_at: /* @__PURE__ */ new Date(),
       updated_at: /* @__PURE__ */ new Date()
     });
@@ -78189,7 +78319,7 @@ app.get("/api/users/:username", async (c) => {
     role: users.role,
     createdAt: users.createdAt
   }).from(users).where(eq(users.username, username2)).get();
-  if (!user) return c.json({ error: "User not found" }, 404);
+  if (!user) return jsonError(c, 404, "NOT_FOUND", "User not found");
   const profile = await db.select().from(profiles).where(eq(profiles.user_id, user.id)).get();
   if (profile?.is_anonymous) {
     return c.json({
@@ -78234,7 +78364,7 @@ app.get("/api/auth/callback/google", async (c) => {
       }
       return c.json({ error: error49 }, 400);
     }
-    if (!code) return c.json({ error: "No authorization code" }, 400);
+    if (!code) return jsonError(c, 400, "BAD_REQUEST", "No authorization code");
     const baseUrl = c.env.BETTER_AUTH_URL.replace(/\/$/, "");
     const redirectUri = stateData?.redirectUri || `${baseUrl}/api/auth/callback/google`;
     let tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -78249,8 +78379,7 @@ app.get("/api/auth/callback/google", async (c) => {
       })
     });
     if (!tokenResponse.ok) {
-      console.log("Retrying fetch...");
-      await new Promise((r) => setTimeout(r, 1e3));
+      await new Promise((resolve) => setTimeout(resolve, 1e3));
       tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -78258,28 +78387,30 @@ app.get("/api/auth/callback/google", async (c) => {
           code,
           client_id: c.env.GOOGLE_CLIENT_ID,
           client_secret: c.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: `${c.env.BETTER_AUTH_URL}/api/auth/callback/google`,
+          redirect_uri: redirectUri,
           grant_type: "authorization_code"
         })
       });
+    }
+    if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
       console.error("Token exchange failed:", errorData);
-      return c.json({ error: "Token exchange failed" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Token exchange failed", errorData);
     }
     const tokenPayload = await tokenResponse.json();
     if (!isGoogleTokenResponse(tokenPayload)) {
-      return c.json({ error: "Invalid Google token response" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Invalid Google token response");
     }
     const tokens = tokenPayload;
     const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     if (!userInfoResponse.ok) {
-      return c.json({ error: "Failed to get user info" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Failed to get user info");
     }
     const userPayload = await userInfoResponse.json();
     if (!isGoogleUserInfo(userPayload)) {
-      return c.json({ error: "Invalid Google user response" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Invalid Google user response");
     }
     const googleUser = userPayload;
     console.log("Google user:", googleUser.email);
@@ -78301,14 +78432,9 @@ app.get("/api/auth/callback/google", async (c) => {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       });
-      await db.insert(profiles).values({
-        user_id: userId,
-        display_name: googleUser.name || "",
-        avatar_url: googleUser.picture || null
-      }).onConflictDoNothing();
       user = await db.select().from(users).where(eq(users.id, userId)).get();
     }
-    if (!user) return c.json({ error: "Failed to create user" }, 500);
+    if (!user) return jsonError(c, 500, "INTERNAL_ERROR", "Failed to create user");
     const sessionToken = crypto.randomUUID();
     const sessionId = crypto.randomUUID();
     await db.insert(session).values({
@@ -78326,7 +78452,7 @@ app.get("/api/auth/callback/google", async (c) => {
     return c.redirect("/", 302);
   } catch (error49) {
     console.error("Callback error:", error49);
-    return c.json({ error: String(error49) }, 500);
+    return jsonError(c, 500, "INTERNAL_ERROR", "OAuth callback failed", getErrorMessage(error49));
   }
 });
 app.post("/api/auth/signout", async (c) => {
@@ -78337,26 +78463,18 @@ app.post("/api/auth/signout", async (c) => {
   }
   return c.json({ success: true });
 });
-app.on(["GET", "POST"], "/api/auth/**", async (c) => {
-  console.log("\u{1F534} Better Auth catch-all hit:", c.req.path, c.req.method);
-  try {
-    const auth = createAuth(c.env);
-    const response = await auth.handler(c.req.raw);
-    return response;
-  } catch (error49) {
-    console.error("Auth error:", error49);
-    return c.json({ error: String(error49) }, 500);
-  }
-});
 var ARCGIS_URL = "https://services9.arcgis.com/w9x0fkENXvuWZY26/arcgis/rest/services/Closed_Areas_view_new/FeatureServer/0/query";
-var PAGE_SIZE = 8e3;
+var PAGE_SIZE = 1500;
+var CONSTRUCTION_CACHE_TTL_MS = 60 * 1e3;
+var ARCGIS_TIMEOUT_MS = 12e3;
+var constructionCache = null;
 function buildArcGISUrl(offset) {
   const u = new URL(ARCGIS_URL);
   const p = u.searchParams;
   p.set("f", "json");
   p.set("where", "1=1");
   p.set("returnGeometry", "true");
-  p.set("outFields", "OBJECTID");
+  p.set("outFields", "*");
   p.set("orderByFields", "OBJECTID ASC");
   p.set("outSR", "4326");
   p.set("resultOffset", String(offset));
@@ -78365,9 +78483,23 @@ function buildArcGISUrl(offset) {
   return u.toString();
 }
 __name(buildArcGISUrl, "buildArcGISUrl");
+async function fetchArcGISPage(url2, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url2, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+__name(fetchArcGISPage, "fetchArcGISPage");
 function convertArcGISFeature(f, idx) {
   const attrs = f.attributes ?? {};
   const id = attrs.OBJECTID ?? f.objectId ?? idx;
+  const description = attrs.Area_Description ?? attrs.Description ?? attrs.DESCRIPTION ?? attrs.Name ?? attrs.NAME ?? null;
   const g = f.geometry ?? {};
   const rings = g.rings ?? [];
   const paths2 = g.paths ?? [];
@@ -78377,20 +78509,29 @@ function convertArcGISFeature(f, idx) {
     ([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
   );
   if (pts.length < 2) return null;
-  return { id, points: pts };
+  return {
+    id,
+    points: pts,
+    description: description ? String(description) : void 0
+  };
 }
 __name(convertArcGISFeature, "convertArcGISFeature");
 app.get("/construction_areas", async (c) => {
+  if (constructionCache && constructionCache.expiresAt > Date.now()) {
+    return c.json(constructionCache.rows);
+  }
   try {
     const allFeatures = [];
     let offset = 0;
     for (; ; ) {
-      const res = await fetch(buildArcGISUrl(offset), {
-        headers: { Accept: "application/json" }
-      });
-      if (!res.ok) return c.json({ error: `ArcGIS HTTP ${res.status}` }, 502);
+      const res = await fetchArcGISPage(buildArcGISUrl(offset), ARCGIS_TIMEOUT_MS);
+      if (!res.ok) {
+        return jsonError(c, 502, "INTERNAL_ERROR", `ArcGIS HTTP ${res.status}`);
+      }
       const json2 = await res.json();
-      if (json2.error) return c.json({ error: `ArcGIS error: ${JSON.stringify(json2.error)}` }, 502);
+      if (json2.error) {
+        return jsonError(c, 502, "INTERNAL_ERROR", "ArcGIS error", json2.error);
+      }
       const feats = json2.features ?? [];
       allFeatures.push(...feats);
       const more = json2.exceededTransferLimit === true || feats.length === PAGE_SIZE;
@@ -78398,30 +78539,43 @@ app.get("/construction_areas", async (c) => {
       offset += feats.length;
     }
     const rows = allFeatures.map((f, i) => convertArcGISFeature(f, i)).filter(Boolean);
+    constructionCache = {
+      expiresAt: Date.now() + CONSTRUCTION_CACHE_TTL_MS,
+      rows
+    };
     return c.json(rows);
   } catch (err) {
     console.error("[construction_areas] proxy error:", err.message);
-    return c.json({ error: err.message }, 502);
+    if (constructionCache?.rows?.length) {
+      return c.json(constructionCache.rows);
+    }
+    if (err?.name === "AbortError") {
+      return jsonError(c, 504, "INTERNAL_ERROR", "ArcGIS request timed out");
+    }
+    return jsonError(c, 502, "INTERNAL_ERROR", err.message ?? "Construction proxy error");
   }
 });
 app.get("/api/me", async (c) => {
   const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
-  if (!token) return c.json({ user: null }, 401);
+  if (!token) {
+    return c.json({ user: null, profile: null, onboardingComplete: false }, 401);
+  }
   const db = c.get("db");
   const authUser = await getAuthUser(db, token);
   if (!authUser) {
-    return c.json({ user: null }, 401);
+    return c.json({ user: null, profile: null, onboardingComplete: false }, 401);
   }
   const user = await ensureStudentRole(db, authUser);
   const profile = await db.select().from(profiles).where(eq(profiles.user_id, user.id)).get();
-  return c.json({ user, profile: profile ?? null });
+  const onboardingComplete = isProfileOnboardingComplete(profile);
+  return c.json({ user, profile: profile ?? null, onboardingComplete });
 });
 app.get("/reviews", async (c) => {
   try {
     const db = c.get("db");
     const poiIdParam = Number(c.req.query("poi_id"));
     if (!Number.isFinite(poiIdParam) || poiIdParam <= 0) {
-      return c.json({ error: "POI ID is required" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "poi_id must be a positive integer");
     }
     const poiId = Math.trunc(poiIdParam);
     const profile = await getProfile(c);
@@ -78463,136 +78617,195 @@ app.get("/reviews", async (c) => {
     );
   } catch (error49) {
     console.error("Error loading reviews:", error49);
-    return c.json({ error: "Failed to load reviews" }, 500);
+    return jsonInternalError(c, "Failed to load reviews", error49);
   }
 });
 app.post("/reviews", async (c) => {
   try {
     const db = c.get("db");
-    const profile = await getProfile(c);
-    if (!profile) return c.json({ error: "Profile not found" }, 404);
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
     let body;
     try {
       body = await c.req.json();
     } catch (e) {
       console.error("Error parsing JSON body:", e);
-      return c.json({ error: "Invalid JSON body" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
     }
     const { poi_id, rating, features: features2, content } = body;
     const normalizedPoiId = Number(poi_id);
     const normalizedRating = Number(rating);
-    if (!Number.isFinite(normalizedPoiId) || normalizedPoiId <= 0 || !Number.isFinite(normalizedRating) || normalizedRating <= 0) {
-      return c.json({ error: "Missing required fields" }, 400);
+    const normalizedPoiIdInt = Math.trunc(normalizedPoiId);
+    const normalizedRatingInt = Math.trunc(normalizedRating);
+    const isRatingValid = Number.isFinite(normalizedRating) && Number.isInteger(normalizedRating) && normalizedRatingInt >= 1 && normalizedRatingInt <= 5;
+    if (!Number.isFinite(normalizedPoiId) || normalizedPoiId <= 0 || !isRatingValid) {
+      return jsonError(
+        c,
+        400,
+        "BAD_REQUEST",
+        "poi_id must be a positive integer and rating must be an integer from 1 to 5"
+      );
     }
-    const poi = await db.select({ id: pois.id }).from(pois).where(eq(pois.id, Math.trunc(normalizedPoiId))).get();
+    if (features2 !== void 0 && features2 !== null && typeof features2 !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "features must be a JSON string or null");
+    }
+    if (content !== void 0 && content !== null && typeof content !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "content must be a string or null");
+    }
+    const poi = await db.select({ id: pois.id }).from(pois).where(eq(pois.id, normalizedPoiIdInt)).get();
     if (!poi) {
-      return c.json({ error: "Invalid POI ID" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid POI ID");
     }
     const existingReview = await db.select().from(reviews).where(
       and(
         eq(reviews.user_id, profile.id),
-        eq(reviews.poi_id, Math.trunc(normalizedPoiId)),
+        eq(reviews.poi_id, normalizedPoiIdInt),
         isNull(reviews.deleted_at)
       )
     ).orderBy(desc(reviews.updated_at)).get();
     const result = existingReview ? await db.update(reviews).set({
-      rating: Math.trunc(normalizedRating),
+      rating: normalizedRatingInt,
       features: features2 ?? null,
       content: content ?? null
     }).where(eq(reviews.id, existingReview.id)).returning() : await db.insert(reviews).values({
       user_id: profile.id,
-      poi_id: Math.trunc(normalizedPoiId),
-      rating: Math.trunc(normalizedRating),
+      poi_id: normalizedPoiIdInt,
+      rating: normalizedRatingInt,
       features: features2 ?? null,
       content: content ?? null
     }).returning();
     return c.json(result);
   } catch (error49) {
     console.error("Error creating review:", error49);
-    return c.json({ error: "Failed to create review" }, 500);
+    return jsonInternalError(c, "Failed to create review", error49);
   }
 });
 app.put("/reviews/:id", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("id"));
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
-  }
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-  const review = await db.select().from(reviews).where(eq(reviews.id, reviewId)).get();
-  if (!review || review.user_id !== profile.id) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-  let body;
   try {
-    body = await c.req.json();
-  } catch (e) {
-    console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("id"));
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+    const review = await db.select().from(reviews).where(eq(reviews.id, Math.trunc(reviewId))).get();
+    if (!review || review.user_id !== profile.id) {
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
+    }
+    let body;
+    try {
+      body = await c.req.json();
+    } catch (e) {
+      console.error("Error parsing JSON body:", e);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+    }
+    const normalizedRating = Number(body.rating);
+    const normalizedRatingInt = Math.trunc(normalizedRating);
+    const normalizedPoiId = body.poi_id !== void 0 ? Number(body.poi_id) : review.poi_id;
+    const normalizedPoiIdInt = Math.trunc(normalizedPoiId);
+    const isRatingValid = Number.isFinite(normalizedRating) && Number.isInteger(normalizedRating) && normalizedRatingInt >= 1 && normalizedRatingInt <= 5;
+    if (!isRatingValid) {
+      return jsonError(c, 400, "BAD_REQUEST", "rating must be an integer from 1 to 5");
+    }
+    if (!Number.isFinite(normalizedPoiId) || !Number.isInteger(normalizedPoiId) || normalizedPoiIdInt <= 0) {
+      return jsonError(c, 400, "BAD_REQUEST", "poi_id must be a positive integer");
+    }
+    const poiExists = await db.select({ id: pois.id }).from(pois).where(eq(pois.id, normalizedPoiIdInt)).get();
+    if (!poiExists) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid POI ID");
+    }
+    if (body.features !== void 0 && body.features !== null && typeof body.features !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "features must be a JSON string or null");
+    }
+    if (body.content !== void 0 && body.content !== null && typeof body.content !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "content must be a string or null");
+    }
+    const result = await db.update(reviews).set({
+      rating: normalizedRatingInt,
+      poi_id: normalizedPoiIdInt,
+      features: body.features ?? null,
+      content: body.content ?? null
+    }).where(eq(reviews.id, Math.trunc(reviewId))).returning();
+    return c.json(result);
+  } catch (error49) {
+    console.error("Error updating review:", error49);
+    return jsonInternalError(c, "Failed to update review", error49);
   }
-  const { rating, features: features2, content } = body;
-  if (!rating) {
-    return c.json({ error: "Missing required fields" }, 400);
-  }
-  const result = await db.update(reviews).set({ rating, features: features2, content }).where(eq(reviews.id, reviewId)).returning();
-  return c.json(result);
 });
 app.put("/reviews/:id/delete", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("id"));
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
+  try {
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("id"));
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+    const review = await db.select().from(reviews).where(eq(reviews.id, Math.trunc(reviewId))).get();
+    if (!review || review.user_id !== profile.id) {
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
+    }
+    const result = await db.update(reviews).set({ deleted_at: sql`(unixepoch())` }).where(eq(reviews.id, Math.trunc(reviewId))).returning();
+    return c.json(result);
+  } catch (error49) {
+    console.error("Error deleting review:", error49);
+    return jsonInternalError(c, "Failed to delete review", error49);
   }
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-  const review = await db.select().from(reviews).where(eq(reviews.id, reviewId)).get();
-  if (!review || review.user_id !== profile.id) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-  const result = await db.update(reviews).set({ deleted_at: sql`(unixepoch())` }).where(eq(reviews.id, reviewId)).returning();
-  return c.json(result);
 });
 app.post("/votes", async (c) => {
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-  const db = c.get("db");
-  let body;
   try {
-    body = await c.req.json();
-  } catch (e) {
-    console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+    const db = c.get("db");
+    let body;
+    try {
+      body = await c.req.json();
+    } catch (e) {
+      console.error("Error parsing JSON body:", e);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+    }
+    const reviewId = Number(body.review_id);
+    const vote = Number(body.vote);
+    if (!Number.isFinite(reviewId) || reviewId <= 0 || !Number.isInteger(reviewId)) {
+      return jsonError(c, 400, "BAD_REQUEST", "review_id must be a positive integer");
+    }
+    if (vote !== 1 && vote !== -1) {
+      return jsonError(c, 400, "BAD_REQUEST", "vote must be 1 or -1");
+    }
+    const review = await db.select({ id: reviews.id }).from(reviews).where(and(eq(reviews.id, Math.trunc(reviewId)), isNull(reviews.deleted_at))).get();
+    if (!review) {
+      return jsonError(c, 404, "NOT_FOUND", "Review not found");
+    }
+    const result = await db.insert(votes).values({
+      user_id: profile.id,
+      review_id: Math.trunc(reviewId),
+      vote
+    }).onConflictDoUpdate({
+      target: [votes.user_id, votes.review_id],
+      set: { vote }
+    }).returning();
+    return c.json(result);
+  } catch (error49) {
+    console.error("Error upserting vote:", error49);
+    return jsonInternalError(c, "Failed to save vote", error49);
   }
-  const { review_id, vote } = body;
-  const result = await db.insert(votes).values({
-    user_id: profile.id,
-    review_id,
-    vote
-  }).onConflictDoUpdate({
-    target: [votes.user_id, votes.review_id],
-    set: { vote }
-  }).returning();
-  return c.json(result);
 });
 app.delete("/votes/:review_id", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("review_id"));
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
+  try {
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("review_id"));
+    if (!Number.isFinite(reviewId) || reviewId <= 0 || !Number.isInteger(reviewId)) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+    const result = await db.delete(votes).where(and(eq(votes.user_id, profile.id), eq(votes.review_id, Math.trunc(reviewId)))).returning();
+    return c.json(result);
+  } catch (error49) {
+    console.error("Error deleting vote:", error49);
+    return jsonInternalError(c, "Failed to delete vote", error49);
   }
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-  const result = await db.delete(votes).where(and(eq(votes.user_id, profile.id), eq(votes.review_id, reviewId))).returning();
-  return c.json(result);
 });
 var src_default = {
   fetch: app.fetch,
@@ -78637,7 +78850,7 @@ function reduceError(e) {
   };
 }
 __name(reduceError, "reduceError");
-var jsonError = /* @__PURE__ */ __name(async (request, env3, _ctx, middlewareCtx) => {
+var jsonError2 = /* @__PURE__ */ __name(async (request, env3, _ctx, middlewareCtx) => {
   try {
     return await middlewareCtx.next(request, env3);
   } catch (e) {
@@ -78648,9 +78861,9 @@ var jsonError = /* @__PURE__ */ __name(async (request, env3, _ctx, middlewareCtx
     });
   }
 }, "jsonError");
-var middleware_miniflare3_json_error_default = jsonError;
+var middleware_miniflare3_json_error_default = jsonError2;
 
-// .wrangler/tmp/bundle-wEGMdn/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-dZKpE8/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -78685,7 +78898,7 @@ function __facade_invoke__(request, env3, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-wEGMdn/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-dZKpE8/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

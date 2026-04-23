@@ -94,6 +94,7 @@ export const profiles = sqliteTable("profiles", {
     mobility_preference: text("mobility_preference"), // "walking" | "wheelchair" | "cane" | "other"
 
     is_anonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(false),
+    onboarding_completed_at: integer("onboarding_completed_at", { mode: "timestamp" }),
 
     created_at: integer("created_at", { mode: "timestamp" })
         .notNull()
@@ -125,7 +126,8 @@ export const reviews = sqliteTable('reviews', {
 	deleted_at: integer('deleted_at', { mode: 'timestamp' })
 },
 (table) => [
-	index('poi_deleted_idx').on(table.poi_id, table.deleted_at)
+	index('poi_deleted_idx').on(table.poi_id, table.deleted_at),
+    index('reviews_user_poi_deleted_idx').on(table.user_id, table.poi_id, table.deleted_at),
 ]);
 
 export const votes = sqliteTable('votes', {

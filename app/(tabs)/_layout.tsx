@@ -10,15 +10,15 @@ import { useAuth } from "~/utils/useAuth";
 
 export default function Layout() {
   const { colorScheme } = useTheme();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, onboardingComplete } = useAuth();
 
   // Guard authenticated users with incomplete setup back to profile onboarding.
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    if (!user?.username) {
-      router.replace("/auth/profile-setup");
+    if (!onboardingComplete) {
+      router.replace("../auth/profile-setup" as any);
     }
-  }, [isAuthenticated, isLoading, user?.username]);
+  }, [isAuthenticated, isLoading, onboardingComplete]);
 
   const isDark = colorScheme === "dark";
 
@@ -38,8 +38,11 @@ export default function Layout() {
         name="index"
         options={{
           title: "Map",
-          tabBarIcon: ({ color, size }) => <MapPinIcon size={size} color={color} />,
-        }}
+          unmountOnBlur: true,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <MapPinIcon size={size} color={color} />
+          ),
+        } as any}
       />
       <Tabs.Screen
         name="profile"

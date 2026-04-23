@@ -70,6 +70,9 @@ const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", feature
 type LatLng = { latitude: number; longitude: number };
 type MapDetailMode = "simple" | "detailed";
 
+const normalizeCampusText = (value?: string | null) =>
+  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
 const extractBuildingAbbreviation = (value?: string | null): string | null => {
   if (!value) return null;
   const parenMatch = value.match(/\(([A-Za-z0-9]{2,8})\)/);
@@ -159,7 +162,7 @@ export default function Home() {
   const avoidanceGeoJSON = useMemo(
     (): GeoJSON.FeatureCollection => ({
       type: "FeatureCollection",
-      features: (avoidanceAreas ?? []).map((area) => ({
+      features: (avoidanceAreas ?? []).map((area: any) => ({
         type: "Feature" as const,
         id: String(area.id),
         properties: { id: String(area.id) },
@@ -172,7 +175,7 @@ export default function Home() {
   const constructionGeoJSON = useMemo(
     (): GeoJSON.FeatureCollection => ({
       type: "FeatureCollection",
-      features: (constructionAreas ?? []).flatMap((area) => {
+      features: (constructionAreas ?? []).flatMap((area: any) => {
         const coords = area.points.map(
           (c: [number, number]) => [c[1], c[0]] as [number, number],
         );
@@ -186,7 +189,10 @@ export default function Home() {
           {
             type: "Feature" as const,
             id: `C${area.id}`,
-            properties: { id: `C${area.id}` },
+            properties: {
+              id: `C${area.id}`,
+              description: area.description ?? null,
+            },
             geometry: {
               type: "Polygon",
               coordinates: [ring],
@@ -256,17 +262,61 @@ export default function Home() {
     const buildingsAny = buildingsData as any;
     const features: any[] = buildingsAny.features ?? [];
 
+    const placeAbbreviation =
+      extractBuildingAbbreviation(placeName) ??
+      extractBuildingAbbreviation(placeAddress);
+    if (placeAbbreviation) {
+      const abbreviationMatch = features.find(
+        (feature) =>
+          String(feature?.properties?.Building_Abbr ?? "").toUpperCase() === placeAbbreviation,
+      );
+      if (abbreviationMatch) {
+        return abbreviationMatch;
+      }
+    }
+
     const polygonMatch = features.find((feature) =>
       feature?.geometry && turf.booleanPointInPolygon(point, feature),
     );
-
     if (polygonMatch) {
       return polygonMatch;
     }
 
-    // Only trust strict polygon containment.
-    // If we cannot confidently match, fall back to the generic location sheet.
-    return null;
+    const normalizedName = normalizeCampusText(placeName);
+    const normalizedAddress = normalizeCampusText(placeAddress);
+    if (normalizedName || normalizedAddress) {
+      const nameMatch = features.find((feature) => {
+        const description = normalizeCampusText(feature?.properties?.Description);
+        const abbr = normalizeCampusText(feature?.properties?.Building_Abbr);
+        return (
+          (normalizedName &&
+            ((description && (description.includes(normalizedName) || normalizedName.includes(description))) ||
+              (abbr && normalizedName.includes(abbr)))) ||
+          (normalizedAddress && description && normalizedAddress.includes(description))
+        );
+      });
+      if (nameMatch) {
+        return nameMatch;
+      }
+    }
+
+    let nearestFeature: any = null;
+    let nearestDistanceSq = Number.POSITIVE_INFINITY;
+    for (const feature of features) {
+      const center = turf.centerOfMass(feature as any)?.geometry?.coordinates;
+      if (!Array.isArray(center) || center.length < 2) continue;
+      const dx = Number(center[0]) - longitude;
+      const dy = Number(center[1]) - latitude;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq < nearestDistanceSq) {
+        nearestDistanceSq = distanceSq;
+        nearestFeature = feature;
+      }
+    }
+
+    // Approx ~225m threshold to avoid snapping far away locations.
+    const MAX_SNAP_DISTANCE_SQ = 0.002 * 0.002;
+    return nearestDistanceSq <= MAX_SNAP_DISTANCE_SQ ? nearestFeature : null;
   };
 
   const isPoiInsideBuilding = (poi: any, buildingFeature: any) => {
@@ -400,7 +450,7 @@ export default function Home() {
   }, [isTabFocused, closeAllSheets]);
 
   const handleAvoidanceAreaPress = (polygonId: string) => {
-    const area = (avoidanceAreas ?? []).find((a) => String(a.id) === polygonId);
+    const area = (avoidanceAreas ?? []).find((a: any) => String(a.id) === polygonId);
     if (!area) return;
     avoidanceAreaBottomSheetRef.current?.present({ area });
   };
@@ -864,7 +914,8 @@ export default function Home() {
             if (isReportMode) return;
             featureTappedRef.current = true;
             const id = e.features[0]?.properties?.id as string;
-            if (id) handleConstructionPress(id);
+            const description = e.features[0]?.properties?.description as string | undefined;
+            if (id) handleConstructionPress(id, description);
           }}
         >
           <FillLayer

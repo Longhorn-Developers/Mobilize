@@ -48,6 +48,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
   const areaId = String(area.id);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const { user } = useAuth();
   const canComment =
     user?.role === "student" ||
@@ -57,7 +58,12 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
     ? { type: "Polygon", coordinates: [area.boundary_geojson.coordinates[0]] }
     : null;
 
-  const { data: reports } = useAvoidanceAreaReports(areaId);
+  const {
+    data: reports,
+    isLoading: isReportsLoading,
+    isError: isReportsError,
+    refetch: refetchReports,
+  } = useAvoidanceAreaReports(areaId);
   const { mutateAsync: insertAvoidanceAreaReport } =
     useInsertAvoidanceAreaReport();
 
@@ -74,15 +80,19 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
   });
 
   const handleAddComment = async (data: CommentFormData) => {
+    setIsSubmittingComment(true);
     try {
       await insertAvoidanceAreaReport({
         avoidance_area_id: areaId,
         title: "User Comment",
         description: data.content,
       });
+      await refetchReports();
       reset();
     } catch (error) {
       console.error("Failed to add comment:", error);
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
@@ -230,22 +240,35 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
         {commentsExpanded && (
           <View className="gap-4 border-t border-gray-200 py-4">
             {/* Existing Comments */}
-            {(reports || []).map((report) => (
-              <View key={report.id} className="flex-row gap-3">
-                <View className="h-8 w-8 rounded-full bg-gray-300" />
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2">
-                    <Text className="font-medium text-gray-700">
-                      @{report.profile_display_name || "anonymous"}
-                    </Text>
-                    <Text className="text-sm text-gray-500">
-                      {formatTimeAgo(report.updated_at)}
-                    </Text>
+            {isReportsLoading ? (
+              <Text className="text-sm text-gray-500">Loading comments...</Text>
+            ) : isReportsError ? (
+              <Text className="text-sm text-red-500">
+                Could not load comments right now. Pull to refresh and try again.
+              </Text>
+            ) : (reports || []).length > 0 ? (
+              (reports || []).map((report) => (
+                <View key={report.id} className="flex-row gap-3">
+                  <View className="h-8 w-8 rounded-full bg-gray-300" />
+                  <View className="flex-1">
+                    <View className="flex-row items-center gap-2">
+                      <Text className="font-medium text-gray-700">
+                        @{report.profile_display_name || "anonymous"}
+                      </Text>
+                      <Text className="text-sm text-gray-500">
+                        {formatTimeAgo(report.updated_at)}
+                      </Text>
+                    </View>
+                    {report.title ? (
+                      <Text className="font-medium text-gray-700">{report.title}</Text>
+                    ) : null}
+                    <Text className="text-gray-800">{report.description || "No description provided."}</Text>
                   </View>
-                  <Text className="text-gray-800">{report.description}</Text>
                 </View>
-              </View>
-            ))}
+              ))
+            ) : (
+              <Text className="text-sm text-gray-500">No comments yet.</Text>
+            )}
 
             {/* Add Comment — only available to students */}
             {canComment ? (
@@ -267,16 +290,16 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
                     )}
                   />
                   <TouchableOpacity
-                    onPress={handleSubmit((data) => {
-                      void handleAddComment(data);
+                    onPress={handleSubmit(async (data) => {
+                      await handleAddComment(data);
                     })}
-                    disabled={!isValid}
-                    className={`ml-2 ${isValid ? "opacity-100" : "opacity-50"}`}
+                    disabled={!isValid || isSubmittingComment}
+                    className={`ml-2 ${isValid && !isSubmittingComment ? "opacity-100" : "opacity-50"}`}
                   >
                     <PaperPlaneRightIcon
                       size={24}
                       weight="fill"
-                      color={isValid ? colors.ut.burntorange : colors.ut.black}
+                      color={isValid && !isSubmittingComment ? colors.ut.burntorange : colors.ut.black}
                     />
                   </TouchableOpacity>
                 </View>
@@ -288,7 +311,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
               </View>
             ) : (
               <Text className="px-4 py-2 text-sm text-gray-400 italic">
-                Sign in with a UT EID to leave a comment.
+                Sign in with a UT Google account to leave a comment.
               </Text>
             )}
           </View>

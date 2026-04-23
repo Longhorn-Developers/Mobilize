@@ -35,6 +35,78 @@ type GoogleUserInfo = {
   picture?: string;
 };
 
+type ApiErrorCode =
+  | "BAD_REQUEST"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "INTERNAL_ERROR";
+
+const jsonError = (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  status: number,
+  code: ApiErrorCode,
+  message: string,
+  details?: unknown,
+) => {
+  return c.json(
+    {
+      error: {
+        code,
+        message,
+        details: details ?? null,
+      },
+    },
+    status as any,
+  );
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return String(error ?? "Unknown error");
+};
+
+const isMissingTableError = (error: unknown) => {
+  const message = getErrorMessage(error);
+  return /no such table/i.test(message);
+};
+
+const jsonInternalError = (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  fallbackMessage: string,
+  error: unknown,
+) => {
+  if (isMissingTableError(error)) {
+    return jsonError(
+      c,
+      503,
+      "INTERNAL_ERROR",
+      "Database schema is missing required tables. Apply D1 migrations in this environment.",
+      {
+        hint:
+          "Run `pnpm --dir server run migrate:local` for wrangler dev, or `pnpm --dir server run migrate:remote` for deployed environments.",
+        cause: getErrorMessage(error),
+      },
+    );
+  }
+
+  return jsonError(c, 500, "INTERNAL_ERROR", fallbackMessage, getErrorMessage(error));
+};
+
+const REQUIRED_TABLES = [
+  "user",
+  "session",
+  "profiles",
+  "pois",
+  "reviews",
+  "votes",
+  "avoidance_areas",
+  "avoidance_area_reports",
+] as const;
+
+let hasLoggedTableDiagnostics = false;
+
 const isGoogleTokenResponse = (value: unknown): value is GoogleTokenResponse => {
   return (
     typeof value === "object" &&
@@ -66,6 +138,21 @@ const getProfile = async (c: Context<{ Bindings: Bindings, Variables: Variables 
 
   return profile ?? null;
 };
+
+const getMissingTables = async (d1: D1Database) => {
+  const result = await d1
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+    .all<{ name: string }>();
+
+  const presentTables = new Set(
+    (result.results ?? []).map((row) => String(row.name)),
+  );
+
+  return REQUIRED_TABLES.filter((tableName) => !presentTables.has(tableName));
+};
+
+const isProfileOnboardingComplete = (profile: any): boolean =>
+  Boolean(profile?.onboarding_completed_at);
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -110,7 +197,9 @@ async function ensureStudentRole(db: any, user: any) {
 async function requireAuth(c: any, db: any) {
   const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
   const user = await getAuthUser(db, token);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+  }
   return ensureStudentRole(db, user);
 }
 
@@ -119,9 +208,27 @@ async function requireStudent(c: any, db: any) {
   const result = await requireAuth(c, db);
   if (result instanceof Response) return result;
   if (result.role !== "student") {
-    return c.json({ error: "Forbidden - student account required" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Student account required");
   }
   return result;
+}
+
+async function requireCompletedProfile(
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+) {
+  const profile = await getProfile(c);
+  if (!profile) {
+    return jsonError(c, 404, "NOT_FOUND", "Profile not found");
+  }
+  if (!isProfileOnboardingComplete(profile)) {
+    return jsonError(
+      c,
+      403,
+      "FORBIDDEN",
+      "Complete onboarding before posting reviews or votes",
+    );
+  }
+  return profile;
 }
 
 // ── OAuth helpers ──────────────────────────────────────────────────────────────
@@ -146,6 +253,19 @@ function decodeOAuthState(state: string): { nonce: string; callbackURL: string; 
 app.use("/*", async (c, next) => {
   c.set("auth", createAuth(c.env));
   c.set("db", drizzle(c.env.mobilize_db, { schema }));
+  if (!hasLoggedTableDiagnostics) {
+    hasLoggedTableDiagnostics = true;
+    try {
+      const missingTables = await getMissingTables(c.env.mobilize_db);
+      if (missingTables.length > 0) {
+        console.error("[startup] Missing required tables:", missingTables.join(", "));
+      } else {
+        console.log("[startup] Table diagnostics OK");
+      }
+    } catch (error) {
+      console.error("[startup] Failed to run table diagnostics:", error);
+    }
+  }
   await next();
 });
 
@@ -155,6 +275,25 @@ const pendingCallbacks = new Map<string, string>();
 // ── Health ─────────────────────────────────────────────────────────────────────
 
 app.get("/", (c) => c.json({ status: "ok" }));
+
+app.get("/health", async (c) => {
+  try {
+    const missingTables = await getMissingTables(c.env.mobilize_db);
+    if (missingTables.length > 0) {
+      return c.json(
+        {
+          status: "degraded",
+          missingTables,
+        },
+        500,
+      );
+    }
+
+    return c.json({ status: "ok", missingTables: [] });
+  } catch (error) {
+    return jsonError(c, 500, "INTERNAL_ERROR", "Health check failed", String(error));
+  }
+});
 
 // ── POIs ───────────────────────────────────────────────────────────────────────
 
@@ -177,7 +316,7 @@ app.get("/avoidance_areas/:id", async (c) => {
   const areaId = Number(c.req.param("id"));
 
   if (isNaN(areaId)) {
-    return c.json({ error: "Invalid Area ID" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid Area ID");
   }
 
   const area = await db
@@ -192,7 +331,7 @@ app.get("/avoidance_areas/:id", async (c) => {
     .get();
 
   if (!area) {
-    return c.json({ error: "Area not found" }, 404);
+    return jsonError(c, 404, "NOT_FOUND", "Area not found");
   }
 
   return c.json(area);
@@ -209,13 +348,13 @@ app.post("/avoidance_areas", async (c) => {
     body = await c.req.json();
   } catch (e) {
     console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
 
   const { name, description, boundary_geojson } = body;
 
   if (!name || !boundary_geojson) {
-    return c.json({ error: "Missing required fields" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Missing required fields");
   }
 
   const result = await db
@@ -238,7 +377,7 @@ app.get("/avoidance_areas/:id/reports", async (c) => {
   const areaId = c.req.param("id");
 
   if (!areaId) {
-    return c.json({ error: "Area ID is required" }, 400);
+    return jsonError(c, 400, "BAD_REQUEST", "Area ID is required");
   }
 
   const reports = await db
@@ -258,14 +397,19 @@ app.get("/avoidance_areas/:id/reports", async (c) => {
 /** Post a report/comment on an avoidance area. Requires student role. */
 app.post("/avoidance_areas/:id/reports", async (c) => {
   const id = parseInt(c.req.param("id"));
-  if (isNaN(id)) return c.json({ error: "Invalid id" }, 400);
+  if (isNaN(id)) return jsonError(c, 400, "BAD_REQUEST", "Invalid id");
 
   const db = c.get("db");
   const user = await requireStudent(c, db);
   if (user instanceof Response) return user;
 
-  const body = await c.req.json();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch (error) {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+  if (!body.title) return jsonError(c, 400, "BAD_REQUEST", "title is required");
 
   const result = await db
     .insert(schema.avoidance_area_reports)
@@ -296,7 +440,7 @@ app.get("/profiles/me", async (c) => {
     .get();
 
   if (!profile) {
-    return c.json({ error: "Profile Not Found -> prompt login/signup" }, 404);
+    return jsonError(c, 404, "NOT_FOUND", "Profile not found");
   }
   return c.json(profile);
 });
@@ -311,11 +455,21 @@ app.post("/api/profile", async (c) => {
   const user = await requireAuth(c, db);
   if (user instanceof Response) return user;
 
-  const body = await c.req.json();
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
   const { firstName, lastName, username, classYear, major, bio } = body;
 
   if (!firstName || !lastName || !username) {
-    return c.json({ error: "firstName, lastName, and username are required" }, 400);
+    return jsonError(
+      c,
+      400,
+      "BAD_REQUEST",
+      "firstName, lastName, and username are required",
+    );
   }
 
   const displayName = `${firstName.trim()} ${lastName.trim()}`;
@@ -326,7 +480,7 @@ app.post("/api/profile", async (c) => {
     .where(eq(schema.users.username, username))
     .get();
   if (existingUser && existingUser.id !== user.id) {
-    return c.json({ error: "Username already taken" }, 409);
+    return jsonError(c, 409, "CONFLICT", "Username already taken");
   }
 
   await db
@@ -351,6 +505,7 @@ app.post("/api/profile", async (c) => {
         major: major ?? existing.major,
         bio: bio ?? existing.bio,
         is_anonymous: isAnonymous,
+        onboarding_completed_at: existing.onboarding_completed_at ?? null,
         updated_at: new Date(),
       })
       .where(eq(schema.profiles.user_id, user.id));
@@ -362,6 +517,7 @@ app.post("/api/profile", async (c) => {
       major: major ?? null,
       bio: bio ?? null,
       is_anonymous: isAnonymous,
+      onboarding_completed_at: null,
       created_at: new Date(),
       updated_at: new Date(),
     });
@@ -385,7 +541,12 @@ app.put("/api/profile", async (c) => {
   const user = await requireAuth(c, db);
   if (user instanceof Response) return user;
 
-  const body = await c.req.json();
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
 
   const existing = await db
     .select()
@@ -400,6 +561,8 @@ app.put("/api/profile", async (c) => {
   if (body.bio !== undefined) updates.bio = body.bio;
   if (body.mobilityPreference !== undefined) updates.mobility_preference = body.mobilityPreference;
   if (body.isAnonymous !== undefined) updates.is_anonymous = body.isAnonymous;
+  if (body.onboardingComplete === true) updates.onboarding_completed_at = new Date();
+  if (body.onboardingComplete === false) updates.onboarding_completed_at = null;
 
   if (existing) {
     await db
@@ -414,6 +577,8 @@ app.put("/api/profile", async (c) => {
       major: body.major ?? null,
       bio: body.bio ?? null,
       mobility_preference: body.mobilityPreference ?? null,
+      is_anonymous: body.isAnonymous ?? false,
+      onboarding_completed_at: body.onboardingComplete === true ? new Date() : null,
       created_at: new Date(),
       updated_at: new Date(),
     });
@@ -448,7 +613,7 @@ app.get("/api/users/:username", async (c) => {
     .where(eq(schema.users.username, username))
     .get();
 
-  if (!user) return c.json({ error: "User not found" }, 404);
+  if (!user) return jsonError(c, 404, "NOT_FOUND", "User not found");
 
   const profile = await db
     .select()
@@ -512,7 +677,7 @@ app.get("/api/auth/callback/google", async (c) => {
       return c.json({ error }, 400);
     }
 
-    if (!code) return c.json({ error: "No authorization code" }, 400);
+    if (!code) return jsonError(c, 400, "BAD_REQUEST", "No authorization code");
 
     const baseUrl = c.env.BETTER_AUTH_URL.replace(/\/$/, "");
     const redirectUri = stateData?.redirectUri || `${baseUrl}/api/auth/callback/google`;
@@ -531,29 +696,29 @@ app.get("/api/auth/callback/google", async (c) => {
     });
 
     if (!tokenResponse.ok) {
-      // retry fetch one time
-      console.log("Retrying fetch...");
-      await new Promise(r => setTimeout(r, 1000));
+      // Retry once with the same redirect URI used in the original exchange.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          code: code,
+          code,
           client_id: c.env.GOOGLE_CLIENT_ID,
           client_secret: c.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: `${c.env.BETTER_AUTH_URL}/api/auth/callback/google`,
+          redirect_uri: redirectUri,
           grant_type: "authorization_code",
         }),
       });
-
+    }
+    if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
       console.error("Token exchange failed:", errorData);
-      return c.json({ error: "Token exchange failed" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Token exchange failed", errorData);
     }
 
     const tokenPayload: unknown = await tokenResponse.json();
     if (!isGoogleTokenResponse(tokenPayload)) {
-      return c.json({ error: "Invalid Google token response" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Invalid Google token response");
     }
     const tokens = tokenPayload;
 
@@ -562,12 +727,12 @@ app.get("/api/auth/callback/google", async (c) => {
     });
 
     if (!userInfoResponse.ok) {
-      return c.json({ error: "Failed to get user info" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Failed to get user info");
     }
 
     const userPayload: unknown = await userInfoResponse.json();
     if (!isGoogleUserInfo(userPayload)) {
-      return c.json({ error: "Invalid Google user response" }, 500);
+      return jsonError(c, 500, "INTERNAL_ERROR", "Invalid Google user response");
     }
     const googleUser = userPayload;
     console.log("Google user:", googleUser.email);
@@ -596,13 +761,6 @@ app.get("/api/auth/callback/google", async (c) => {
         updatedAt: new Date(),
       });
 
-      // Create a placeholder profile for the new user
-      await db.insert(schema.profiles).values({
-        user_id: userId,
-        display_name: googleUser.name || "",
-        avatar_url: googleUser.picture || null,
-      }).onConflictDoNothing();
-
       user = await db
         .select()
         .from(schema.users)
@@ -610,7 +768,7 @@ app.get("/api/auth/callback/google", async (c) => {
         .get();
     }
 
-    if (!user) return c.json({ error: "Failed to create user" }, 500);
+    if (!user) return jsonError(c, 500, "INTERNAL_ERROR", "Failed to create user");
 
     const sessionToken = crypto.randomUUID();
     const sessionId = crypto.randomUUID();
@@ -631,7 +789,7 @@ app.get("/api/auth/callback/google", async (c) => {
     return c.redirect("/", 302);
   } catch (error) {
     console.error("Callback error:", error);
-    return c.json({ error: String(error) }, 500);
+    return jsonError(c, 500, "INTERNAL_ERROR", "OAuth callback failed", getErrorMessage(error));
   }
 });
 
@@ -646,25 +804,23 @@ app.post("/api/auth/signout", async (c) => {
   return c.json({ success: true });
 });
 
-// ── Better Auth catch-all ──────────────────────────────────────────────────────
-
-app.on(["GET", "POST"], "/api/auth/**", async (c) => {
-  console.log("🔴 Better Auth catch-all hit:", c.req.path, c.req.method);
-  try {
-    const auth = createAuth(c.env);
-    const response = await auth.handler(c.req.raw);
-    return response;
-  } catch (error) {
-    console.error("Auth error:", error);
-    return c.json({ error: String(error) }, 500);
-  }
-});
+// Better Auth catch-all intentionally disabled.
+// Custom Google OAuth + bearer session routes are the canonical auth path.
 
 // ── Construction Areas (ArcGIS proxy) ─────────────────────────────────────────
 
 const ARCGIS_URL =
   "https://services9.arcgis.com/w9x0fkENXvuWZY26/arcgis/rest/services/Closed_Areas_view_new/FeatureServer/0/query";
-const PAGE_SIZE = 8000;
+const PAGE_SIZE = 1500;
+const CONSTRUCTION_CACHE_TTL_MS = 60 * 1000;
+const ARCGIS_TIMEOUT_MS = 12000;
+
+let constructionCache:
+  | {
+      expiresAt: number;
+      rows: { id: number; points: [number, number][]; description?: string }[];
+    }
+  | null = null;
 
 function buildArcGISUrl(offset: number): string {
   const u = new URL(ARCGIS_URL);
@@ -672,7 +828,7 @@ function buildArcGISUrl(offset: number): string {
   p.set("f", "json");
   p.set("where", "1=1");
   p.set("returnGeometry", "true");
-  p.set("outFields", "OBJECTID");
+  p.set("outFields", "*");
   p.set("orderByFields", "OBJECTID ASC");
   p.set("outSR", "4326");
   p.set("resultOffset", String(offset));
@@ -681,9 +837,32 @@ function buildArcGISUrl(offset: number): string {
   return u.toString();
 }
 
-function convertArcGISFeature(f: any, idx: number): { id: number; points: [number, number][] } | null {
+async function fetchArcGISPage(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function convertArcGISFeature(
+  f: any,
+  idx: number,
+): { id: number; points: [number, number][]; description?: string } | null {
   const attrs = f.attributes ?? {};
   const id = attrs.OBJECTID ?? f.objectId ?? idx;
+  const description =
+    attrs.Area_Description ??
+    attrs.Description ??
+    attrs.DESCRIPTION ??
+    attrs.Name ??
+    attrs.NAME ??
+    null;
   const g = f.geometry ?? {};
   const rings: [number, number][][] = g.rings ?? [];
   const paths: [number, number][][] = g.paths ?? [];
@@ -696,20 +875,30 @@ function convertArcGISFeature(f: any, idx: number): { id: number; points: [numbe
       lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180,
     );
   if (pts.length < 2) return null;
-  return { id, points: pts };
+  return {
+    id,
+    points: pts,
+    description: description ? String(description) : undefined,
+  };
 }
 
 app.get("/construction_areas", async (c) => {
+  if (constructionCache && constructionCache.expiresAt > Date.now()) {
+    return c.json(constructionCache.rows);
+  }
+
   try {
     const allFeatures: any[] = [];
     let offset = 0;
     for (;;) {
-      const res = await fetch(buildArcGISUrl(offset), {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) return c.json({ error: `ArcGIS HTTP ${res.status}` }, 502);
+      const res = await fetchArcGISPage(buildArcGISUrl(offset), ARCGIS_TIMEOUT_MS);
+      if (!res.ok) {
+        return jsonError(c, 502, "INTERNAL_ERROR", `ArcGIS HTTP ${res.status}`);
+      }
       const json: any = await res.json();
-      if (json.error) return c.json({ error: `ArcGIS error: ${JSON.stringify(json.error)}` }, 502);
+      if (json.error) {
+        return jsonError(c, 502, "INTERNAL_ERROR", "ArcGIS error", json.error);
+      }
       const feats: any[] = json.features ?? [];
       allFeatures.push(...feats);
       const more = json.exceededTransferLimit === true || feats.length === PAGE_SIZE;
@@ -719,10 +908,22 @@ app.get("/construction_areas", async (c) => {
     const rows = allFeatures
       .map((f, i) => convertArcGISFeature(f, i))
       .filter(Boolean);
+
+    constructionCache = {
+      expiresAt: Date.now() + CONSTRUCTION_CACHE_TTL_MS,
+      rows: rows as { id: number; points: [number, number][]; description?: string }[],
+    };
+
     return c.json(rows);
   } catch (err: any) {
     console.error("[construction_areas] proxy error:", err.message);
-    return c.json({ error: err.message }, 502);
+    if (constructionCache?.rows?.length) {
+      return c.json(constructionCache.rows);
+    }
+    if (err?.name === "AbortError") {
+      return jsonError(c, 504, "INTERNAL_ERROR", "ArcGIS request timed out");
+    }
+    return jsonError(c, 502, "INTERNAL_ERROR", err.message ?? "Construction proxy error");
   }
 });
 
@@ -731,12 +932,14 @@ app.get("/construction_areas", async (c) => {
 /** Returns the current user + their profile, or { user: null } if unauthenticated. */
 app.get("/api/me", async (c) => {
   const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
-  if (!token) return c.json({ user: null }, 401);
+  if (!token) {
+    return c.json({ user: null, profile: null, onboardingComplete: false }, 401);
+  }
 
   const db = c.get("db");
   const authUser = await getAuthUser(db, token);
   if (!authUser) {
-    return c.json({ user: null }, 401);
+    return c.json({ user: null, profile: null, onboardingComplete: false }, 401);
   }
 
   const user = await ensureStudentRole(db, authUser);
@@ -747,7 +950,8 @@ app.get("/api/me", async (c) => {
     .where(eq(schema.profiles.user_id, user.id))
     .get();
 
-  return c.json({ user, profile: profile ?? null });
+  const onboardingComplete = isProfileOnboardingComplete(profile);
+  return c.json({ user, profile: profile ?? null, onboardingComplete });
 });
 
 // ── Reviews ────────────────────────────────────────────────────────────────────
@@ -758,7 +962,7 @@ app.get("/reviews", async (c) => {
     const db = c.get("db");
     const poiIdParam = Number(c.req.query("poi_id"));
     if (!Number.isFinite(poiIdParam) || poiIdParam <= 0) {
-      return c.json({ error: "POI ID is required" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "poi_id must be a positive integer");
     }
     const poiId = Math.trunc(poiIdParam);
 
@@ -820,7 +1024,7 @@ app.get("/reviews", async (c) => {
     );
   } catch (error) {
     console.error("Error loading reviews:", error);
-    return c.json({ error: "Failed to load reviews" }, 500);
+    return jsonInternalError(c, "Failed to load reviews", error);
   }
 });
 
@@ -829,37 +1033,57 @@ app.post("/reviews", async (c) => {
   try {
     const db = c.get("db");
 
-    const profile = await getProfile(c);
-    if (!profile) return c.json({ error: "Profile not found" }, 404);
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
 
     let body;
     try {
       body = await c.req.json();
     } catch (e) {
       console.error("Error parsing JSON body:", e);
-      return c.json({ error: "Invalid JSON body" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
     }
 
     const { poi_id, rating, features, content } = body;
     const normalizedPoiId = Number(poi_id);
     const normalizedRating = Number(rating);
+    const normalizedPoiIdInt = Math.trunc(normalizedPoiId);
+    const normalizedRatingInt = Math.trunc(normalizedRating);
+
+    const isRatingValid =
+      Number.isFinite(normalizedRating) &&
+      Number.isInteger(normalizedRating) &&
+      normalizedRatingInt >= 1 &&
+      normalizedRatingInt <= 5;
 
     if (
       !Number.isFinite(normalizedPoiId) ||
       normalizedPoiId <= 0 ||
-      !Number.isFinite(normalizedRating) ||
-      normalizedRating <= 0
+      !isRatingValid
     ) {
-      return c.json({ error: "Missing required fields" }, 400);
+      return jsonError(
+        c,
+        400,
+        "BAD_REQUEST",
+        "poi_id must be a positive integer and rating must be an integer from 1 to 5",
+      );
+    }
+
+    if (features !== undefined && features !== null && typeof features !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "features must be a JSON string or null");
+    }
+
+    if (content !== undefined && content !== null && typeof content !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "content must be a string or null");
     }
 
     const poi = await db
       .select({ id: schema.pois.id })
       .from(schema.pois)
-      .where(eq(schema.pois.id, Math.trunc(normalizedPoiId)))
+      .where(eq(schema.pois.id, normalizedPoiIdInt))
       .get();
     if (!poi) {
-      return c.json({ error: "Invalid POI ID" }, 400);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid POI ID");
     }
 
     const existingReview = await db
@@ -868,7 +1092,7 @@ app.post("/reviews", async (c) => {
       .where(
         and(
           eq(schema.reviews.user_id, profile.id),
-          eq(schema.reviews.poi_id, Math.trunc(normalizedPoiId)),
+          eq(schema.reviews.poi_id, normalizedPoiIdInt),
           isNull(schema.reviews.deleted_at),
         ),
       )
@@ -879,7 +1103,7 @@ app.post("/reviews", async (c) => {
       ? await db
           .update(schema.reviews)
           .set({
-            rating: Math.trunc(normalizedRating),
+            rating: normalizedRatingInt,
             features: features ?? null,
             content: content ?? null,
           })
@@ -889,8 +1113,8 @@ app.post("/reviews", async (c) => {
           .insert(schema.reviews)
           .values({
             user_id: profile.id,
-            poi_id: Math.trunc(normalizedPoiId),
-            rating: Math.trunc(normalizedRating),
+            poi_id: normalizedPoiIdInt,
+            rating: normalizedRatingInt,
             features: features ?? null,
             content: content ?? null,
           })
@@ -899,138 +1123,212 @@ app.post("/reviews", async (c) => {
     return c.json(result);
   } catch (error) {
     console.error("Error creating review:", error);
-    return c.json({ error: "Failed to create review" }, 500);
+    return jsonInternalError(c, "Failed to create review", error);
   }
 });
 
 // PUT update single existing review
 app.put("/reviews/:id", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("id"));
-
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
-  }
-
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-
-  const review = await db.select().from(schema.reviews)
-    .where(eq(schema.reviews.id, reviewId)).get();
-  if (!review || review.user_id !== profile.id) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-
-  let body;
   try {
-    body = await c.req.json();
-  } catch (e) {
-    console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("id"));
+
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+
+    const review = await db
+      .select()
+      .from(schema.reviews)
+      .where(eq(schema.reviews.id, Math.trunc(reviewId)))
+      .get();
+    if (!review || review.user_id !== profile.id) {
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
+    }
+
+    let body;
+    try {
+      body = await c.req.json();
+    } catch (e) {
+      console.error("Error parsing JSON body:", e);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+    }
+
+    const normalizedRating = Number(body.rating);
+    const normalizedRatingInt = Math.trunc(normalizedRating);
+    const normalizedPoiId =
+      body.poi_id !== undefined ? Number(body.poi_id) : review.poi_id;
+    const normalizedPoiIdInt = Math.trunc(normalizedPoiId);
+    const isRatingValid =
+      Number.isFinite(normalizedRating) &&
+      Number.isInteger(normalizedRating) &&
+      normalizedRatingInt >= 1 &&
+      normalizedRatingInt <= 5;
+
+    if (!isRatingValid) {
+      return jsonError(c, 400, "BAD_REQUEST", "rating must be an integer from 1 to 5");
+    }
+
+    if (
+      !Number.isFinite(normalizedPoiId) ||
+      !Number.isInteger(normalizedPoiId) ||
+      normalizedPoiIdInt <= 0
+    ) {
+      return jsonError(c, 400, "BAD_REQUEST", "poi_id must be a positive integer");
+    }
+
+    const poiExists = await db
+      .select({ id: schema.pois.id })
+      .from(schema.pois)
+      .where(eq(schema.pois.id, normalizedPoiIdInt))
+      .get();
+    if (!poiExists) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid POI ID");
+    }
+
+    if (body.features !== undefined && body.features !== null && typeof body.features !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "features must be a JSON string or null");
+    }
+
+    if (body.content !== undefined && body.content !== null && typeof body.content !== "string") {
+      return jsonError(c, 400, "BAD_REQUEST", "content must be a string or null");
+    }
+
+    const result = await db
+      .update(schema.reviews)
+      .set({
+        rating: normalizedRatingInt,
+        poi_id: normalizedPoiIdInt,
+        features: body.features ?? null,
+        content: body.content ?? null,
+      })
+      .where(eq(schema.reviews.id, Math.trunc(reviewId)))
+      .returning();
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error updating review:", error);
+    return jsonInternalError(c, "Failed to update review", error);
   }
-
-  const { rating, features, content } = body;
-
-  if (!rating) {
-    return c.json({ error: "Missing required fields" }, 400);
-  }
-
-  const result = await db
-    .update(schema.reviews)
-    .set({ rating, features, content })
-    .where(eq(schema.reviews.id, reviewId))
-    .returning();
-
-  return c.json(result);
 });
 
 // PUT soft delete review
 app.put("/reviews/:id/delete", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("id"));
+  try {
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("id"));
 
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+
+    const review = await db
+      .select()
+      .from(schema.reviews)
+      .where(eq(schema.reviews.id, Math.trunc(reviewId)))
+      .get();
+    if (!review || review.user_id !== profile.id) {
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
+    }
+
+    const result = await db
+      .update(schema.reviews)
+      .set({ deleted_at: sql`(unixepoch())` })
+      .where(eq(schema.reviews.id, Math.trunc(reviewId)))
+      .returning();
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error deleting review:", error);
+    return jsonInternalError(c, "Failed to delete review", error);
   }
-
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-
-  const review = await db.select().from(schema.reviews)
-    .where(eq(schema.reviews.id, reviewId)).get();
-  if (!review || review.user_id !== profile.id) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-
-  const result = await db
-    .update(schema.reviews)
-    .set({ deleted_at: sql`(unixepoch())` })
-    .where(eq(schema.reviews.id, reviewId))
-    .returning();
-
-  return c.json(result);
 });
 
 // ── Votes ──────────────────────────────────────────────────────────────────────
 
 // POST /votes - upsert a vote
 app.post("/votes", async (c) => {
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-
-  const db = c.get("db");
-
-  let body;
   try {
-    body = await c.req.json();
-  } catch (e) {
-    console.error("Error parsing JSON body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+
+    const db = c.get("db");
+
+    let body;
+    try {
+      body = await c.req.json();
+    } catch (e) {
+      console.error("Error parsing JSON body:", e);
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+    }
+
+    const reviewId = Number(body.review_id);
+    const vote = Number(body.vote);
+    if (!Number.isFinite(reviewId) || reviewId <= 0 || !Number.isInteger(reviewId)) {
+      return jsonError(c, 400, "BAD_REQUEST", "review_id must be a positive integer");
+    }
+    if (vote !== 1 && vote !== -1) {
+      return jsonError(c, 400, "BAD_REQUEST", "vote must be 1 or -1");
+    }
+
+    const review = await db
+      .select({ id: schema.reviews.id })
+      .from(schema.reviews)
+      .where(and(eq(schema.reviews.id, Math.trunc(reviewId)), isNull(schema.reviews.deleted_at)))
+      .get();
+    if (!review) {
+      return jsonError(c, 404, "NOT_FOUND", "Review not found");
+    }
+
+    const result = await db
+      .insert(schema.votes)
+      .values({
+        user_id: profile.id,
+        review_id: Math.trunc(reviewId),
+        vote: vote as 1 | -1,
+      })
+      .onConflictDoUpdate({
+        target: [schema.votes.user_id, schema.votes.review_id],
+        set: { vote: vote as 1 | -1 },
+      })
+      .returning();
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error upserting vote:", error);
+    return jsonInternalError(c, "Failed to save vote", error);
   }
-
-  const { review_id, vote } = body;
-
-  const result = await db
-    .insert(schema.votes)
-    .values({
-      user_id: profile.id,
-      review_id,
-      vote,
-    })
-    .onConflictDoUpdate({
-      target: [schema.votes.user_id, schema.votes.review_id],
-      set: { vote },
-    })
-    .returning();
-
-  return c.json(result);
 });
 
 // DELETE active user's vote on specified review
 app.delete("/votes/:review_id", async (c) => {
-  const db = c.get("db");
-  const reviewId = Number(c.req.param("review_id"));
+  try {
+    const db = c.get("db");
+    const reviewId = Number(c.req.param("review_id"));
 
-  if (isNaN(reviewId)) {
-    return c.json({ error: "Invalid review ID" }, 400);
+    if (!Number.isFinite(reviewId) || reviewId <= 0 || !Number.isInteger(reviewId)) {
+      return jsonError(c, 400, "BAD_REQUEST", "Invalid review ID");
+    }
+
+    const profile = await requireCompletedProfile(c);
+    if (profile instanceof Response) return profile;
+
+    const result = await db
+      .delete(schema.votes)
+      .where(and(eq(schema.votes.user_id, profile.id), eq(schema.votes.review_id, Math.trunc(reviewId))))
+      .returning();
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error deleting vote:", error);
+    return jsonInternalError(c, "Failed to delete vote", error);
   }
-
-  const profile = await getProfile(c);
-  if (!profile) {
-    return c.json({ error: "Profile not found" }, 404);
-  }
-
-  const result = await db.delete(schema.votes)
-    .where(and(eq(schema.votes.user_id, profile.id), eq(schema.votes.review_id, reviewId)))
-    .returning();
-
-  return c.json(result);
 });
 
 // ── Default export ─────────────────────────────────────────────────────────────

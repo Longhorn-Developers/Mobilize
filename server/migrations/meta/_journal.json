@@ -6,14 +6,35 @@
       "idx": 0,
       "version": "6",
       "when": 1775380526379,
-      "tag": "0000_silent_mantis",
+      "tag": "0000_wakeful_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775944072304,
+      "tag": "0003_add_is_anonymous",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775944072305,
+      "tag": "0004_add_onboarding_completed_at",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "6",
-      "when": 1775944072304,
-      "tag": "0003_unusual_garia",
+      "when": 1775944072306,
+      "tag": "0005_repair_reviews_votes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1775944072307,
+      "tag": "0006_stabilize_reviews_votes",
       "breakpoints": true
     }
   ]

@@ -8,6 +8,8 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
 const SEARCH_BASE = "https://api.mapbox.com/search/searchbox/v1";
 // UT Austin — bias suggestions towards campus
 const PROXIMITY = "-97.7341,30.2849";
+// UT Austin campus bbox: [minLng,minLat,maxLng,maxLat]
+const CAMPUS_BBOX = "-97.7455,30.2745,-97.7205,30.2948";
 
 // One session token per app launch (Mapbox billing groups suggest+retrieve pairs)
 const SESSION_TOKEN = Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -61,6 +63,8 @@ export const searchPlaces = async (
       access_token: MAPBOX_TOKEN,
       session_token: SESSION_TOKEN,
       proximity: PROXIMITY,
+      bbox: CAMPUS_BBOX,
+      country: "us",
       language: "en",
       limit: "5",
     });

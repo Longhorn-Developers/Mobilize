@@ -22,6 +22,7 @@ import { useSyncQueriesExternal } from "react-query-external-sync";
 import colors from "~/types/colors";
 import { ThemeProvider, useTheme } from "~/utils/ThemeContext";
 import { useAppState } from "~/utils/useAppState";
+import { AuthProvider } from "~/utils/useAuth";
 
 function onAppStateChange(status: AppStateStatus) {
   if (Platform.OS !== "web") {
@@ -42,7 +43,9 @@ export default function Layout() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

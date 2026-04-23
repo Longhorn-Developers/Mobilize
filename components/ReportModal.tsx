@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from "react-native";
-type LatLng = { latitude: number; longitude: number };
 import Toast from "react-native-toast-message";
 import { z, ZodType } from "zod";
 
@@ -22,6 +21,8 @@ import colors from "~/types/colors";
 
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { Button } from "./Button";
+
+type LatLng = { latitude: number; longitude: number };
 
 const reportFormSchema = z.object({
   aaPoints: z
@@ -55,7 +56,7 @@ interface ReportModeDialogProps {
   currentStep: number;
   setAAPoints: (points: LatLng[]) => void;
   setCurrentStep: (index: number) => void;
-  onSubmit: (data: ReportFormData) => void;
+  onSubmit: (data: ReportFormData) => Promise<void> | void;
   onExit: () => void;
 }
 
@@ -102,8 +103,18 @@ const ReportModal = ({
   };
 
   const handleFormSubmit = (data: ReportFormData) => {
-    onSubmit(data);
-    handleClose();
+    Promise.resolve(onSubmit(data))
+      .then(() => {
+        handleClose();
+      })
+      .catch((error: any) => {
+        Toast.show({
+          type: "error",
+          text2: error?.message ?? "Could not submit report. Please try again.",
+          position: "bottom",
+          bottomOffset: bottomTabBarHeight + 50,
+        });
+      });
   };
 
   // Maps the current step to the specific zod validation

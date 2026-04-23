@@ -16,7 +16,8 @@ import {
   ViewStyle,
   Modal,
   Dimensions, 
-  Platform
+  Platform,
+  Image
 } from "react-native";
 import { LatLng } from "react-native-maps";
 import Toast from "react-native-toast-message";
@@ -129,6 +130,7 @@ const ReportModal = ({
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
+    // console.log(getValues("images"))
   }, [aaPoints, setValue]);
 
   const handleClose = () => {
@@ -250,9 +252,17 @@ const ReportModal = ({
       // add error screen for no camera permissions here
       return
     }
-
     setCameraOn(true);
+  }
 
+  const takePicture = async () => {
+    if (!camera) return;
+    const photo = await camera.takePictureAsync({base64:true,quality:1});
+    
+    setValue("images", [photo.base64]);
+    // console.log(getValues("images"));
+
+    setCameraOn(false);
   }
 
 
@@ -304,11 +314,27 @@ const ReportModal = ({
           </>
         )}
       />
+
       {/* Add Photo Input */}
       <Controller
         control={control}
         name="images"
         render={({ field: { onBlur } }) => (
+        <>
+          {(getValues("images") !== undefined) ?
+            <Image 
+              style={{
+                height: 200,
+                marginBottom: 25,
+                borderWidth: 1, 
+                borderColor: 'bf5700',
+                borderRadius: 15
+              }} 
+              source={{uri: 'data:image/png;base64,'+getValues("images")[0]}}/>
+          :
+            <></>
+          }
+    
           <Button
             variant="gray"
             onPress={handleCamera}
@@ -316,9 +342,11 @@ const ReportModal = ({
             title="Add Photo"
             icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
           />
+          </>
         )}
+      
       />
-      <Modal visible={cameraOn}> {/*Camera Preview Modal*/}
+      <Modal visible={cameraOn}> 
           <CameraView
             active={cameraOn}
             style={
@@ -331,15 +359,13 @@ const ReportModal = ({
             onCameraReady={setCameraReady}
             pictureSize={ratio}
             ref={setCamera}
-          > 
-          </CameraView>
+          /> 
           <View style={{
             flex: 1,
             flexDirection: 'row', 
             maxHeight: '10%', 
             alignItems: 'center', 
             justifyContent: 'center', 
-            backgroundColor: '#00000000',
             }}>
               <TouchableOpacity style={{
                   position: 'absolute',
@@ -351,7 +377,7 @@ const ReportModal = ({
                   borderRadius: 100,
                   backgroundColor: '#eb934a',
                 }}
-                onPress={handleCamera}
+                onPress={takePicture}
               >
                 <CameraPlusIcon style={{ marginRight: 0}} size={40}/>
               </TouchableOpacity>
@@ -382,6 +408,19 @@ const ReportModal = ({
         maxLength={500}
         editable={false}
       />
+      {(getValues("images") !== undefined) ?
+            <Image 
+              style={{
+                height: 200,
+                marginTop: 25,
+                borderWidth: 1, 
+                borderColor: 'bf5700',
+                borderRadius: 15
+              }} 
+              source={{uri: 'data:image/png;base64,'+getValues("images")[0]}}/>
+          :
+            <></>
+        }
     </View>,
   ];
 

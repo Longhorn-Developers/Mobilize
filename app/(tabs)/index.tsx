@@ -367,6 +367,7 @@ export default function Home() {
             className={`absolute left-10 right-10`}
             style={{
               top: insets.top + 25,
+              flex: 1,
             }}
             aaPoints={aaPointsReport}
             currentStep={reportStep}

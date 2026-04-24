@@ -19,6 +19,7 @@ import { apiClient } from "~/utils/api-client";
 import { useAuth } from "~/utils/useAuth";
 
 const USER_KEY = "auth_user";
+const SESSION_TOKEN_KEY = "auth_session_token";
 
 export default function ProfileSetupScreen() {
   const [firstName, setFirstName] = useState("");
@@ -73,8 +74,13 @@ export default function ProfileSetupScreen() {
 
       try {
         await refreshSession();
-      } catch (refreshError) {
-        console.warn("Profile saved but session refresh failed:", refreshError);
+      } catch {}
+
+      const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+      if (!token) {
+        Alert.alert("Session expired", "Please sign in again to continue onboarding.");
+        router.replace("../welcome" as any);
+        return;
       }
 
       router.push("./mobility-preferences" as any);

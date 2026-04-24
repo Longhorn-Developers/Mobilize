@@ -63,8 +63,12 @@ async function fetchMe(sessionToken: string) {
     headers: { Authorization: `Bearer ${sessionToken}` },
   });
 
-  if (!response.ok) {
+  if (response.status === 401) {
     return null;
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => "(unreadable body)");
+    throw new Error(`Failed to refresh session (${response.status}): ${body.slice(0, 200)}`);
   }
 
   const data = await safeJson(response);
@@ -123,7 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch (error) {
       console.error("Error refreshing session:", error);
-      await clearSession();
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
     }
   }, [clearSession]);
 

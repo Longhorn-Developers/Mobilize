@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -29,7 +30,7 @@ export default function MobilityPreferencesScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
-  const { refreshSession } = useAuth();
+  const { refreshSession, signOut } = useAuth();
 
   useEffect(() => {
     AsyncStorage.getItem("auth_user").then((json) => {
@@ -52,11 +53,25 @@ export default function MobilityPreferencesScreen() {
         await apiClient.updateProfile({ onboardingComplete: true });
       }
       await refreshSession();
+      const token = await AsyncStorage.getItem("auth_session_token");
+      if (!token) {
+        Alert.alert("Session expired", "Please sign in again to continue.");
+        router.replace("../welcome" as any);
+        return;
+      }
+      router.replace("../(tabs)" as any);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
+      if (message.includes("401")) {
+        Alert.alert("Session expired", "Please sign in again to finish onboarding.");
+        await signOut();
+        router.replace("../welcome" as any);
+        return;
+      }
       console.warn("Could not save mobility preference:", err);
+      Alert.alert("Could not save preference", "Please try again.");
     } finally {
       setIsSaving(false);
-      router.replace("../(tabs)" as any);
     }
   };
 

@@ -25,6 +25,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "~/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
+import {
+  getStoredMapDetailMode,
+  setStoredMapDetailMode,
+  type MapDetailMode,
+} from "~/utils/mapPreferences";
 import { useTheme, type ThemeMode } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 
@@ -65,6 +70,7 @@ export default function ProfileTab() {
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
 
   const [saved, setSaved] = useState({
     displayName: "",
@@ -79,6 +85,8 @@ export default function ProfileTab() {
     try {
       const userJson = await AsyncStorage.getItem(USER_KEY);
       const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+      const storedMapMode = await getStoredMapDetailMode();
+      setMapDetailMode(storedMapMode);
 
       if (!userJson || !token) {
         setStoredUser(null);
@@ -169,6 +177,16 @@ export default function ProfileTab() {
         },
       },
     ]);
+  };
+
+  const handleMapDetailModeChange = async (mode: MapDetailMode) => {
+    try {
+      setMapDetailMode(mode);
+      await setStoredMapDetailMode(mode);
+    } catch (error) {
+      console.warn("Failed to save map detail mode:", error);
+      Alert.alert("Could not save map mode", "Please try again.");
+    }
   };
 
   const isSignedIn = !!storedUser;
@@ -363,6 +381,37 @@ export default function ProfileTab() {
                     }`}
                   >
                     {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View className="mb-8">
+          <Text className={sectionTitleClass}>Map View</Text>
+          <Text className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+            Choose whether the map defaults to simple or detailed mode.
+          </Text>
+          <View className="flex-row gap-2">
+            {(["simple", "detailed"] as const).map((mode) => {
+              const active = mapDetailMode === mode;
+              return (
+                <TouchableOpacity
+                  key={mode}
+                  className={`flex-1 items-center rounded-xl border py-3 ${
+                    active
+                      ? "border-ut-burntorange bg-orange-50 dark:bg-orange-950"
+                      : "border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
+                  }`}
+                  onPress={() => void handleMapDetailModeChange(mode)}
+                >
+                  <Text
+                    className={`text-sm font-semibold capitalize ${
+                      active ? "text-ut-burntorange" : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    {mode}
                   </Text>
                 </TouchableOpacity>
               );

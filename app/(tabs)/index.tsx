@@ -19,7 +19,7 @@ import Mapbox, {
 import * as turf from "@turf/turf";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, InteractionManager, Text, TouchableOpacity, View } from "react-native";
+import { Image, InteractionManager, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -48,6 +48,7 @@ import {
   findBuilding,
 } from "~/utils/buildingDatabase";
 import { searchPlaces, getPlaceDetails } from "~/utils/mapboxSearch";
+import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 import useMapIcons from "~/utils/useMapIcons";
@@ -68,7 +69,6 @@ const MAX_ZOOM_FOR_LABELS = 17;
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
 type LatLng = { latitude: number; longitude: number };
-type MapDetailMode = "simple" | "detailed";
 
 const normalizeCampusText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -421,6 +421,20 @@ export default function Home() {
     constructionBottomSheetRef.current?.dismiss();
     reviewSheetRef.current?.dismiss();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void getStoredMapDetailMode().then((mode) => {
+        if (active) {
+          setMapDetailMode(mode);
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -1046,7 +1060,7 @@ export default function Home() {
               minZoomLevel={MIN_ZOOM_FOR_POIS}
               style={{
                 iconImage: "rampIcon",
-                iconSize: 0.22,
+                iconSize: 0.35,
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
               }}
@@ -1054,54 +1068,6 @@ export default function Home() {
           </ShapeSource>
         )}
       </MapView>
-
-      {!isReportMode && (
-        <View
-          style={{
-            position: "absolute",
-            left: 16,
-            bottom: 16,
-            flexDirection: "row",
-            borderRadius: 999,
-            padding: 4,
-            backgroundColor: isDark ? "rgba(28,28,30,0.92)" : "rgba(255,255,255,0.96)",
-            shadowColor: "#000",
-            shadowOpacity: 0.14,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 4,
-          }}
-        >
-          {(["simple", "detailed"] as const).map((mode) => {
-            const active = mapDetailMode === mode;
-            return (
-              <TouchableOpacity
-                key={mode}
-                onPress={() => setMapDetailMode(mode)}
-                style={{
-                  borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 9,
-                  backgroundColor: active
-                    ? "#BF5700"
-                    : "transparent",
-                }}
-              >
-                <Text
-                  style={{
-                    color: active ? "#FFFFFF" : isDark ? "#E5E7EB" : "#334155",
-                    fontSize: 14,
-                    fontWeight: "600",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {mode}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
 
       {isReportMode ? (
         <>

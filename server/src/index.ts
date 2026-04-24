@@ -166,6 +166,25 @@ app.use("/*", cors({
 // ── Auth helpers ───────────────────────────────────────────────────────────────
 
 /** Resolves a Bearer token to a user row, or null if missing/expired/invalid. */
+const parseDbTimestamp = (value: unknown): Date | null => {
+  if (value instanceof Date) return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    // D1 integer timestamps are often stored in unix seconds.
+    const milliseconds = value > 1_000_000_000_000 ? value : value * 1000;
+    return new Date(milliseconds);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const asNumber = Number(value);
+    if (Number.isFinite(asNumber)) {
+      const milliseconds = asNumber > 1_000_000_000_000 ? asNumber : asNumber * 1000;
+      return new Date(milliseconds);
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
 async function getAuthUser(db: any, token: string | undefined) {
   if (!token) return null;
   const session = await db
@@ -173,7 +192,8 @@ async function getAuthUser(db: any, token: string | undefined) {
     .from(schema.session)
     .where(eq(schema.session.token, token))
     .get();
-  if (!session || new Date(session.expiresAt) < new Date()) return null;
+  const expiryDate = parseDbTimestamp(session?.expiresAt);
+  if (!session || !expiryDate || expiryDate < new Date()) return null;
   return (await db
     .select()
     .from(schema.users)

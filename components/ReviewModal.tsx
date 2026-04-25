@@ -40,6 +40,7 @@ import {
   useUpdateReview,
   useUpsertVote,
 } from "~/utils/api-hooks";
+import { useTheme } from "~/utils/ThemeContext";
 import useMapIcons from "~/utils/useMapIcons";
 import { getEntranceLabel } from "~/utils/utils";
 
@@ -167,10 +168,12 @@ const ReviewContentInput = ({
   name,
   defaultValue,
   control,
+  isDark,
 }: {
   name: "content";
   defaultValue: string;
   control: Control<Review>;
+  isDark: boolean;
 }) => {
   const { field } = useController({
     control,
@@ -180,9 +183,14 @@ const ReviewContentInput = ({
 
   return (
     <TextInput
-      className="min-h-36 rounded-xl border-2 border-ut-black/20 p-4 placeholder:color-[#616467]"
+      className={`min-h-36 rounded-xl border-2 p-4 ${
+        isDark
+          ? "border-neutral-700 bg-neutral-900 text-gray-100"
+          : "border-ut-black/20 bg-white text-black"
+      }`}
       multiline={true}
       placeholder="How was the accessibility? Any specific details that would help other students?"
+      placeholderTextColor={isDark ? "#9CA3AF" : "#616467"}
       value={field.value ?? undefined}
       onChangeText={field.onChange}
       maxLength={280}
@@ -201,7 +209,11 @@ const ReviewCard = ({
 }) => {
   const { mutateAsync: upsertVote } = useUpsertVote();
   const { mutateAsync: deleteVote } = useDeleteVote();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
   const [isVoting, setIsVoting] = useState(false);
+  const displayName = review.profile_display_name?.trim() || "UT Student";
+  const avatarUrl = review.profile_avatar_url || "";
 
   const handleVote = async (vote: 1 | -1) => {
     if (isVoting) return;
@@ -250,21 +262,31 @@ const ReviewCard = ({
           {/* Row 1 */}
           <View className="flex flex-row items-center gap-1">
             {/* Profile Image */}
-            <Image
-              className="h-8 w-8 rounded-full bg-slate-300 mr-2"
-              source={{ uri: review.profile_avatar_url }}
-            />
+            {avatarUrl ? (
+              <Image
+                className="mr-2 h-8 w-8 rounded-full bg-slate-300"
+                source={{ uri: avatarUrl }}
+              />
+            ) : (
+              <View className="mr-2 h-8 w-8 items-center justify-center rounded-full bg-slate-300">
+                <Text className="text-xs font-bold text-slate-700">
+                  {displayName[0]?.toUpperCase() ?? "U"}
+                </Text>
+              </View>
+            )}
             {/* Profile/Display Name */}
-            <Text className="color-black font-semibold text-lg">
-              {activeUserId === review.user_id ? "Me" : `@${review.profile_display_name}`}
+            <Text className={`text-lg font-semibold ${isDark ? "color-gray-100" : "color-black"}`}>
+              {activeUserId === review.user_id ? "Me" : `@${displayName}`}
             </Text>
             {/* Dot */}
-            <Text className="color-slate-600">•</Text>
+            <Text className={isDark ? "color-slate-400" : "color-slate-600"}>•</Text>
             {/* Elapsed Time */}
-            <Text className="color-slate-600">{elapsed_time_msg} ago</Text>
+            <Text className={isDark ? "color-slate-400" : "color-slate-600"}>{elapsed_time_msg} ago</Text>
           </View>
           {/* Row 2 - Review Content */}
-          <Text className="max-w-xs color-slate-600">{review.content}</Text>
+          <Text className={`max-w-xs ${isDark ? "color-slate-300" : "color-slate-600"}`}>
+            {review.content}
+          </Text>
           {/* Row 3 */}
           <View className="flex flex-row items-center gap-2">
             {/* Rating */}
@@ -275,7 +297,7 @@ const ReviewCard = ({
             {activeUserId === review.user_id ? (
               /* Options (current user's review) */
               <TouchableOpacity className="pl-4" onPress={actionFn}>
-                <DotsThreeIcon size={28} weight="bold" color="black" />
+                <DotsThreeIcon size={28} weight="bold" color={isDark ? "#F3F4F6" : "black"} />
               </TouchableOpacity>
             ) : (
               /* Upvote / Downvote (other users' reviews) */
@@ -286,9 +308,13 @@ const ReviewCard = ({
                   disabled={isVoting}
                   onPress={async () => await handleVote(1)}
                 >
-                  <ArrowUpIcon size={20} weight="bold" color={currentVote === 1 ? "#BF5700" : "#334155"} />
+                  <ArrowUpIcon
+                    size={20}
+                    weight="bold"
+                    color={currentVote === 1 ? "#BF5700" : isDark ? "#CBD5E1" : "#334155"}
+                  />
                 </TouchableOpacity>
-                <Text className="color-slate-700 text-lg">
+                <Text className={`text-lg ${isDark ? "color-slate-200" : "color-slate-700"}`}>
                   {review.vote_count}
                 </Text>
                 {/* Downvote */}
@@ -297,7 +323,11 @@ const ReviewCard = ({
                   disabled={isVoting}
                   onPress={async () => await handleVote(-1)}
                 >
-                  <ArrowDownIcon size={20} weight="bold" color={currentVote === -1 ? "#BF5700" : "#334155"} />
+                  <ArrowDownIcon
+                    size={20}
+                    weight="bold"
+                    color={currentVote === -1 ? "#BF5700" : isDark ? "#CBD5E1" : "#334155"}
+                  />
                 </TouchableOpacity>
               </View>
             )}
@@ -500,6 +530,8 @@ const ReviewModal = ({
   buildingName,
   onExit,
 }: ReviewModalProps) => {
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === "dark";
   const [formState, setFormState] = useState(0);
   const [isMenuActive, setIsMenuActive] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState(poi_id);
@@ -539,7 +571,7 @@ const ReviewModal = ({
   const isEditMode = !!editingReview;
 
   useEffect(() => {
-    if (formState === 1 && editingReview) {
+    if (formState === 1) {
       return;
     }
     if (existingReview) {
@@ -560,6 +592,8 @@ const ReviewModal = ({
       setIsMenuActive(false);
       return;
     }
+    setFormState(0);
+    setEditingReview(null);
     onExit();
   };
 
@@ -671,7 +705,10 @@ const ReviewModal = ({
       />
 
       {/* Main Modal */}
-      <View className={`top-safe-offset-2 absolute left-6 right-6 z-30 gap-5 rounded-xl bg-white px-8 py-8 ${className}`}>
+      <View
+        className={`top-safe-offset-2 absolute left-6 right-6 z-30 gap-5 rounded-xl px-8 py-8 ${className}`}
+        style={{ backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF" }}
+      >
         {/* Exit Button */}
         <TouchableOpacity
           accessibilityLabel="Close review modal"
@@ -680,15 +717,17 @@ const ReviewModal = ({
           hitSlop={12}
           onPress={() => {
             setIsMenuActive(false);
+            setFormState(0);
+            setEditingReview(null);
             onExit();
           }}
         >
-          <XIcon size={28} color={colors.ut.black} />
+          <XIcon size={28} color={isDark ? "#F3F4F6" : colors.ut.black} />
         </TouchableOpacity>
 
         {/* Headings */}
         <View className="gap-2">
-          <Text className="mr-4 pt-1 text-3xl font-bold">
+          <Text className={`mr-4 pt-1 text-3xl font-bold ${isDark ? "text-gray-100" : "text-black"}`}>
             {buildingName}
           </Text>
         </View>
@@ -711,7 +750,7 @@ const ReviewModal = ({
                 </Text>
               </View>
               {/* Map Instruction */}
-              <Text className="color-slate-600">
+              <Text className={isDark ? "color-slate-300" : "color-slate-600"}>
                 Select icon to see its reviews.
               </Text>
             </View>
@@ -816,7 +855,7 @@ const ReviewModal = ({
           <>
             {/* Rating Section */}
             <View className="gap-3">
-              <Text className="">Give a rating</Text>
+              <Text className={isDark ? "text-gray-100" : "text-black"}>Give a rating</Text>
 
               {/* Star Functionality */}
               <View className="flex flex-row gap-2">
@@ -829,7 +868,7 @@ const ReviewModal = ({
             {/* Entrance Selection Section */}
             <View className="gap-3">
               <View className="flex flex-row gap-2">
-                <Text className="">Select the entrance you used</Text>
+                <Text className={isDark ? "text-gray-100" : "text-black"}>Select the entrance you used</Text>
                 <TouchableOpacity
                   // onPress={} show some type of info
                 >
@@ -849,7 +888,7 @@ const ReviewModal = ({
 
             {/* Feature Selection Section */}
             <View className="gap-3">
-              <Text className="">Select any accessibility features you noticed</Text>
+              <Text className={isDark ? "text-gray-100" : "text-black"}>Select any accessibility features you noticed</Text>
 
               {/* Feature Buttons */}
               <FeatureButtons
@@ -861,11 +900,12 @@ const ReviewModal = ({
 
             {/* Experience Sharing Section */}
             <View className="gap-4">
-              <Text className="">Share your experience (optional)</Text>
+              <Text className={isDark ? "text-gray-100" : "text-black"}>Share your experience (optional)</Text>
               <ReviewContentInput
                 name="content"
                 defaultValue={editingReview?.content || ""}
                 control={control}
+                isDark={isDark}
               />
             </View>
 
@@ -885,7 +925,10 @@ const ReviewModal = ({
                 className="rounded-xl shadow-none"
                 variant="secondary"
                 title={"Cancel"}
-                onPress={onExit}
+                onPress={() => {
+                  setFormState(0);
+                  setEditingReview(null);
+                }}
               />
             </View>
 

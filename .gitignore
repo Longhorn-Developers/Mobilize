@@ -9,9 +9,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-pnpm-lock.yaml
 package-lock.json
-.gitignore
 
 
 # expo router
@@ -32,6 +30,8 @@ android
 .claude
 .expo
 .idea
+server/.wrangler/state/
+server/.wrangler/tmp/
 graphify-out/
 .graphify_python
 .graphifyignore

@@ -36,6 +36,13 @@
       "when": 1775944072307,
       "tag": "0006_stabilize_reviews_votes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1775944072308,
+      "tag": "0007_local_schema_guard",
+      "breakpoints": true
     }
   ]
 }

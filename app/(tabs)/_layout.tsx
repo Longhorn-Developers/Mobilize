@@ -1,24 +1,13 @@
 import "~/global.css";
 
-import { router, Tabs } from "expo-router";
+import { Tabs } from "expo-router";
 import { MapPinIcon, UserIcon } from "phosphor-react-native";
-import { useEffect } from "react";
 
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
-import { useAuth } from "~/utils/useAuth";
 
 export default function Layout() {
   const { colorScheme } = useTheme();
-  const { isAuthenticated, isLoading, onboardingComplete } = useAuth();
-
-  // Guard authenticated users with incomplete setup back to profile onboarding.
-  useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
-    if (!onboardingComplete) {
-      router.replace("../auth/profile-setup" as any);
-    }
-  }, [isAuthenticated, isLoading, onboardingComplete]);
 
   const isDark = colorScheme === "dark";
 
@@ -38,7 +27,6 @@ export default function Layout() {
         name="index"
         options={{
           title: "Map",
-          unmountOnBlur: true,
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MapPinIcon size={size} color={color} />
           ),

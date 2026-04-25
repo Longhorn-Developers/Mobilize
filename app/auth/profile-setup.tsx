@@ -10,12 +10,13 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/components/Button";
 import { apiClient } from "~/utils/api-client";
+import { isLikelyNetworkError } from "~/utils/request-utils";
+import { APP_ROUTES } from "~/utils/routes";
 import { useAuth } from "~/utils/useAuth";
 
 const USER_KEY = "auth_user";
@@ -28,11 +29,17 @@ export default function ProfileSetupScreen() {
   const [classYear, setClassYear] = useState("");
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
-  const { refreshSession } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, refreshSession, signOut } = useAuth();
+
+  const normalizeUsername = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_.-]/g, "");
 
   const handleNext = async () => {
     if (!firstName.trim() || !lastName.trim() || !username.trim()) {
@@ -42,7 +49,11 @@ export default function ProfileSetupScreen() {
 
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
-    const trimmedUsername = username.trim();
+    const trimmedUsername = normalizeUsername(username);
+    if (!trimmedUsername) {
+      Alert.alert("Error", "Please choose a valid username.");
+      return;
+    }
     const displayName = `${trimmedFirstName} ${trimmedLastName}`;
 
     setIsSaving(true);
@@ -54,7 +65,6 @@ export default function ProfileSetupScreen() {
         classYear: classYear.trim() || undefined,
         major: major.trim() || undefined,
         bio: bio.trim() || undefined,
-        isAnonymous,
       });
 
       const cachedUser = await AsyncStorage.getItem(USER_KEY);
@@ -72,20 +82,31 @@ export default function ProfileSetupScreen() {
         } catch {}
       }
 
-      try {
-        await refreshSession();
-      } catch {}
+      await refreshSession();
 
       const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
       if (!token) {
         Alert.alert("Session expired", "Please sign in again to continue onboarding.");
-        router.replace("../welcome" as any);
+        router.replace(APP_ROUTES.WELCOME as any);
         return;
       }
 
-      router.push("./mobility-preferences" as any);
+      router.replace(APP_ROUTES.AUTH_MOBILITY_PREFERENCES as any);
     } catch (err: any) {
       const msg = err?.message ?? String(err);
+      if (msg.includes("401")) {
+        Alert.alert("Session expired", "Please sign in again to continue onboarding.");
+        await signOut();
+        router.replace(APP_ROUTES.WELCOME as any);
+        return;
+      }
+      if (isLikelyNetworkError(err)) {
+        Alert.alert(
+          "Cannot reach server",
+          "Saving your profile timed out. Please confirm the API is running and try again.",
+        );
+        return;
+      }
       if (msg.includes("409") || msg.toLowerCase().includes("username")) {
         Alert.alert("Username taken", "That username is already in use. Please choose another.");
       } else {
@@ -96,7 +117,7 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  const canProceed = firstName.trim() && lastName.trim() && username.trim();
+  const canProceed = Boolean(firstName.trim() && lastName.trim() && normalizeUsername(username));
 
   const inputClass =
     "rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white";
@@ -141,7 +162,7 @@ export default function ProfileSetupScreen() {
               <Text className="mb-2 text-sm text-gray-600 dark:text-gray-400">{label}</Text>
               <TextInput
                 value={value}
-                onChangeText={set}
+                onChangeText={(text) => set(lower ? normalizeUsername(text) : text)}
                 placeholder={placeholder}
                 placeholderTextColor="#9CA3AF"
                 className={inputClass}
@@ -165,23 +186,6 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          {/* Anonymous toggle */}
-          <View className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
-            <View className="flex-1 pr-4">
-              <Text className="text-base font-medium text-gray-900 dark:text-white">
-                Appear anonymous
-              </Text>
-              <Text className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                Your name and profile will be hidden from other users
-              </Text>
-            </View>
-            <Switch
-              value={isAnonymous}
-              onValueChange={setIsAnonymous}
-              trackColor={{ false: "#D1D5DB", true: "#BF5700" }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
         </View>
 
         {/* Next Button */}
@@ -193,6 +197,7 @@ export default function ProfileSetupScreen() {
               title="Next"
               onPress={handleNext}
               variant={canProceed ? "primary" : "disabled"}
+              disabled={!canProceed || isSaving || isAuthLoading || !isAuthenticated}
             />
           )}
         </View>

@@ -106,14 +106,14 @@ const styles = StyleSheet.create({
     borderColor: "#BF5700",
   },
   disabledButton: {
-    backgroundColor: "rgba(0,0,0,0.15)",
+    backgroundColor: "#6B7280",
     borderWidth: 0,
   },
   ghostButton: {
     backgroundColor: "transparent",
   },
   grayButton: {
-    backgroundColor: "rgba(0,0,0,0.1)",
+    backgroundColor: "#374151",
   },
 
   // Text
@@ -129,12 +129,13 @@ const styles = StyleSheet.create({
     color: "#BF5700",
   },
   disabledText: {
-    color: "rgba(0,0,0,0.45)",
+    color: "rgba(255,255,255,0.8)",
   },
   ghostText: {
     color: "#BF5700",
   },
   grayText: {
-    fontWeight: "400",
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });

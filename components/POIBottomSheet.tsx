@@ -3,6 +3,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
 import React, { ForwardedRef, useEffect, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import Toast from "react-native-toast-message";
 
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
@@ -45,6 +46,11 @@ const isEntrancePoi = (entry: any) => {
   return poiType.includes("entrance") && !poiType.includes("ramp");
 };
 
+const isRampPoi = (entry: any) => {
+  const poiType = String(entry?.poi_type ?? "").toLowerCase();
+  return poiType.includes("ramp") || Boolean(entry?.metadata?.ramp);
+};
+
 const isEntranceInsideBuilding = (entrance: any, buildingFeature: any): boolean => {
   const coords = entrance?.location_geojson?.coordinates;
   const polygonCoords = buildingFeature?.geometry?.coordinates;
@@ -60,18 +66,16 @@ const isEntranceInsideBuilding = (entrance: any, buildingFeature: any): boolean 
 interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
-  handleReviews: () => void;
-  setPoi: (poi: POIReviewData | undefined) => void;
+  handleReviews: (reviewData: POIReviewData) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
-  handleReviews: () => void;
-  setPoi: (poi: POIReviewData | undefined) => void;
+  handleReviews: (reviewData: POIReviewData) => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
   const mapIcons = useMapIcons();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -164,7 +168,12 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   };
 
   const metadataAbbr =
-    getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
+    getBuildingAbbr(metadata.bld_name) ||
+    getBuildingAbbr(metadata.name) ||
+    getBuildingAbbr(metadata.building_abbr) ||
+    getBuildingAbbr(metadata.Area_Description) ||
+    getBuildingAbbr(metadata.building_name);
+  const rampSelected = isRampPoi(poi);
   const buildingFeature =
     findBuildingFeature(metadataAbbr) ||
     findBuildingContainingPoi(poi) ||
@@ -172,13 +181,18 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   const building = buildingFeature?.properties ?? null;
   const buildingName =
     formatBuildingName(metadata.bld_name) ??
+    formatBuildingName(metadata.building_name) ??
     formatBuildingName(building?.Description) ??
     formatBuildingName(metadata.name) ??
     "Unknown Building";
 
   useEffect(() => {
     const currentAbbr =
-      getBuildingAbbr(metadata.bld_name) || getBuildingAbbr(metadata.name);
+      getBuildingAbbr(metadata.bld_name) ||
+      getBuildingAbbr(metadata.name) ||
+      getBuildingAbbr(metadata.building_abbr) ||
+      getBuildingAbbr(metadata.Area_Description) ||
+      getBuildingAbbr(metadata.building_name);
     const currentBuildingName = normalizeText(buildingName);
     const fallbackName = normalizeText(metadata.name);
 
@@ -199,6 +213,12 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
     });
 
     setEntrances(matched);
+    if (rampSelected && poi?.id) {
+      setSelectedEntrance(String(poi.id));
+      setCurEntranceLabel("Ramp Access");
+      return;
+    }
+
     setSelectedEntrance(matched[0]?.id?.toString() ?? "");
 
     if (matched[0]) {
@@ -211,16 +231,27 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
     }
 
     setCurEntranceLabel("");
-  }, [allPOIs, buildingFeature, buildingName, metadata.bld_name, metadata.name]);
+  }, [
+    allPOIs,
+    buildingFeature,
+    buildingName,
+    metadata.bld_name,
+    metadata.name,
+    metadata.Area_Description,
+    metadata.building_abbr,
+    metadata.building_name,
+    poi?.id,
+    rampSelected,
+  ]);
 
   const openReviewsForCurrentEntrance = () => {
     const selectedEntranceData =
       entrances.find((entrance) => entrance.id.toString() === selectedEntrance) ??
-      entrances[0] ??
+      (!rampSelected ? entrances[0] : null) ??
       poi;
 
     const fallbackLabel =
-      curEntranceLabel ||
+      (rampSelected ? "Ramp Access" : curEntranceLabel) ||
       (selectedEntranceData
         ? getCardinalLabel(selectedEntranceData, buildingFeature) ??
           getCardinalLabelFromNeighbors(selectedEntranceData, entrances) ??
@@ -228,18 +259,33 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         : "Main Entrance");
 
     const resolvedPoiId = Number(selectedEntranceData?.id ?? poi.id);
-    if (!Number.isFinite(resolvedPoiId)) {
+    if (!Number.isFinite(resolvedPoiId) || !Number.isInteger(resolvedPoiId) || resolvedPoiId <= 0) {
+      Toast.show({
+        type: "error",
+        text2: "This location cannot be reviewed yet because a valid entrance was not found.",
+        position: "bottom",
+        bottomOffset: 120,
+      });
       return;
     }
 
-    setPoi({
+    if (!buildingFeature || buildingName === "Unknown Building") {
+      Toast.show({
+        type: "error",
+        text2: "We could not match this location to a campus building yet. Please choose another nearby entrance.",
+        position: "bottom",
+        bottomOffset: 120,
+      });
+      return;
+    }
+
+    handleReviews({
       id: resolvedPoiId,
       building: buildingFeature,
       buildingName,
       entrance: fallbackLabel,
       entrances,
     });
-    handleReviews();
   };
 
   interface EntranceProps {
@@ -342,6 +388,13 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
         </View>
 
         <View style={{ marginBottom: 16 }}>
+          {rampSelected ? (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontFamily: "Inter", fontSize: 14, color: isDark ? "#D1D5DB" : "#475569" }}>
+                Reviewing ramp access. Entrance chips below remain available if you want to switch.
+              </Text>
+            </View>
+          ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", gap: 8 }}>
             {entrances.length > 0 ? entrances.map((entrance, idx) => {
               const cardinalLabel =
@@ -357,13 +410,6 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
                   onPress={() => {
                     setSelectedEntrance(entrance.id.toString());
                     setCurEntranceLabel(label);
-                    setPoi({
-                      id: entrance.id,
-                      building: buildingFeature,
-                      buildingName,
-                      entrance: label,
-                      entrances: entrances,
-                    });
                   }}
                 >
                   <EntranceComponent
@@ -397,7 +443,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, setPoi }: POIContentProps) =>
   );
 };
 
-const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -419,7 +465,6 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, setPoi }: POIB
           poi={data.poi}
           allPOIs={allPOIs}
           handleReviews={handleReviews}
-          setPoi={setPoi}
         />;
       }}
     </BottomSheetModal>

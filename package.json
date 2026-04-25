@@ -10,6 +10,7 @@
     "prebuild": "expo prebuild",
     "ios": "expo run:ios",
     "android": "adb reverse tcp:54321 tcp:54321 && expo run:android",
+    "android:expo": "expo run:android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "typecheck:server": "pnpm --dir server exec tsc --noEmit",

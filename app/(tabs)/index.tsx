@@ -37,6 +37,7 @@ import ReviewModal from "~/components/ReviewModal";
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
 import SidewalkBottomSheet, { type SidewalkSegment } from "~/components/SidewalkBottomSheet";
+import { apiClient } from "~/utils/api-client";
 import {
   usePOIs,
   useAvoidanceAreas,
@@ -46,8 +47,9 @@ import {
 import {
   buildingToPlaceDetails,
   findBuilding,
+  searchBuildings,
 } from "~/utils/buildingDatabase";
-import { searchPlaces, getPlaceDetails } from "~/utils/mapboxSearch";
+import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
 import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
@@ -60,6 +62,11 @@ Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "");
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const UT_CENTER: [number, number] = [-97.733, 30.282];
+const UT_CAMPUS_BOUNDS = {
+  low: { latitude: 30.269, longitude: -97.747 },
+  high: { latitude: 30.295, longitude: -97.721 },
+} as const;
+const CAMPUS_MATCH_RADIUS_KM = 2.5;
 const MIN_ZOOM_FOR_POIS = 16;
 const MIN_ZOOM_FOR_SIDEWALKS = 17;
 const MIN_ZOOM_FOR_BUILDINGS = 14;
@@ -69,6 +76,7 @@ const MAX_ZOOM_FOR_LABELS = 17;
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
 type LatLng = { latitude: number; longitude: number };
+type ReviewContext = POIReviewData & { id: number };
 
 const normalizeCampusText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -82,9 +90,30 @@ const extractBuildingAbbreviation = (value?: string | null): string | null => {
   return null;
 };
 
+const looksLikeCampusAbbreviation = (query: string) => {
+  const normalized = query.trim().toUpperCase();
+  return /^[A-Z0-9]{2,6}$/.test(normalized);
+};
+
 const isEntrancePoi = (poi: any) => {
   const poiType = String(poi?.poi_type ?? "").toLowerCase();
   return poiType.includes("entrance") && !poiType.includes("ramp");
+};
+
+const isLikelyCampusCoordinate = (latitude: number, longitude: number) => {
+  const withinBounds =
+    latitude >= UT_CAMPUS_BOUNDS.low.latitude &&
+    latitude <= UT_CAMPUS_BOUNDS.high.latitude &&
+    longitude >= UT_CAMPUS_BOUNDS.low.longitude &&
+    longitude <= UT_CAMPUS_BOUNDS.high.longitude;
+
+  if (!withinBounds) return false;
+
+  const point = turf.point([longitude, latitude]);
+  const distanceKm = turf.distance(point, turf.point(UT_CENTER), {
+    units: "kilometers",
+  });
+  return Number.isFinite(distanceKm) && distanceKm <= CAMPUS_MATCH_RADIUS_KM;
 };
 
 // ── POI clustering ─────────────────────────────────────────────────────────────
@@ -114,6 +143,11 @@ export default function Home() {
   const barrierBottomSheetRef = useRef<BottomSheetModal>(null);
   const constructionBottomSheetRef = useRef<BottomSheetModal>(null);
   const featureTappedRef = useRef(false);
+  const overlayEpochRef = useRef(0);
+  const isScreenActiveRef = useRef(isTabFocused);
+  const isClosingRef = useRef(false);
+  const overlayResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllersRef = useRef<Set<AbortController>>(new Set());
 
   // ── GeoJSON — deferred load so the app doesn't freeze on startup ───────────
   const [sidewalksGeoJSON, setSidewalksGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
@@ -145,10 +179,7 @@ export default function Home() {
 
   // Reviews
   const [reviewKey, setReviewKey] = useState(0);
-  const [poi, setPoi] = useState<POIReviewData>();
-  const handleSetPoi = useCallback((poi: POIReviewData | undefined) => {
-    setPoi(poi);
-  }, []);
+  const [reviewContext, setReviewContext] = useState<ReviewContext | null>(null);
   const showDetailedLayers = mapDetailMode === "detailed";
 
   // ── Data hooks ─────────────────────────────────────────────────────────────
@@ -258,6 +289,10 @@ export default function Home() {
     placeName?: string,
     placeAddress?: string,
   ) => {
+    if (!isLikelyCampusCoordinate(latitude, longitude)) {
+      return null;
+    }
+
     const point = turf.point([longitude, latitude]);
     const buildingsAny = buildingsData as any;
     const features: any[] = buildingsAny.features ?? [];
@@ -283,16 +318,14 @@ export default function Home() {
     }
 
     const normalizedName = normalizeCampusText(placeName);
-    const normalizedAddress = normalizeCampusText(placeAddress);
-    if (normalizedName || normalizedAddress) {
+    if (normalizedName) {
       const nameMatch = features.find((feature) => {
         const description = normalizeCampusText(feature?.properties?.Description);
         const abbr = normalizeCampusText(feature?.properties?.Building_Abbr);
         return (
-          (normalizedName &&
-            ((description && (description.includes(normalizedName) || normalizedName.includes(description))) ||
-              (abbr && normalizedName.includes(abbr)))) ||
-          (normalizedAddress && description && normalizedAddress.includes(description))
+          (description &&
+            (description.includes(normalizedName) || normalizedName.includes(description))) ||
+          (abbr && normalizedName.includes(abbr))
         );
       });
       if (nameMatch) {
@@ -300,23 +333,7 @@ export default function Home() {
       }
     }
 
-    let nearestFeature: any = null;
-    let nearestDistanceSq = Number.POSITIVE_INFINITY;
-    for (const feature of features) {
-      const center = turf.centerOfMass(feature as any)?.geometry?.coordinates;
-      if (!Array.isArray(center) || center.length < 2) continue;
-      const dx = Number(center[0]) - longitude;
-      const dy = Number(center[1]) - latitude;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq < nearestDistanceSq) {
-        nearestDistanceSq = distanceSq;
-        nearestFeature = feature;
-      }
-    }
-
-    // Approx ~225m threshold to avoid snapping far away locations.
-    const MAX_SNAP_DISTANCE_SQ = 0.002 * 0.002;
-    return nearestDistanceSq <= MAX_SNAP_DISTANCE_SQ ? nearestFeature : null;
+    return null;
   };
 
   const isPoiInsideBuilding = (poi: any, buildingFeature: any) => {
@@ -385,6 +402,58 @@ export default function Home() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  const beginOverlayAction = useCallback(() => overlayEpochRef.current, []);
+
+  const canPresent = useCallback((epoch: number) => {
+    return (
+      isScreenActiveRef.current &&
+      !isClosingRef.current &&
+      epoch === overlayEpochRef.current
+    );
+  }, []);
+
+  const registerAbortController = useCallback(() => {
+    const controller = new AbortController();
+    abortControllersRef.current.add(controller);
+    return controller;
+  }, []);
+
+  const releaseAbortController = useCallback((controller: AbortController) => {
+    abortControllersRef.current.delete(controller);
+  }, []);
+
+  const abortAllPendingActions = useCallback(() => {
+    abortControllersRef.current.forEach((controller) => {
+      try {
+        controller.abort();
+      } catch {
+        // Ignore individual abort failures.
+      }
+    });
+    abortControllersRef.current.clear();
+  }, []);
+
+  const guardedPresent = useCallback(
+    (epoch: number, presentFn: () => void, actionName: string) => {
+      if (!canPresent(epoch)) {
+        if (__DEV__) {
+          console.log(
+            `[overlay] open_blocked_stale action=${actionName} epoch=${epoch} current=${overlayEpochRef.current}`,
+          );
+        }
+        return false;
+      }
+      presentFn();
+      if (__DEV__) {
+        console.log(
+          `[overlay] open_attempt action=${actionName} epoch=${epoch}`,
+        );
+      }
+      return true;
+    },
+    [canPresent],
+  );
+
   const isPointValid = (point: LatLng) => {
     if (aaPointsReport.length < 3) return true;
     const polygon = turf.polygon([
@@ -412,15 +481,45 @@ export default function Home() {
     }
   };
 
+  const forceCloseReview = useCallback(() => {
+    (reviewSheetRef.current as any)?.dismiss?.();
+    (reviewSheetRef.current as any)?.close?.();
+    setReviewContext(null);
+    setReviewKey((prevKey) => prevKey + 1);
+  }, []);
+
   const closeAllSheets = useCallback(() => {
+    overlayEpochRef.current += 1;
+    isClosingRef.current = true;
+    abortAllPendingActions();
+    if (overlayResetTimerRef.current) {
+      clearTimeout(overlayResetTimerRef.current);
+      overlayResetTimerRef.current = null;
+    }
+
     avoidanceAreaBottomSheetRef.current?.dismiss();
     poiBottomSheetRef.current?.dismiss();
     sidewalkBottomSheetRef.current?.dismiss();
     locationBottomSheetRef.current?.dismiss();
     barrierBottomSheetRef.current?.dismiss();
     constructionBottomSheetRef.current?.dismiss();
-    reviewSheetRef.current?.dismiss();
-  }, []);
+    forceCloseReview();
+    setIsSearchActive(false);
+    setSearchQuery("");
+    setIsReportMode(false);
+    setAAPointsReport([]);
+    setClickedPoint(null);
+    setReportStep(0);
+
+    if (__DEV__) {
+      console.log(`[overlay] closed_all epoch=${overlayEpochRef.current}`);
+    }
+
+    overlayResetTimerRef.current = setTimeout(() => {
+      isClosingRef.current = false;
+      overlayResetTimerRef.current = null;
+    }, 220);
+  }, [abortAllPendingActions, forceCloseReview]);
 
   useFocusEffect(
     useCallback(() => {
@@ -438,55 +537,78 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      isScreenActiveRef.current = true;
+      isClosingRef.current = false;
       return () => {
+        isScreenActiveRef.current = false;
         closeAllSheets();
-        setPoi(undefined);
-        setIsSearchActive(false);
-        setSearchQuery("");
-        setIsReportMode(false);
-        setAAPointsReport([]);
-        setClickedPoint(null);
-        setReportStep(0);
       };
     }, [closeAllSheets]),
   );
 
   useEffect(() => {
+    isScreenActiveRef.current = isTabFocused;
     if (isTabFocused) return;
     closeAllSheets();
-    setPoi(undefined);
-    setIsSearchActive(false);
-    setSearchQuery("");
-    setIsReportMode(false);
-    setAAPointsReport([]);
-    setClickedPoint(null);
-    setReportStep(0);
   }, [isTabFocused, closeAllSheets]);
+
+  useEffect(() => {
+    return () => {
+      if (overlayResetTimerRef.current) {
+        clearTimeout(overlayResetTimerRef.current);
+      }
+      abortAllPendingActions();
+      isScreenActiveRef.current = false;
+    };
+  }, [abortAllPendingActions]);
 
   const handleAvoidanceAreaPress = (polygonId: string) => {
     const area = (avoidanceAreas ?? []).find((a: any) => String(a.id) === polygonId);
     if (!area) return;
-    avoidanceAreaBottomSheetRef.current?.present({ area });
+    const epoch = beginOverlayAction();
+    guardedPresent(
+      epoch,
+      () => avoidanceAreaBottomSheetRef.current?.present({ area }),
+      "avoidance_area",
+    );
   };
 
   const handleSidewalkPress = (segment: SidewalkSegment) => {
-    sidewalkBottomSheetRef.current?.present({ segment });
+    const epoch = beginOverlayAction();
+    guardedPresent(
+      epoch,
+      () => sidewalkBottomSheetRef.current?.present({ segment }),
+      "sidewalk",
+    );
   };
 
   const handlePOIPress = (poi: any) => {
-    poiBottomSheetRef.current?.present({ poi });
+    const epoch = beginOverlayAction();
+    guardedPresent(epoch, () => poiBottomSheetRef.current?.present({ poi }), "poi");
   };
 
   const handleBarrierPress = (properties: Record<string, any>) => {
-    barrierBottomSheetRef.current?.present({ barrier: properties });
+    const epoch = beginOverlayAction();
+    guardedPresent(
+      epoch,
+      () => barrierBottomSheetRef.current?.present({ barrier: properties }),
+      "barrier",
+    );
   };
 
   const handleConstructionPress = (id: string, description?: string) => {
-    constructionBottomSheetRef.current?.present({ construction: { id, description } });
+    const epoch = beginOverlayAction();
+    guardedPresent(
+      epoch,
+      () => constructionBottomSheetRef.current?.present({ construction: { id, description } }),
+      "construction",
+    );
   };
 
   const handleRampPress = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
+    const epoch = beginOverlayAction();
+    if (!canPresent(epoch)) return;
 
     const geometry = feature.geometry as GeoJSON.Point | null;
     if (!geometry || geometry.type !== "Point") return;
@@ -501,39 +623,137 @@ export default function Home() {
     const buildingFeature =
       buildingMatchByAbbreviation ??
       findCampusBuildingFeature(lat, lng);
-    if (!buildingFeature) return;
-
-    const buildingPoi = buildPoiFromCampusBuilding(
-      {
-        place_id: `ramp-${properties.ObjectId ?? properties.GlobalID ?? feature.id ?? "unknown"}`,
-        geometry: { location: { lat, lng } },
-      },
-      buildingFeature,
-    );
-
-    if (buildingPoi) {
-      locationBottomSheetRef.current?.dismiss();
-      poiBottomSheetRef.current?.present({ poi: buildingPoi });
+    if (!buildingFeature) {
+      Toast.show({
+        type: "error",
+        text2: "Ramp is not linked to a known building yet, so reviews are unavailable for this point.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
+      return;
     }
-  }, [isReportMode, buildPoiFromCampusBuilding]);
+
+    const buildingAbbr = String(buildingFeature?.properties?.Building_Abbr ?? "").trim();
+    const buildingName = String(buildingFeature?.properties?.Description ?? "").trim();
+    const externalKey = String(
+      properties.ObjectId ??
+      properties.OBJECTID ??
+      properties.GlobalID ??
+      feature.id ??
+      `${lng},${lat}`,
+    ).trim();
+
+    const controller = registerAbortController();
+    void (async () => {
+      let rampPoiId: number | null = null;
+      try {
+        if (controller.signal.aborted || !canPresent(epoch)) return;
+        const resolvedPoi = await apiClient.resolveRampPOI({
+          externalKey,
+          latitude: lat,
+          longitude: lng,
+          buildingAbbr: buildingAbbr || undefined,
+          buildingName: buildingName || undefined,
+        });
+        if (controller.signal.aborted || !canPresent(epoch)) return;
+        rampPoiId = Number(resolvedPoi?.id);
+      } catch (error) {
+        console.warn("Could not resolve ramp POI id:", error);
+        if (controller.signal.aborted || !canPresent(epoch)) return;
+      }
+
+      const buildingPoi = buildPoiFromCampusBuilding(
+        {
+          place_id: `ramp-${externalKey}`,
+          geometry: { location: { lat, lng } },
+          name: buildingName || "Ramp Access",
+          formatted_address: "UT Campus",
+        },
+        buildingFeature,
+      );
+
+      const rampPoi = {
+        id: Number.isFinite(rampPoiId) ? (rampPoiId as number) : null,
+        poi_type: "ramp",
+        location_geojson: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+        metadata: {
+          name: "Ramp Access",
+          bld_name: buildingName || "UT Building",
+          building_name: buildingName || null,
+          building_abbr: buildingAbbr || null,
+          external_key: externalKey,
+          ramp: true,
+        },
+      };
+
+      if (controller.signal.aborted || !canPresent(epoch)) return;
+      if (!rampPoi.id && buildingPoi) {
+        guardedPresent(
+          epoch,
+          () => {
+            locationBottomSheetRef.current?.dismiss();
+            poiBottomSheetRef.current?.present({ poi: buildingPoi });
+          },
+          "ramp_to_building_poi",
+        );
+        return;
+      }
+      if (!rampPoi.id) return;
+
+      guardedPresent(
+        epoch,
+        () => {
+          locationBottomSheetRef.current?.dismiss();
+          poiBottomSheetRef.current?.present({ poi: rampPoi });
+        },
+        "ramp_to_ramp_poi",
+      );
+    })().finally(() => {
+      releaseAbortController(controller);
+    });
+  }, [
+    isReportMode,
+    beginOverlayAction,
+    canPresent,
+    buildPoiFromCampusBuilding,
+    bottomTabBarHeight,
+    guardedPresent,
+    registerAbortController,
+    releaseAbortController,
+  ]);
 
   /**
    * Handle a tap on a campus building polygon using the local building database.
    */
   const handleBuildingTap = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
+    const epoch = beginOverlayAction();
+    if (!canPresent(epoch)) return;
     const buildingPoi = buildPoiFromCampusBuilding(null, feature);
     if (buildingPoi) {
-      locationBottomSheetRef.current?.dismiss();
-      poiBottomSheetRef.current?.present({ poi: buildingPoi });
+      guardedPresent(
+        epoch,
+        () => {
+          locationBottomSheetRef.current?.dismiss();
+          poiBottomSheetRef.current?.present({ poi: buildingPoi });
+        },
+        "building_to_poi",
+      );
       return;
     }
 
     const props = feature.properties as { Building_Abbr?: string } | null;
     const building = props?.Building_Abbr ? findBuilding(props.Building_Abbr) : null;
     if (!building) return;
-    locationBottomSheetRef.current?.present(buildingToPlaceDetails(building));
-  }, [isReportMode, buildPoiFromCampusBuilding]);
+    guardedPresent(
+      epoch,
+      () => locationBottomSheetRef.current?.present(buildingToPlaceDetails(building)),
+      "building_to_location",
+    );
+  }, [isReportMode, beginOverlayAction, canPresent, buildPoiFromCampusBuilding, guardedPresent]);
 
 
   const handleSelectLocation = async (location: {
@@ -542,26 +762,59 @@ export default function Home() {
     address?: string;
     place_id?: string;
   }) => {
+    const epoch = beginOverlayAction();
+    if (!canPresent(epoch)) return;
+    const controller = registerAbortController();
+
     // Close search
     setIsSearchActive(false);
     setSearchQuery("");
 
-    // Resolve missing place_id for recent/manual locations so recenter still works.
-    let resolvedPlaceId = location.place_id;
-    if (!resolvedPlaceId) {
-      const primaryQuery = [location.name, location.address].filter(Boolean).join(" ");
-      const fallbackQuery = location.name;
+    try {
+      // Resolve missing place_id for recent/manual locations so recenter still works.
+      let resolvedPlaceId = location.place_id;
+      if (!resolvedPlaceId) {
+        const primaryQuery = [location.name, location.address].filter(Boolean).join(" ");
+        const fallbackQuery = location.name;
 
-      const primaryResults = await searchPlaces(primaryQuery);
-      resolvedPlaceId = primaryResults[0]?.place_id;
+        const resolvePlaceIdWithScopeFallback = async (queryText: string) => {
+          if (!queryText.trim()) return undefined;
 
-      if (!resolvedPlaceId && fallbackQuery) {
-        const fallbackResults = await searchPlaces(fallbackQuery);
-        resolvedPlaceId = fallbackResults[0]?.place_id;
+          const likelyCampusIntent =
+            searchBuildings(queryText, 1).length > 0 ||
+            looksLikeCampusAbbreviation(queryText);
+
+          if (likelyCampusIntent) {
+            const campusResults = await searchPlaces(queryText, { scope: "campus" });
+            if (controller.signal.aborted || !canPresent(epoch)) return undefined;
+            if (campusResults[0]?.place_id) return campusResults[0].place_id;
+
+            const globalResults = await searchPlaces(queryText, { scope: "global" });
+            if (controller.signal.aborted || !canPresent(epoch)) return undefined;
+            return globalResults[0]?.place_id;
+          }
+
+          const globalResults = await searchPlaces(queryText, { scope: "global" });
+          if (controller.signal.aborted || !canPresent(epoch)) return undefined;
+          if (globalResults[0]?.place_id) return globalResults[0].place_id;
+
+          const campusResults = await searchPlaces(queryText, { scope: "campus" });
+          if (controller.signal.aborted || !canPresent(epoch)) return undefined;
+          return campusResults[0]?.place_id;
+        };
+
+        resolvedPlaceId = await resolvePlaceIdWithScopeFallback(primaryQuery);
+
+        if (!resolvedPlaceId && fallbackQuery) {
+          resolvedPlaceId = await resolvePlaceIdWithScopeFallback(fallbackQuery);
+        }
       }
-    }
 
-    if (resolvedPlaceId) {
+      if (!resolvedPlaceId) {
+        console.error("Could not resolve place_id for selected location", location);
+        return;
+      }
+
       let placeDetails = null;
       let matchingBuilding: any = null;
 
@@ -576,39 +829,58 @@ export default function Home() {
             ) ?? null;
         }
       } else {
-        placeDetails = await getPlaceDetails(resolvedPlaceId);
+        placeDetails = await getPlaceDetails(
+          resolvedPlaceId,
+          location.name,
+        );
+        if (controller.signal.aborted || !canPresent(epoch)) return;
 
         if (placeDetails) {
-          matchingBuilding = findCampusBuildingFeature(
-            placeDetails.geometry.location.lat,
-            placeDetails.geometry.location.lng,
-            placeDetails.name,
-            placeDetails.formatted_address,
-          );
+          const latitude = placeDetails.geometry.location.lat;
+          const longitude = placeDetails.geometry.location.lng;
+          if (isLikelyCampusCoordinate(latitude, longitude)) {
+            matchingBuilding = findCampusBuildingFeature(
+              latitude,
+              longitude,
+              placeDetails.name,
+              placeDetails.formatted_address,
+            );
+          }
         }
       }
 
-      if (placeDetails) {
-        cameraRef.current?.setCamera({
-          centerCoordinate: [
-            placeDetails.geometry.location.lng,
-            placeDetails.geometry.location.lat,
-          ],
-          zoomLevel: 18,
-          animationDuration: 800,
-        });
+      if (!placeDetails || controller.signal.aborted || !canPresent(epoch)) return;
 
-        const buildingPoi = buildPoiFromCampusBuilding(placeDetails, matchingBuilding);
+      cameraRef.current?.setCamera({
+        centerCoordinate: [
+          placeDetails.geometry.location.lng,
+          placeDetails.geometry.location.lat,
+        ],
+        zoomLevel: 18,
+        animationDuration: 800,
+      });
 
-        if (buildingPoi) {
-          locationBottomSheetRef.current?.dismiss();
-          poiBottomSheetRef.current?.present({ poi: buildingPoi });
-        } else {
-          locationBottomSheetRef.current?.present(placeDetails);
-        }
+      const buildingPoi = buildPoiFromCampusBuilding(placeDetails, matchingBuilding);
+      if (controller.signal.aborted || !canPresent(epoch)) return;
+
+      if (buildingPoi) {
+        guardedPresent(
+          epoch,
+          () => {
+            locationBottomSheetRef.current?.dismiss();
+            poiBottomSheetRef.current?.present({ poi: buildingPoi });
+          },
+          "search_to_poi",
+        );
+      } else {
+        guardedPresent(
+          epoch,
+          () => locationBottomSheetRef.current?.present(placeDetails),
+          "search_to_location",
+        );
       }
-    } else {
-      console.error("Could not resolve place_id for selected location", location);
+    } finally {
+      releaseAbortController(controller);
     }
   };
 
@@ -628,15 +900,56 @@ export default function Home() {
 
   // ── Review mode handlers ───────────────────────────────────────────────────
 
-  const handleEnterReviewMode = useCallback(() => {
-    setReviewKey(prevKey => prevKey + 1);
-    reviewSheetRef.current?.present();
-  }, []);
+  const handleEnterReviewMode = useCallback((reviewData: POIReviewData) => {
+    const epoch = beginOverlayAction();
+    if (!canPresent(epoch)) return;
+    const normalizedPoiId = Number(reviewData?.id);
+    const hasValidPoiId =
+      Number.isFinite(normalizedPoiId) &&
+      Number.isInteger(normalizedPoiId) &&
+      normalizedPoiId > 0;
 
-  const handleExitReviewMode = () => {
-    closeAllSheets();
-    setPoi(undefined);
-  };
+    if (!hasValidPoiId) {
+      forceCloseReview();
+      Toast.show({
+        type: "error",
+        text2: "This location cannot be reviewed yet because it does not map to a valid campus entrance.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
+      return;
+    }
+
+    if (!reviewData.building || !reviewData.buildingName || reviewData.buildingName === "Unknown Building") {
+      forceCloseReview();
+      Toast.show({
+        type: "error",
+        text2: "We could not identify this building yet, so reviews are temporarily unavailable.",
+        position: "bottom",
+        bottomOffset: bottomTabBarHeight + 50,
+      });
+      return;
+    }
+
+    const nextContext: ReviewContext = {
+      ...reviewData,
+      id: normalizedPoiId,
+    };
+
+    setReviewContext(nextContext);
+    setReviewKey((prevKey) => prevKey + 1);
+    guardedPresent(epoch, () => reviewSheetRef.current?.present(), "review_open");
+  }, [
+    beginOverlayAction,
+    canPresent,
+    bottomTabBarHeight,
+    forceCloseReview,
+    guardedPresent,
+  ]);
+
+  const handleExitReviewMode = useCallback(() => {
+    forceCloseReview();
+  }, [forceCloseReview]);
 
   const emptyPOIs = useMemo(() => [], []);
 
@@ -685,7 +998,6 @@ export default function Home() {
             ref={poiBottomSheetRef}
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={handleEnterReviewMode}
-            setPoi={handleSetPoi}
           />
           <SidewalkBottomSheet ref={sidewalkBottomSheetRef} />
           <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
@@ -704,17 +1016,22 @@ export default function Home() {
             stackBehavior="push"
             animationConfigs={{ duration: 0.1 }}
             animateOnMount={false}
+            onDismiss={() => {
+              setReviewContext(null);
+            }}
           >
-            <ReviewModal
-              key={reviewKey}
-              className=""
-              poi_id={poi ? poi.id : 0}
-              entrances={poi ? poi.entrances : []}
-              entranceName={poi ? poi.entrance : "No Entrance Name Found"}
-              building={poi && poi.building}
-              buildingName={poi ? poi.buildingName : "No Building Name Found"}
-              onExit={handleExitReviewMode}
-            />
+            {reviewContext ? (
+              <ReviewModal
+                key={reviewKey}
+                className=""
+                poi_id={reviewContext.id}
+                entrances={reviewContext.entrances}
+                entranceName={reviewContext.entrance}
+                building={reviewContext.building}
+                buildingName={reviewContext.buildingName}
+                onExit={handleExitReviewMode}
+              />
+            ) : null}
           </BottomSheetModal>
         </>
       ) : null}
@@ -749,8 +1066,6 @@ export default function Home() {
             }
           } else {
             closeAllSheets();
-            setIsSearchActive(false);
-            setSearchQuery("");
           }
         }}
       >

@@ -57,6 +57,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
   const polygon: Polygon | null = area.boundary_geojson
     ? { type: "Polygon", coordinates: [area.boundary_geojson.coordinates[0]] }
     : null;
+  const areaAuthorName = (area as any)?.profile_display_name || "UT Community Member";
 
   const {
     data: reports,
@@ -165,7 +166,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
             </View>
 
             {/* Author Username */}
-            <Text className="text-lg text-gray-600">anonymous</Text>
+            <Text className="text-lg text-gray-600">{areaAuthorName}</Text>
 
             {/* Created At */}
             <Text className="text-lg text-gray-500">
@@ -253,7 +254,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
                   <View className="flex-1">
                     <View className="flex-row items-center gap-2">
                       <Text className="font-medium text-gray-700">
-                        @{report.profile_display_name || "anonymous"}
+                        @{report.profile_display_name || "ut_community_member"}
                       </Text>
                       <Text className="text-sm text-gray-500">
                         {formatTimeAgo(report.updated_at)}

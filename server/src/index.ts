@@ -11,6 +11,7 @@ type Bindings = {
   mobilize_db: D1Database;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
+  GOOGLE_PLACES_API_KEY?: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
 };
@@ -34,6 +35,29 @@ type GoogleUserInfo = {
   name?: string;
   picture?: string;
 };
+
+type PlacesAutocompleteItem = {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
+};
+
+type PlacesDetailsItem = {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+};
+
+type PlacesAutocompleteScope = "campus" | "global";
 
 type ApiErrorCode =
   | "BAD_REQUEST"
@@ -105,6 +129,12 @@ const REQUIRED_TABLES = [
   "avoidance_area_reports",
 ] as const;
 
+const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
+const UT_CAMPUS_BOUNDS = {
+  low: { latitude: 30.269, longitude: -97.747 },
+  high: { latitude: 30.295, longitude: -97.721 },
+};
+
 let hasLoggedTableDiagnostics = false;
 
 const isGoogleTokenResponse = (value: unknown): value is GoogleTokenResponse => {
@@ -123,9 +153,47 @@ const isGoogleUserInfo = (value: unknown): value is GoogleUserInfo => {
   );
 };
 
+const safeParseJsonObject = (raw: unknown): Record<string, unknown> | null => {
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const getGooglePlacesApiKey = (env: Bindings): string => {
+  return String(env.GOOGLE_PLACES_API_KEY ?? "").trim();
+};
+
+const normalizePlacesSessionToken = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Keep token size bounded for logs/upstream payload.
+  return trimmed.slice(0, 128);
+};
+
+const normalizePlacesAutocompleteScope = (value: unknown): PlacesAutocompleteScope => {
+  if (typeof value !== "string") return "campus";
+  return value.trim().toLowerCase() === "global" ? "global" : "campus";
+};
+
+const getBearerToken = (authorizationHeader: string | null | undefined): string | null => {
+  if (!authorizationHeader) return null;
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1]?.trim();
+  return token ? token : null;
+};
+
 const getProfile = async (c: Context<{ Bindings: Bindings, Variables: Variables }>) => {
   const db = c.get("db");
-  const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
+  const token = getBearerToken(c.req.header("Authorization"));
   const user = await getAuthUser(db, token);
   if (!user) return null;
   const normalizedUser = await ensureStudentRole(db, user);
@@ -185,7 +253,7 @@ const parseDbTimestamp = (value: unknown): Date | null => {
   return null;
 };
 
-async function getAuthUser(db: any, token: string | undefined) {
+async function getAuthUser(db: any, token: string | null | undefined) {
   if (!token) return null;
   const session = await db
     .select()
@@ -215,7 +283,7 @@ async function ensureStudentRole(db: any, user: any) {
 
 /** Returns the user or responds 401 (returns Response). Caller must check. */
 async function requireAuth(c: any, db: any) {
-  const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
+  const token = getBearerToken(c.req.header("Authorization"));
   const user = await getAuthUser(db, token);
   if (!user) {
     return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
@@ -258,15 +326,38 @@ function encodeOAuthState(nonce: string, callbackURL: string, redirectUri: strin
   return btoa(payload).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
-function decodeOAuthState(state: string): { nonce: string; callbackURL: string; redirectUri: string } | null {
+function decodeOAuthState(state: string): { nonce: string; callbackURL: string; redirectUri?: string } | null {
   try {
     const padded = state.replace(/-/g, "+").replace(/_/g, "/");
     const pad = padded.length % 4 === 0 ? 0 : 4 - (padded.length % 4);
-    const data = JSON.parse(atob(padded + "=".repeat(pad)));
-    return { nonce: data.n, callbackURL: data.cb, redirectUri: data.ru };
+    const data = JSON.parse(atob(padded + "=".repeat(pad))) as {
+      n?: unknown;
+      cb?: unknown;
+      ru?: unknown;
+    };
+    return {
+      nonce: typeof data.n === "string" ? data.n : "",
+      callbackURL: typeof data.cb === "string" ? data.cb : "",
+      redirectUri: typeof data.ru === "string" ? data.ru : undefined,
+    };
   } catch {
     return null;
   }
+}
+
+function normalizeComparableUrl(url: string): string | null {
+  try {
+    const normalized = new URL(url);
+    const path = normalized.pathname.replace(/\/$/, "");
+    return `${normalized.protocol}//${normalized.host}${path}`;
+  } catch {
+    return null;
+  }
+}
+
+function getCanonicalGoogleRedirectUri(env: Bindings): string {
+  const baseUrl = String(env.BETTER_AUTH_URL ?? "").trim().replace(/\/$/, "");
+  return `${baseUrl}/api/auth/callback/google`;
 }
 
 // ── Auth and db middleware (once per request) ──────────────────────────────────
@@ -323,11 +414,83 @@ app.get("/pois", async (c) => {
   return c.json(pois);
 });
 
+app.post("/pois/ramp/resolve", async (c) => {
+  const db = c.get("db");
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+
+  const externalKey = String(body?.external_key ?? body?.externalKey ?? "").trim();
+  const latitude = Number(body?.latitude);
+  const longitude = Number(body?.longitude);
+  const buildingAbbr = String(body?.building_abbr ?? body?.buildingAbbr ?? "").trim() || null;
+  const buildingName = String(body?.building_name ?? body?.buildingName ?? "").trim() || null;
+
+  if (!externalKey) {
+    return jsonError(c, 400, "BAD_REQUEST", "external_key is required");
+  }
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return jsonError(c, 400, "BAD_REQUEST", "latitude and longitude are required");
+  }
+
+  const rampRows = await db
+    .select()
+    .from(schema.pois)
+    .where(eq(schema.pois.poi_type, "ramp"))
+    .all();
+
+  const existing = rampRows.find((row) => {
+    const metadata = safeParseJsonObject(row.metadata);
+    return metadata?.external_key === externalKey;
+  });
+  if (existing) {
+    return c.json(existing);
+  }
+
+  const locationGeoJson = JSON.stringify({
+    type: "Point",
+    coordinates: [longitude, latitude],
+  });
+
+  const metadata = JSON.stringify({
+    external_key: externalKey,
+    name: "Ramp Access",
+    bld_name: buildingAbbr ? `(${buildingAbbr})` : null,
+    building_name: buildingName,
+    source: "local_ramps_geojson",
+  });
+
+  const [created] = await db
+    .insert(schema.pois)
+    .values({
+      poi_type: "ramp",
+      metadata,
+      location_geojson: locationGeoJson,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+
+  return c.json(created);
+});
+
 // ── Avoidance Areas ────────────────────────────────────────────────────────────
 
 app.get("/avoidance_areas", async (c) => {
   const db = c.get("db");
-  const areas = await db.select().from(schema.avoidance_areas).all();
+  const areas = await db
+    .select({
+      ...getTableColumns(schema.avoidance_areas),
+      profile_display_name: schema.profiles.display_name,
+      profile_avatar_url: schema.profiles.avatar_url,
+    })
+    .from(schema.avoidance_areas)
+    .leftJoin(schema.profiles, eq(schema.avoidance_areas.user_id, schema.profiles.user_id))
+    .all();
   return c.json(areas);
 });
 
@@ -426,7 +589,7 @@ app.post("/avoidance_areas/:id/reports", async (c) => {
   let body: any;
   try {
     body = await c.req.json();
-  } catch (error) {
+  } catch {
     return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
   if (!body.title) return jsonError(c, 400, "BAD_REQUEST", "title is required");
@@ -514,8 +677,6 @@ app.post("/api/profile", async (c) => {
     .where(eq(schema.profiles.user_id, user.id))
     .get();
 
-  const isAnonymous = typeof body.isAnonymous === "boolean" ? body.isAnonymous : false;
-
   if (existing) {
     await db
       .update(schema.profiles)
@@ -524,7 +685,7 @@ app.post("/api/profile", async (c) => {
         class_year: classYear ?? existing.class_year,
         major: major ?? existing.major,
         bio: bio ?? existing.bio,
-        is_anonymous: isAnonymous,
+        is_anonymous: false,
         onboarding_completed_at: existing.onboarding_completed_at ?? null,
         updated_at: new Date(),
       })
@@ -536,7 +697,7 @@ app.post("/api/profile", async (c) => {
       class_year: classYear ?? null,
       major: major ?? null,
       bio: bio ?? null,
-      is_anonymous: isAnonymous,
+      is_anonymous: false,
       onboarding_completed_at: null,
       created_at: new Date(),
       updated_at: new Date(),
@@ -580,7 +741,7 @@ app.put("/api/profile", async (c) => {
   if (body.major !== undefined) updates.major = body.major;
   if (body.bio !== undefined) updates.bio = body.bio;
   if (body.mobilityPreference !== undefined) updates.mobility_preference = body.mobilityPreference;
-  if (body.isAnonymous !== undefined) updates.is_anonymous = body.isAnonymous;
+  updates.is_anonymous = false;
   if (body.onboardingComplete === true) updates.onboarding_completed_at = new Date();
   if (body.onboardingComplete === false) updates.onboarding_completed_at = null;
 
@@ -597,7 +758,7 @@ app.put("/api/profile", async (c) => {
       major: body.major ?? null,
       bio: body.bio ?? null,
       mobility_preference: body.mobilityPreference ?? null,
-      is_anonymous: body.isAnonymous ?? false,
+      is_anonymous: false,
       onboarding_completed_at: body.onboardingComplete === true ? new Date() : null,
       created_at: new Date(),
       updated_at: new Date(),
@@ -641,13 +802,6 @@ app.get("/api/users/:username", async (c) => {
     .where(eq(schema.profiles.user_id, user.id))
     .get();
 
-  if (profile?.is_anonymous) {
-    return c.json({
-      user: { role: user.role },
-      profile: { is_anonymous: true },
-    });
-  }
-
   return c.json({ user, profile: profile ?? null });
 });
 
@@ -655,13 +809,25 @@ app.get("/api/users/:username", async (c) => {
 
 app.get("/api/auth/signin/google", async (c) => {
   const mobileCallbackURL = c.req.query("callbackURL") ?? "";
-  const redirectUri = c.req.query("redirectUri") ?? "";
+  const requestedRedirectUri = (c.req.query("redirectUri") ?? "").trim();
+  const callbackURL = getCanonicalGoogleRedirectUri(c.env);
 
-  const baseUrl = c.env.BETTER_AUTH_URL.replace(/\/$/, "");
-  const callbackURL = redirectUri || `${baseUrl}/api/auth/callback/google`;
+  if (requestedRedirectUri) {
+    const requestedNormalized = normalizeComparableUrl(requestedRedirectUri);
+    const callbackNormalized = normalizeComparableUrl(callbackURL);
+    if (!requestedNormalized || !callbackNormalized || requestedNormalized !== callbackNormalized) {
+      return jsonError(
+        c,
+        400,
+        "BAD_REQUEST",
+        "Non-canonical redirect_uri requested",
+        { expectedRedirectUri: callbackURL },
+      );
+    }
+  }
 
   const nonce = crypto.randomUUID();
-  const state = encodeOAuthState(nonce, mobileCallbackURL, redirectUri);
+  const state = encodeOAuthState(nonce, mobileCallbackURL, callbackURL);
 
   if (mobileCallbackURL) {
     pendingCallbacks.set(state, mobileCallbackURL);
@@ -699,8 +865,24 @@ app.get("/api/auth/callback/google", async (c) => {
 
     if (!code) return jsonError(c, 400, "BAD_REQUEST", "No authorization code");
 
-    const baseUrl = c.env.BETTER_AUTH_URL.replace(/\/$/, "");
-    const redirectUri = stateData?.redirectUri || `${baseUrl}/api/auth/callback/google`;
+    const redirectUri = getCanonicalGoogleRedirectUri(c.env);
+    const stateRedirectUri = stateData?.redirectUri?.trim();
+    if (stateRedirectUri) {
+      const stateRedirectNormalized = normalizeComparableUrl(stateRedirectUri);
+      const canonicalNormalized = normalizeComparableUrl(redirectUri);
+      if (
+        stateRedirectNormalized &&
+        canonicalNormalized &&
+        stateRedirectNormalized !== canonicalNormalized
+      ) {
+        console.warn(
+          "Ignoring non-canonical redirect_uri from OAuth state",
+          stateRedirectUri,
+          "expected",
+          redirectUri,
+        );
+      }
+    }
 
     // Exchange code for Google tokens
     let tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -757,7 +939,6 @@ app.get("/api/auth/callback/google", async (c) => {
     const googleUser = userPayload;
     console.log("Google user:", googleUser.email);
 
-    const auth = createAuth(c.env);
     const db = drizzle(c.env.mobilize_db, { schema });
 
     let user = await db
@@ -816,7 +997,7 @@ app.get("/api/auth/callback/google", async (c) => {
 // ── Sign out ───────────────────────────────────────────────────────────────────
 
 app.post("/api/auth/signout", async (c) => {
-  const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
+  const token = getBearerToken(c.req.header("Authorization"));
   if (token) {
     const db = drizzle(c.env.mobilize_db, { schema });
     await db.delete(schema.session).where(eq(schema.session.token, token)).run();
@@ -951,9 +1132,9 @@ app.get("/construction_areas", async (c) => {
 
 /** Returns the current user + their profile, or { user: null } if unauthenticated. */
 app.get("/api/me", async (c) => {
-  const token = c.req.header("Authorization")?.replace("Bearer ", "").trim();
+  const token = getBearerToken(c.req.header("Authorization"));
   if (!token) {
-    return c.json({ user: null, profile: null, onboardingComplete: false }, 401);
+    return c.json({ user: null, profile: null, onboardingComplete: false });
   }
 
   const db = c.get("db");
@@ -974,6 +1155,166 @@ app.get("/api/me", async (c) => {
   return c.json({ user, profile: profile ?? null, onboardingComplete });
 });
 
+app.post("/places/autocomplete", async (c) => {
+  const apiKey = getGooglePlacesApiKey(c.env);
+  if (!apiKey) {
+    return jsonError(
+      c,
+      503,
+      "INTERNAL_ERROR",
+      "Google Places API key is not configured on the server",
+    );
+  }
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+
+  const input = String(body?.input ?? "").trim();
+  if (input.length < 2) return c.json([] as PlacesAutocompleteItem[]);
+
+  const sessionToken = normalizePlacesSessionToken(body?.sessionToken);
+  const scope = normalizePlacesAutocompleteScope(body?.scope);
+
+  const payload: Record<string, unknown> = {
+    input,
+    languageCode: "en",
+    includedRegionCodes: ["us"],
+  };
+  if (scope === "campus") {
+    payload.locationRestriction = {
+      rectangle: {
+        low: UT_CAMPUS_BOUNDS.low,
+        high: UT_CAMPUS_BOUNDS.high,
+      },
+    };
+  }
+  if (sessionToken) payload.sessionToken = sessionToken;
+
+  const response = await fetch(`${PLACES_API_BASE_URL}/places:autocomplete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask":
+        "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+  const parsed = safeParseJsonObject(rawText);
+  if (!response.ok) {
+    return jsonError(
+      c,
+      502,
+      "INTERNAL_ERROR",
+      "Google autocomplete request failed",
+      parsed ?? rawText.slice(0, 400),
+    );
+  }
+
+  const suggestions = Array.isArray((parsed as any)?.suggestions)
+    ? (parsed as any).suggestions
+    : [];
+
+  const results: PlacesAutocompleteItem[] = suggestions
+    .map((suggestion: any) => {
+      const placePrediction = suggestion?.placePrediction;
+      const placeId = String(placePrediction?.placeId ?? "").trim();
+      const mainText = String(placePrediction?.text?.text ?? "").trim();
+      const secondaryText = String(
+        placePrediction?.structuredFormat?.secondaryText?.text ?? "",
+      ).trim();
+      if (!placeId || !mainText) return null;
+      return {
+        place_id: placeId,
+        description: secondaryText ? `${mainText}, ${secondaryText}` : mainText,
+        structured_formatting: {
+          main_text: mainText,
+          secondary_text: secondaryText,
+        },
+      };
+    })
+    .filter(Boolean) as PlacesAutocompleteItem[];
+
+  return c.json(results);
+});
+
+app.post("/places/details", async (c) => {
+  const apiKey = getGooglePlacesApiKey(c.env);
+  if (!apiKey) {
+    return jsonError(
+      c,
+      503,
+      "INTERNAL_ERROR",
+      "Google Places API key is not configured on the server",
+    );
+  }
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+
+  const placeId = String(body?.placeId ?? "").trim();
+  if (!placeId) {
+    return jsonError(c, 400, "BAD_REQUEST", "placeId is required");
+  }
+  const sessionToken = normalizePlacesSessionToken(body?.sessionToken);
+  const displayNameHint = String(body?.displayName ?? "").trim();
+
+  const detailsUrl = new URL(`${PLACES_API_BASE_URL}/places/${encodeURIComponent(placeId)}`);
+  if (sessionToken) {
+    detailsUrl.searchParams.set("sessionToken", sessionToken);
+  }
+
+  const response = await fetch(detailsUrl.toString(), {
+    method: "GET",
+    headers: {
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "id,formattedAddress,location",
+    },
+  });
+
+  const rawText = await response.text();
+  const parsed = safeParseJsonObject(rawText);
+  if (!response.ok) {
+    return jsonError(
+      c,
+      502,
+      "INTERNAL_ERROR",
+      "Google place details request failed",
+      parsed ?? rawText.slice(0, 400),
+    );
+  }
+
+  const latitude = Number((parsed as any)?.location?.latitude);
+  const longitude = Number((parsed as any)?.location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return jsonError(c, 502, "INTERNAL_ERROR", "Google place details returned invalid coordinates");
+  }
+
+  const result: PlacesDetailsItem = {
+    place_id: String((parsed as any)?.id ?? placeId),
+    name: displayNameHint || String((parsed as any)?.formattedAddress ?? "Selected location"),
+    formatted_address: String((parsed as any)?.formattedAddress ?? ""),
+    geometry: {
+      location: {
+        lat: latitude,
+        lng: longitude,
+      },
+    },
+  };
+
+  return c.json(result);
+});
+
 // ── Reviews ────────────────────────────────────────────────────────────────────
 
 // GET non-deleted reviews by poi id
@@ -986,7 +1327,7 @@ app.get("/reviews", async (c) => {
     }
     const poiId = Math.trunc(poiIdParam);
 
-    // Optional profile context: authenticated users receive user_vote, anonymous users receive null.
+    // Optional profile context: authenticated users receive user_vote, unauthenticated users receive null.
     const profile = await getProfile(c);
 
     const reviewsList = await db

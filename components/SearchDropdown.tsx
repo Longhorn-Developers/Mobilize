@@ -11,7 +11,7 @@ import {
 
 import colors from "~/types/colors";
 import { searchBuildings } from "~/utils/buildingDatabase";
-import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/mapboxSearch";
+import { searchPlaces, PlaceAutocompletePrediction } from "~/utils/googlePlaces";
 import { useTheme } from "~/utils/ThemeContext";
 
 interface Location {
@@ -30,6 +30,11 @@ interface SearchDropdownProps {
   onDismiss: () => void;
   topOffset: number;
 }
+
+const looksLikeCampusAbbreviation = (query: string) => {
+  const normalized = query.trim().toUpperCase();
+  return /^[A-Z0-9]{2,6}$/.test(normalized);
+};
 
 export const SearchDropdown = ({
   visible,
@@ -68,9 +73,35 @@ export const SearchDropdown = ({
       setIsLoading(true);
 
       try {
-        const results = await searchPlaces(searchQuery);
+        const hasCampusLocalMatches = searchBuildings(searchQuery, 1).length > 0;
+        const likelyCampusIntent =
+          hasCampusLocalMatches || looksLikeCampusAbbreviation(searchQuery);
+
+        const runCampusThenGlobal = async () => {
+          const campusScoped = await searchPlaces(searchQuery, { scope: "campus" });
+          if (currentRequestId !== requestIdRef.current) return [] as PlaceAutocompletePrediction[];
+          if (campusScoped.length > 0) return campusScoped;
+          return searchPlaces(searchQuery, { scope: "global" });
+        };
+
+        const runGlobalThenCampus = async () => {
+          const globalScoped = await searchPlaces(searchQuery, { scope: "global" });
+          if (currentRequestId !== requestIdRef.current) return [] as PlaceAutocompletePrediction[];
+          if (globalScoped.length > 0) return globalScoped;
+          return searchPlaces(searchQuery, { scope: "campus" });
+        };
+
+        const scopedResults = likelyCampusIntent
+          ? await runCampusThenGlobal()
+          : await runGlobalThenCampus();
+
         if (currentRequestId === requestIdRef.current) {
-          setRemoteResults(results);
+          setRemoteResults(
+            scopedResults.filter(
+              (prediction, index, list) =>
+                list.findIndex((item) => item.place_id === prediction.place_id) === index,
+            ),
+          );
         }
       } finally {
         if (currentRequestId === requestIdRef.current) {

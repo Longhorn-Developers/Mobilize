@@ -1,4 +1,4 @@
-import { BottomSheetModal } from "@gorhom/bottom-sheet";
+﻿import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import Mapbox, {
@@ -58,7 +58,9 @@ import useMapIcons from "~/utils/useMapIcons";
 import buildingsData from "../../assets/geojson/buildings_simple.json";
 
 // Initialise Mapbox
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "");
+const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
+if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
+Mapbox.setAccessToken(mapboxToken);
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const UT_CENTER: [number, number] = [-97.733, 30.282];
@@ -74,6 +76,7 @@ const MIN_ZOOM_FOR_BARRIERS = 16;
 const MIN_ZOOM_FOR_LABELS = 15;
 const MAX_ZOOM_FOR_LABELS = 17;
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const CLUSTER_RADIUS = 10;
 
 type LatLng = { latitude: number; longitude: number };
 type ReviewContext = POIReviewData & { id: number };
@@ -112,12 +115,86 @@ const isLikelyCampusCoordinate = (latitude: number, longitude: number) => {
   const point = turf.point([longitude, latitude]);
   const distanceKm = turf.distance(point, turf.point(UT_CENTER), {
     units: "kilometers",
-  });
+  }); // need to change this to current location once out of testing
   return Number.isFinite(distanceKm) && distanceKm <= CAMPUS_MATCH_RADIUS_KM;
 };
 
 // ── POI clustering ─────────────────────────────────────────────────────────────
+function getPOISubtype(poi: any): string {
+  switch (poi.poi_type) {
+    case "accessible_entrance":
+      return `accessible_entrance__${poi.metadata?.auto_opene ? "auto" : "manual"}`;
+    default:
+      return poi.poi_type;
+  }
+}
 
+function clusterPOIs(pois: any[]): any[] {
+  const visited = new Set<number>();
+  const clusters: any[] = [];
+
+  for (let i = 0; i < pois.length; i++) {
+    if (visited.has(i)) continue;
+    visited.add(i);
+
+    const group = [pois[i]];
+
+    // Keep expanding until no new members are added
+    let changed = true;
+    while (changed) {
+      changed = false;
+
+      // Recompute centroid of current group
+      const centroid = turf.centroid(
+        turf.multiPoint(group.map((p) => [
+          p.location_geojson.coordinates[0],
+          p.location_geojson.coordinates[1],
+        ]))
+      );
+
+      for (let j = 0; j < pois.length; j++) {
+        if (visited.has(j)) continue;
+        if (getPOISubtype(pois[j]) !== getPOISubtype(group[0])) continue;
+
+        const dist = turf.distance(
+          centroid,
+          turf.point([
+            pois[j].location_geojson.coordinates[0],
+            pois[j].location_geojson.coordinates[1],
+          ]),
+          { units: "meters" }
+        );
+
+        if (dist <= CLUSTER_RADIUS) {
+          group.push(pois[j]);
+          visited.add(j);
+          changed = true;
+        }
+      }
+    }
+
+    if (group.length === 1) {
+      clusters.push(group[0]);
+    } else {
+      const centroid = turf.centroid(
+        turf.multiPoint(group.map((p) => [
+          p.location_geojson.coordinates[0],
+          p.location_geojson.coordinates[1],
+        ]))
+      );
+      clusters.push({
+        ...group[0],
+        location_geojson: {
+          ...group[0].location_geojson,
+          coordinates: centroid.geometry.coordinates,
+        },
+        clusteredPOIs: group,
+      });
+    }
+  }
+
+  return clusters;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -176,6 +253,7 @@ export default function Home() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
+  const [zoomLevel, setZoomLevel] = useState(15);
 
   // Reviews
   const [reviewKey, setReviewKey] = useState(0);
@@ -235,23 +313,24 @@ export default function Home() {
     [constructionAreas],
   );
 
-  const poiGeoJSON = useMemo(
-    (): GeoJSON.FeatureCollection => ({
-      type: "FeatureCollection",
-      features: (POIs ?? [])
-        .filter(isEntrancePoi)
-        .map((poi) => ({
-          type: "Feature" as const,
-          id: String(poi.id),
-          properties: {
-            id: String(poi.id),
-            icon: poi.metadata?.auto_opene ? "autoDoor" : "manualDoor",
-          },
-          geometry: poi.location_geojson as GeoJSON.Geometry,
-        })),
-    }),
-    [POIs],
+   const clusteredEntrancePOIs = useMemo(
+    () => clusterPOIs((POIs ?? []).filter(isEntrancePoi)),
+    [POIs]
   );
+
+  const poiGeoJSON = useMemo((): GeoJSON.FeatureCollection => ({
+    type: "FeatureCollection",
+    features: clusteredEntrancePOIs.map((poi) => ({  // ← use clustered
+      type: "Feature" as const,
+      id: String(poi.id),
+      properties: {
+        id: String(poi.id),
+        icon: poi.metadata?.auto_opene ? "autoDoor" : "manualDoor",
+        clusterCount: poi.clusteredPOIs?.length ?? 1,
+      },
+      geometry: poi.location_geojson as GeoJSON.Geometry,
+    })),
+  }), [clusteredEntrancePOIs]);
 
   const reportGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
     if (aaPointsReport.length < 2) return null;
@@ -1051,6 +1130,7 @@ export default function Home() {
         compassViewMargins={{ x: 16, y: insets.top + 70 }}
         attributionEnabled
         logoEnabled
+        onCameraChanged={(state) => setZoomLevel(state.properties.zoom)}
         onPress={(feature: any) => {
           if (featureTappedRef.current) {
             featureTappedRef.current = false;
@@ -1343,7 +1423,7 @@ export default function Home() {
             onPress={(e: any) => {
               featureTappedRef.current = true;
               const id = e.features[0]?.properties?.id;
-              const poi = (POIs ?? []).filter(isEntrancePoi).find((p) => String(p.id) === id);
+              const poi = clusteredEntrancePOIs.find((p) => String(p.id) === id);
               if (poi) handlePOIPress(poi);
             }}
           >
@@ -1352,7 +1432,13 @@ export default function Home() {
               minZoomLevel={MIN_ZOOM_FOR_POIS}
               style={{
                 iconImage: ["get", "icon"],
-                iconSize: 0.35,
+                iconSize: [
+                  "interpolate", ["linear"], ["zoom"],
+                  14, 0.15,
+                  16, 0.25,
+                  18, 0.40,
+                  20, 0.60,
+                ],
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
               }}
@@ -1375,7 +1461,13 @@ export default function Home() {
               minZoomLevel={MIN_ZOOM_FOR_POIS}
               style={{
                 iconImage: "rampIcon",
-                iconSize: 0.35,
+                iconSize: [
+                  "interpolate", ["linear"], ["zoom"],
+                  14, 0.15,
+                  16, 0.25,
+                  18, 0.40,
+                  20, 0.60,
+                ],
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
               }}

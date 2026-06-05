@@ -37,3 +37,5 @@ graphify-out/
 .graphifyignore
 CLAUDE.md
 AGENTS.md
+.checkpoints/
+.vscode/    

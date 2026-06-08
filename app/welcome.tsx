@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();

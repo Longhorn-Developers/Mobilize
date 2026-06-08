@@ -1,4 +1,6 @@
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+
 const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
 
 // UT Austin coordinates for biasing search results
@@ -7,6 +9,79 @@ const UT_AUSTIN_LOCATION = {
   longitude: -97.7341,
 };
 const SEARCH_RADIUS = 2000; // 2km radius around UT campus
+const AUTOCOMPLETE_FIELD_MASK =
+  "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat";
+
+const getPlacesApiKey = () =>
+  (
+    process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ??
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
+    ""
+  ).trim();
+
+const getPlacesHeaders = () => {
+  const apiKey = getPlacesApiKey();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Goog-Api-Key": apiKey,
+  };
+
+  if (Platform.OS === "ios") {
+    const expoConfig = (Constants.expoConfig as any) || {};
+    const manifest2 = (Constants.manifest2 as any) || {};
+    const bundleIdentifier =
+      expoConfig?.ios?.bundleIdentifier ||
+      manifest2?.extra?.expoClient?.iosBundleIdentifier;
+
+    if (bundleIdentifier) {
+      headers["X-Ios-Bundle-Identifier"] = bundleIdentifier;
+    }
+  }
+
+  return headers;
+};
+
+const logPlacesError = (label: string, data: any) => {
+  const reason = data?.error?.details?.[0]?.reason;
+
+  if (data?.error?.status === "PERMISSION_DENIED") {
+    console.error(
+      `${label}: PERMISSION_DENIED. Key restrictions likely block this client.`,
+      {
+        code: data?.error?.code,
+        status: data?.error?.status,
+        message: data?.error?.message,
+        reason,
+      },
+    );
+
+    if (reason === "API_KEY_IOS_APP_BLOCKED") {
+      console.error(
+        "Google key is iOS-app restricted and rejected this request. Confirm bundle identifier restriction matches this app, or use an unrestricted/dev key for REST calls.",
+      );
+    }
+
+    return;
+  }
+
+  if (
+    data?.error?.status === "INVALID_ARGUMENT" &&
+    typeof data?.error?.message === "string" &&
+    data.error.message.toLowerCase().includes("api key expired")
+  ) {
+    console.error(
+      `${label}: Google rejected the configured Places key as expired. Update EXPO_PUBLIC_GOOGLE_PLACES_API_KEY (or EXPO_PUBLIC_GOOGLE_MAPS_API_KEY) and restart Expo so the new env value is bundled.`,
+      {
+        code: data?.error?.code,
+        status: data?.error?.status,
+        message: data?.error?.message,
+      },
+    );
+    return;
+  }
+
+  console.error(label, data);
+};
 
 // Types for Google Places API (New) responses
 export interface PlaceAutocompletePrediction {
@@ -16,6 +91,11 @@ export interface PlaceAutocompletePrediction {
     main_text: string;
     secondary_text: string;
   };
+}
+
+export interface PlaceOpeningHours {
+  open_now?: boolean;
+  weekday_text?: string[];
 }
 
 export interface PlaceDetails {
@@ -28,19 +108,45 @@ export interface PlaceDetails {
       lng: number;
     };
   };
-  rating?: number;
-  user_ratings_total?: number;
-  opening_hours?: {
-    weekday_text: string[];
-    open_now: boolean;
-  };
-  photos?: Array<{
+  photos?: {
     photo_reference: string;
     height: number;
     width: number;
-  }>;
+  }[];
   types?: string[];
+  rating?: number;
+  user_ratings_total?: number;
+  opening_hours?: PlaceOpeningHours;
 }
+
+/**
+ * Format opening hours for display.
+ * Returns today's hours if available, otherwise the first line, or a fallback string.
+ */
+export const formatOpeningHours = (hours?: PlaceOpeningHours): string => {
+  if (!hours) return "Hours not available";
+
+  if (hours.open_now !== undefined) {
+    const status = hours.open_now ? "Open now" : "Closed";
+    if (hours.weekday_text && hours.weekday_text.length > 0) {
+      const today = new Date().getDay(); // 0 = Sunday
+      // weekday_text is Mon–Sun (0-indexed Monday = 0)
+      const dayIndex = today === 0 ? 6 : today - 1;
+      const todayText = hours.weekday_text[dayIndex];
+      if (todayText) {
+        const timePart = todayText.split(": ").slice(1).join(": ");
+        return `${status} · ${timePart}`;
+      }
+    }
+    return status;
+  }
+
+  if (hours.weekday_text && hours.weekday_text.length > 0) {
+    return hours.weekday_text[0];
+  }
+
+  return "Hours not available";
+};
 
 /**
  * Search for places using Google Places Autocomplete (New API)
@@ -53,7 +159,7 @@ export const searchPlaces = async (
     return [];
   }
 
-  if (!GOOGLE_PLACES_API_KEY) {
+  if (!getPlacesApiKey()) {
     console.error("Google Places API key is not configured");
     return [];
   }
@@ -64,8 +170,8 @@ export const searchPlaces = async (
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+          ...getPlacesHeaders(),
+          "X-Goog-FieldMask": AUTOCOMPLETE_FIELD_MASK,
         },
         body: JSON.stringify({
           input: query,
@@ -83,9 +189,15 @@ export const searchPlaces = async (
     );
 
     const data = await response.json();
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
 
-    if (response.ok && data.suggestions) {
-      return data.suggestions.map((suggestion: any) => ({
+    if (response.ok) {
+      // Google may return an empty object when no suggestions match.
+      if (suggestions.length === 0) {
+        return [];
+      }
+
+      return suggestions.map((suggestion: any) => ({
         place_id: suggestion.placePrediction?.placeId || "",
         description: suggestion.placePrediction?.text?.text || "",
         structured_formatting: {
@@ -95,10 +207,10 @@ export const searchPlaces = async (
             "",
         },
       }));
-    } else {
-      console.error("Places Autocomplete error:", data);
-      return [];
     }
+
+    logPlacesError("Places Autocomplete error", data);
+    return [];
   } catch (error) {
     console.error("Error fetching place autocomplete:", error);
     return [];
@@ -115,33 +227,28 @@ export const getPlaceDetails = async (
     return null;
   }
 
-  if (!GOOGLE_PLACES_API_KEY) {
+  if (!getPlacesApiKey()) {
     console.error("Google Places API key is not configured");
     return null;
   }
 
   try {
     // fieldMask is required for the new Places API v1
+    // Only Basic-tier fields to stay within the $200/month free credit
     const fieldMask = [
       "id",
       "displayName",
       "formattedAddress",
       "location",
-      "rating",
-      "userRatingCount",
-      "currentOpeningHours",
       "photos",
       "types",
     ].join(",");
 
     const response = await fetch(
-      `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
+      `${PLACES_API_BASE_URL}/places/${placeId}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-        },
+        headers: { ...getPlacesHeaders(), "X-Goog-FieldMask": fieldMask },
       }
     );
 
@@ -158,14 +265,6 @@ export const getPlaceDetails = async (
             lng: data.location?.longitude || 0,
           },
         },
-        rating: data.rating,
-        user_ratings_total: data.userRatingCount,
-        opening_hours: data.currentOpeningHours
-          ? {
-              weekday_text: data.currentOpeningHours.weekdayDescriptions || [],
-              open_now: data.currentOpeningHours.openNow || false,
-            }
-          : undefined,
         photos: data.photos?.map((photo: any) => ({
           photo_reference: photo.name,
           height: photo.heightPx,
@@ -174,38 +273,13 @@ export const getPlaceDetails = async (
         types: data.types,
       };
     } else {
-      console.error("Place Details error:", data);
+      logPlacesError("Place Details error", data);
       return null;
     }
   } catch (error) {
     console.error("Error fetching place details:", error);
     return null;
   }
-};
-
-/**
- * Format opening hours into a readable string
- * Returns something like "7 AM to 10 PM" or "Closed"
- */
-export const formatOpeningHours = (
-  openingHours?: PlaceDetails["opening_hours"]
-): string => {
-  if (!openingHours || !openingHours.weekday_text) {
-    return "Hours not available";
-  }
-
-  // Get today's hours (0 = Sunday, 1 = Monday, etc.)
-  const today = new Date().getDay();
-  const todayHours = openingHours.weekday_text[today === 0 ? 6 : today - 1];
-
-  if (!todayHours) {
-    return "Hours not available";
-  }
-
-  // Extract just the time part (remove day name)
-  // e.g., "Monday: 7:00 AM – 10:00 PM" -> "7:00 AM – 10:00 PM"
-  const timePart = todayHours.split(": ")[1];
-  return timePart || "Hours not available";
 };
 
 /**

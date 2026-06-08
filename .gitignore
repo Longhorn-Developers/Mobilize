@@ -10,6 +10,9 @@ npm-debug.*
 *.orig.*
 web-build/
 pnpm-lock.yaml
+package-lock.json
+.gitignore
+
 
 # expo router
 expo-env.d.ts
@@ -26,3 +29,11 @@ android
 
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
+.claude
+.expo
+.idea
+graphify-out/
+.graphify_python
+.graphifyignore
+CLAUDE.md
+AGENTS.md

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, unique } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Verification db schemas
@@ -76,7 +76,6 @@ export const verification = sqliteTable("verification", {
 });
 
 // profile tables
-
 export const profiles = sqliteTable("profiles", {
     id: integer("id").primaryKey({ autoIncrement: true }),
 
@@ -94,6 +93,9 @@ export const profiles = sqliteTable("profiles", {
 
     mobility_preference: text("mobility_preference"), // "walking" | "wheelchair" | "cane" | "other"
 
+    is_anonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(false),
+    onboarding_completed_at: integer("onboarding_completed_at", { mode: "timestamp" }),
+
     created_at: integer("created_at", { mode: "timestamp" })
         .notNull()
         .default(sql`(unixepoch())`),
@@ -102,6 +104,41 @@ export const profiles = sqliteTable("profiles", {
         .notNull()
         .default(sql`(unixepoch())`),
 });
+
+export const reviews = sqliteTable('reviews', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	user_id: integer('user_id')
+		.notNull()
+		.references(() => profiles.id),
+	rating: integer('rating').notNull(),
+	features: text('features'),
+	content: text('content'),
+	poi_id: integer('poi_id')
+		.notNull()
+		.references(() => pois.id),
+	created_at: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updated_at: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`)
+		.$onUpdate(() => new Date()),
+	deleted_at: integer('deleted_at', { mode: 'timestamp' })
+},
+(table) => [
+	index('poi_deleted_idx').on(table.poi_id, table.deleted_at),
+    index('reviews_user_poi_deleted_idx').on(table.user_id, table.poi_id, table.deleted_at),
+]);
+
+export const votes = sqliteTable('votes', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    user_id: integer('user_id').notNull().references(() => profiles.id),
+    review_id: integer('review_id').notNull().references(() => reviews.id, { onDelete: "cascade" }),
+    vote: integer('vote').notNull(),
+},
+(table) => [
+    unique().on(table.user_id, table.review_id),
+]);
 
 export const pois = sqliteTable('pois', {
     id: integer('id').primaryKey({ autoIncrement: true }),

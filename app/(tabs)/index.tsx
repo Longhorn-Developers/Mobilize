@@ -1,408 +1,272 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import * as turf from "@turf/turf";
+import { useIsFocused } from "@react-navigation/native";
+import Mapbox, {
+  Camera,
+  Images,
+  MapView,
+} from "@rnmapbox/maps";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import { View } from "react-native";
-import MapView, { Polygon, Marker, LatLng } from "react-native-maps";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Toast from "react-native-toast-message";
 
-import AvoidanceAreaBottomSheet from "~/components/AvoidanceAreaBottomSheet";
-import POIBottomSheet from "~/components/POIBottomSheet";
-import { Button } from "~/components/Button";
-import ReportModal from "~/components/ReportModal";
+import AvoidanceAreaBottomSheet from "~/src/features/components/AvoidanceAreaBottomSheet";
+import BarrierBottomSheet from "~/src/features/components/BarrierBottomSheet";
+import ConstructionBottomSheet from "~/src/features/components/ConstructionBottomSheet";
+import {
+  LocationDetailsBottomSheet,
+  type LocationDetailsBottomSheetRef,
+} from "~/src/features/components/LocationDetailsBottomSheet";
+import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import ReviewModal from "~/src/features/components/ReviewModal";
+import { SearchBar } from "~/src/features/components/SearchBar";
+import { SearchDropdown } from "~/src/features/components/SearchDropdown";
+import SidewalkBottomSheet, { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
 import {
   usePOIs,
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
 } from "~/utils/api-hooks";
+import { useTheme } from "~/utils/ThemeContext";
+import { useAuth } from "~/utils/useAuth";
 import useMapIcons from "~/utils/useMapIcons";
 
-import { SearchBar } from "~/components/SearchBar";
-import { SearchDropdown } from "~/components/SearchDropdown";
-import {
-  LocationDetailsBottomSheet,
-  type LocationDetailsBottomSheetRef,
-} from "~/components/LocationDetailsBottomSheet";
-import { searchPlaces, getPlaceDetails } from "~/utils/googlePlaces";
+import * as MapConstants from "~/src/features/map/constants";
+
+import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
+import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
+import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
+import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
+import { getBuildingStyles } from "~/src/features/map/buildingStyles";
+import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
+import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
+import { useMapScreenController } from "~/src/features/map/useMapScreenController";
+// Initialise Mapbox
+const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
+if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
+Mapbox.setAccessToken(mapboxToken);
 
 export default function Home() {
-  // hooks
   const insets = useSafeAreaInsets();
   const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const avoidanceAreaBottomSheetRef = useRef<BottomSheetModal>(null);
-  const poiBottomSheetRef = useRef<BottomSheetModal>(null);
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const locationBottomSheetRef = useRef<LocationDetailsBottomSheetRef>(null);
+  const isTabFocused = useIsFocused();
+  const { user } = useAuth();
+  const { colorScheme } = useTheme();
+  const canReport =
+    user?.role === "student" ||
+    user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
+  const isDark = colorScheme === "dark";
 
-  // states
-  const [isReportMode, setIsReportMode] = useState(false);
-  const [aaPointsReport, setAAPointsReport] = useState<LatLng[]>([]);
-  const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
-  const [reportStep, setReportStep] = useState(0);
+  // Loads GeoJSON data for sidewalks, buildings, barriers, and ramps (src/features/map/hooks/geojsonBuilders.ts)
+  const { sidewalksGeoJSON, buildingsGeoJSON, barriersGeoJSON, rampsGeoJSON } = useMapGeoJSON();  
+
+  // Encompasses all report related states/functions (src/features/map/hooks/useReportMode.ts)
+  const [Route] = useState<[number, number][] | null>(null);
   const [zoomLevel, setZoomLevel] = useState(15);
 
-  // Minimum zoom level to show POIs (higher = more zoomed in)
-  const MIN_ZOOM_FOR_POIS = 16;
-  const [isSearchActive, setIsSearchActive] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // query hooks
+  // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
-  const testGooglePlaces = async () => {
-    console.log("Testing Google Places...");
-    const results = await searchPlaces("Texas Global");
-    console.log("Search results:", results);
-    
-    if (results.length > 0) {
-      const details = await getPlaceDetails(results[0].place_id);
-      console.log("Place details:", details);
-    }
-  };
+  // GeoJSON sources
+  const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
+  const constructionGeoJSON = useConstructionGeoJSON(constructionAreas);
+  const { poiGeoJSON, clusteredEntrancePOIs, entrances } = usePOIFeatures(POIs);
+  
+  const map = useMapScreenController({
+    isTabFocused,
+    bottomTabBarHeight,
+    avoidanceAreas,
+    entrances,
+  });
 
-  useEffect(() => {
-    testGooglePlaces();
-  }, []);
+  // Route as GeoJSON for Mapbox LineLayer
+  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
+    if (!Route || Route.length < 2) return null;
+    return {
+      type: "FeatureCollection",
+      features: [{
+        type: "Feature",
+        properties: {},
+        geometry: { type: "LineString", coordinates: Route },
+      }],
+    };
+  }, [Route]);
 
-  const getMapIcon = useCallback(
-    (poiType: any, metadata: any) => {
-      switch (poiType) {
-        case "accessible_entrance":
-          return metadata.auto_opene ? mapIcons.autoDoor : mapIcons.manualDoor;
-        default:
-          return undefined;
-      }
-    },
-    [mapIcons],
-  );
-
-  // Checks if resulting polygon formed by aaPointsReport + points is valid (no kinks)
-  const isPointValid = (point: LatLng) => {
-    if (aaPointsReport.length < 3) return true; // Need at least 3 points to form a polygon
-
-    const polygon = turf.polygon([
-      [
-        ...aaPointsReport.map((p) => [p.longitude, p.latitude]),
-        [point.longitude, point.latitude],
-        [aaPointsReport[0].longitude, aaPointsReport[0].latitude],
-      ],
-    ]);
-    const kinks = turf.kinks(polygon);
-
-    // No kinks means the polygon is valid
-    return kinks.features.length === 0;
-  };
-
-  const handleMapPress = (event: any) => {
-    const coordinate = event.nativeEvent.coordinate;
-    if (isReportMode) {
-      if (reportStep !== 0) return;
-
-      if (isPointValid(coordinate)) {
-        setClickedPoint(coordinate);
-        // Add pressed coordinates to marked points
-        setAAPointsReport((prev) => [...prev, coordinate]);
-      } else {
-        Toast.show({
-          type: "error",
-          text2: "Invalid point! Please select a different point.",
-          position: "bottom",
-          bottomOffset: bottomTabBarHeight + 50,
-        });
-      }
-    } else {
-      avoidanceAreaBottomSheetRef.current?.close();
-      poiBottomSheetRef.current?.close();
-    }
-  };
-
-  // Handle avoidance area click
-  const handleAvoidanceAreaPress = (polygonId: string) => {
-    if (isReportMode) return;
-    avoidanceAreaBottomSheetRef.current?.present({ id: polygonId });
-  };
-
-  // Handle POI click
-  const handlePOIPress = (poi: any) => {
-    if (isReportMode) return;
-    poiBottomSheetRef.current?.present({ poi });
-    if (polygonId[0] == 'C') return; // construction areas
-    bottomSheetRef.current?.present({ id: polygonId });
-  };
-
-  const polygons = useMemo(
-    () => [
-      // Avoidance areas from the database
-      ...(avoidanceAreas || []).map((area) => ({
-        id: String(area.id),
-        coordinates: area.boundary_geojson.coordinates[0].map(
-          (coord: [number, number]) => ({
-            longitude: coord[0],
-            latitude: coord[1],
-          }),
-        ),
-        fillColor: "rgba(255, 0, 0, 0.25)",
-        strokeColor: "rgba(255, 0, 0, 0.5)",
-        strokeWidth: 0.1,
-      })),
-      // User selected aaPoints to report
-      ...(aaPointsReport.length > 0
-        ? [
-            {
-              id: "report-polygon",
-              coordinates: aaPointsReport,
-              fillColor: "rgba(255, 0, 0, 0.25)",
-              strokeColor: "red",
-              strokeWidth: 2,
-            },
-          ]
-        : []),
-      //Construction zones
-      ...(constructionAreas || []).map((area) => ({
-        id: String("C" + area.id),
-        coordinates: area.points.map(
-          (coord: [number, number]) => ({
-            longitude: coord[1],
-            latitude: coord[0],
-          }),
-        ),
-        fillColor: "rgba(255, 153, 0, 0.4)",
-        strokeColor: "rgba(255, 123, 0, 0.7)",
-        strokeWidth: 0.1,
-      })),
-    ],
-    [avoidanceAreas, aaPointsReport, constructionAreas]
-  );
-
-  const markers = useMemo(
-    () => {
-      if (POIs && !isReportMode) {
-        console.log("Pois");
-        console.log(POIs);
-      }
-      
-      const poiMarkers = !isReportMode && zoomLevel >= MIN_ZOOM_FOR_POIS
-        ? (POIs || []).map((poi) => {
-            const marker = {
-              id: String(poi.id),
-              coordinate: {
-                longitude: poi.location_geojson.coordinates[0],
-                latitude: poi.location_geojson.coordinates[1],
-              } satisfies LatLng,
-              icon: getMapIcon(poi.poi_type, poi.metadata) || undefined,
-            };
-            // 📝 ADDED CONSOLE LOGGING HERE
-            console.log(`POI Marker for ID ${marker.id}:`, marker);
-            return marker;
-          })
-        : [];
-
-      return [
-        // User selected aaPoints to report
-        ...aaPointsReport.map((point, index) => ({
-          id: `report-point-${index}`,
-          coordinate: point,
-          icon: mapIcons.point || undefined,
-        })),
-        // Clicked point
-        ...(clickedPoint
-          ? [
-              {
-                id: "clicked-point",
-                coordinate: clickedPoint,
-                icon: mapIcons.crosshair || undefined,
-              },
-            ]
-          : []),
-        // POIs only show if not in report mode
-        ...poiMarkers,
-      ];
-    },
-    [POIs, aaPointsReport, mapIcons, getMapIcon, isReportMode, clickedPoint, zoomLevel],
-  );
-
-  const handleSelectLocation = async (location: {
-    id: string;
-    name: string;
-    address?: string;
-    place_id?: string;
-  }) => {
-    console.log("Selected location:", location);
-    
-    // Close search
-    setIsSearchActive(false);
-    setSearchQuery("");
-    
-    // Fetch full place details
-    if (location.place_id) {
-      const placeDetails = await getPlaceDetails(location.place_id);
-      
-      if (placeDetails) {
-        // TODO: Get user's current location to calculate distance
-        // For now, using a placeholder
-        //const distance = "2.4 Mi";
-        
-        // Open location details bottom sheet with real data
-        locationBottomSheetRef.current?.present(placeDetails);
-      }
-    }
-  };
-
-  const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
-    if (!isSearchActive && text.length > 0) {
-      setIsSearchActive(true);
-    }
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery("");
-  };
-
-  const handleDismissSearch = () => {
-    setIsSearchActive(false);
-    setSearchQuery("");
-  };
+  const emptyPOIs = useMemo(() => [], []);
 
   return (
-  <>
-    <Stack.Screen options={{ title: "Home", headerShown: false }} />
+    <>
+      <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
-    {/* Search Bar - hide in report mode */}
-    {!isReportMode && (
-      <SearchBar 
-        onPress={() => setIsSearchActive(true)}
-        onChangeText={handleSearchChange}
-        onClear={handleClearSearch}
-        value={searchQuery}
-        editable={isSearchActive}
-        isActive={isSearchActive}
-        className="absolute left-4 right-4 z-20"
-        style={{ top: insets.top + 10 }}
-      />
-    )}
-
-    {/* Search Dropdown - hide in report mode */}
-    {!isReportMode && (
-      <SearchDropdown
-        visible={isSearchActive}
-        searchQuery={searchQuery}
-        onSelectLocation={handleSelectLocation}
-        onDismiss={handleDismissSearch}
-        topOffset={insets.top + 70}
-      />
-    )}
-
-      {/* Avoidance Area Bottom Sheet */}
-      <AvoidanceAreaBottomSheet ref={avoidanceAreaBottomSheetRef} />
-      
-      {/* POI Bottom Sheet */}
-      <POIBottomSheet ref={poiBottomSheetRef} allPOIs={POIs ?? []} />
-
-    {/* Location Details Bottom Sheet */}
-    <LocationDetailsBottomSheet ref={locationBottomSheetRef} />
-
-      <MapView
-        style={{ flex: 1 }}
-        onPress={handleMapPress}
-        region={{
-          latitude: 30.282,
-          longitude: -97.733,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        onRegionChangeComplete={(region) => {
-          // Calculate zoom level from latitudeDelta
-          const zoom = Math.round(Math.log(360 / region.latitudeDelta) / Math.LN2);
-          setZoomLevel(zoom);
-        }}
-      >
-        {/* Render polygons */}
-        {polygons.map((polygon, index) => (
-          <Polygon
-            key={polygon.id || `polygon-${index}`}
-            coordinates={polygon.coordinates}
-            fillColor={polygon.fillColor}
-            strokeColor={polygon.strokeColor}
-            strokeWidth={polygon.strokeWidth}
-            tappable={true}
-            onPress={() => {
-              if (polygon.id && polygon.id !== "report-polygon") {
-                handleAvoidanceAreaPress(polygon.id);
-              }
-            }}
-          />
-        ))}
-
-        {/* Render markers */}
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={marker.coordinate}
-            image={marker.icon}
-            anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => {
-              const poi = POIs?.find((p) => String(p.id) === marker.id);
-              if (poi) {
-                handlePOIPress(poi);
-              }
-            }}
-          />
-        ))}
-      </MapView>
-
-      {isReportMode ? (
-        <>
-          {/* Report mode overlay tint */}
-          <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
-          {/* Report Mode Dialog */}
-          <ReportModal
-            className={`absolute left-10 right-10`}
-            style={{
-              top: insets.top + 25,
-            }}
-            aaPoints={aaPointsReport}
-            currentStep={reportStep}
-            setAAPoints={(points) => setAAPointsReport(points)}
-            setCurrentStep={(index) => setReportStep(index)}
-            onSubmit={async (data) => {
-              const aaPoints = [...data.aaPoints, data.aaPoints[0]];
-
-              await insertAvoidanceArea({
-                user_id: 1, // TODO: REPLACE Temporary user ID
-                name: data.description,
-                boundary_geojson: {
-                  type: "Polygon",
-                  coordinates: [
-                    aaPoints.map((point) => [
-                      point.longitude || 0,
-                      point.latitude || 0,
-                    ]),
-                  ],
-                },
-              });
-            }}
-            onExit={() => {
-              setClickedPoint(null);
-              setIsReportMode(false);
-            }}
-          />
-        </>
-      ) : (
-        // Bottom right button to enter report mode
-        <Button
-          className="absolute bottom-4 right-4"
-          title={"Report"}
-          onPress={() => setIsReportMode(true)}
+      {/* Search bar — hidden in report mode */}
+      {!map.report.state.isReportMode && (
+        <SearchBar
+          onPress={() => map.search.action.open()}
+          onChangeText={map.search.action.handleSearchChange}
+          onClear={() => {
+            map.search.action.clear();
+          }}
+          value={map.search.state.searchQuery}
+          editable={map.search.state.isSearchActive}
+          isActive={map.search.state.isSearchActive}
+          className="absolute left-4 right-4 z-20"
+          style={{ top: insets.top + 10 }}
         />
       )}
+
+      {/* Search results dropdown */}
+      {!map.report.state.isReportMode && (
+        <SearchDropdown
+          visible={map.search.state.isSearchActive}
+          searchQuery={map.search.state.searchQuery}
+          onSelectLocation={map.search.action.handleSelectLocation}
+          onDismiss={() => {
+            map.search.action.clear();
+          }}
+          topOffset={insets.top + 70}
+        />
+      )}
+
+      {/* Bottom sheets */}
+      {isTabFocused ? (
+        <>
+          <AvoidanceAreaBottomSheet ref={map.bottomSheet.ref.avoidanceAreaBottomSheet} />
+          <POIBottomSheet
+            ref={map.bottomSheet.ref.poiBottomSheet}
+            allPOIs={POIs ?? emptyPOIs}
+            handleReviews={map.handleEnterReviewMode}
+            setPoi={map.setPoi}
+          />
+          <SidewalkBottomSheet ref={map.bottomSheet.ref.sidewalkBottomSheet} />
+          <LocationDetailsBottomSheet ref={map.bottomSheet.ref.locationBottomSheet} />
+          <BarrierBottomSheet ref={map.bottomSheet.ref.barrierBottomSheet} />
+          <ConstructionBottomSheet ref={map.bottomSheet.ref.constructionBottomSheet} />
+
+          {/* Review Modal */}
+          <BottomSheetModal
+            ref={map.bottomSheet.ref.reviewSheet}
+            bottomInset={bottomTabBarHeight}
+            backgroundStyle={{ backgroundColor: "transparent" }}
+            enableDynamicSizing={false}
+            snapPoints={["100%"]}
+            enableContentPanningGesture={false}
+            handleComponent={null}
+            stackBehavior="push"
+            animationConfigs={{ duration: 0.1 }}
+            animateOnMount={false}
+          >
+            <ReviewModal
+              key={map.reviewKey}
+              className=""
+              poi_id={map.poi ? map.poi.id : 0}
+              entrances={map.poi ? map.poi.entrances : []}
+              entranceName={map.poi ? map.poi.entrance : "No Entrance Name Found"}
+              building={map.poi && map.poi.building}
+              buildingName={map.poi ? map.poi.buildingName : "No Building Name Found"}
+              onExit={map.handleExitReviewMode}
+            />
+          </BottomSheetModal>
+        </>
+      ) : null}
+
+      {/* ── Mapbox Map ─────────────────────────────────────────────────────── */}
+      <MapView
+        style={{ flex: 1 }}
+        styleURL={
+          isDark
+            ? "mapbox://styles/mapbox/dark-v11"
+            : "mapbox://styles/mapbox/outdoors-v12"
+        }
+        pitchEnabled
+        rotateEnabled
+        // compassEnabled /* Disabled for now, not sure of how it looks */
+        compassViewPosition={1}
+        compassViewMargins={{ x: 16, y: insets.top + 70 }}
+        attributionEnabled
+        logoEnabled
+        onCameraChanged={(state) => setZoomLevel(state.properties.zoom)}
+        compassEnabled={false}
+        onPress={(feature: any) => {
+          if (map.featureTappedRef.current) {
+            map.featureTappedRef.current = false;
+            return;
+          }
+          if (map.report.state.isReportMode) {
+            const coords = (feature as GeoJSON.Feature<GeoJSON.Point>).geometry?.coordinates;
+            if (coords) {
+              map.report.action.handleMapTap({
+                longitude: coords[0] as number,
+                latitude: coords[1] as number,
+              });
+            }
+          } else {
+            map.bottomSheet.action.closeAllSheets();
+            map.search.action.clear();
+          }
+        }}
+      >
+        {/* Camera */}
+        <Camera
+          ref={map.cameraRef}
+          defaultSettings={{
+            centerCoordinate: MapConstants.UT_CENTER,
+            zoomLevel: 15,
+            pitch: 45,
+          }}
+        />
+
+        {/* ── Icon images for POI SymbolLayer ──────────────────────────────── */}
+        <Images
+          images={{
+            autoDoor: require("../../assets/map_icons/auto_door.png"),
+            manualDoor: require("../../assets/map_icons/manual_door.png"),
+            rampIcon: require("../../assets/map_icons/ramp.png"),
+          }}
+        />
+
+        <MapLayers
+          buildingsGeoJSON={buildingsGeoJSON}
+          sidewalksGeoJSON={sidewalksGeoJSON}
+          barriersGeoJSON={barriersGeoJSON}
+          rampsGeoJSON={rampsGeoJSON}
+          avoidanceGeoJSON={avoidanceGeoJSON}
+          constructionGeoJSON={constructionGeoJSON}
+          poiGeoJSON={poiGeoJSON}
+          reportGeoJSON={map.report.state.reportGeoJSON}
+          showDetailedLayers={map.showDetailedLayers}
+          isReportMode={map.report.state.isReportMode}
+          aaPointsReport={map.report.state.aaPointsReport}
+          clickedPoint={map.report.state.clickedPoint}
+          clusteredEntrancePOIs={clusteredEntrancePOIs}
+          buildingStyles={getBuildingStyles(isDark)}
+          mapIcons={mapIcons}
+          onBuildingPress={map.mapPress.action.handleBuildingTap}
+          onSidewalkPress={map.mapPress.action.handleSidewalkPress}
+          onAvoidanceAreaPress={map.mapPress.action.handleAvoidanceAreaPress}
+          onConstructionPress={map.mapPress.action.handleConstructionPress}
+          onBarrierPress={map.mapPress.action.handleBarrierPress}
+          onPOIPress={map.mapPress.action.handlePOIPress}
+          onRampPress={map.mapPress.action.handleRampPress}
+          onFeatureTapped={() => { map.featureTappedRef.current = true; }}
+        />
+      </MapView>
+      <ReportOverlay
+        report={map.report}
+        canReport={canReport}
+        insets={insets}
+        insertAvoidanceArea={insertAvoidanceArea}
+        onEnterReport={() => {
+          map.bottomSheet.action.closeAllSheets();
+          map.search.action.clear();
+          map.report.action.setIsReportMode(true);
+        }}
+      />
     </>
   );
 }

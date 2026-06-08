@@ -17,7 +17,7 @@ import {
   UserIcon 
 } from "phosphor-react-native";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import colors from "~/types/colors";
 
 // Mock user data - replace with actual user context/API call

@@ -1,16 +1,15 @@
 // Hook to handle map searching
 
-import { useCallback, useState } from "react";
-import { Camera } from "@rnmapbox/maps";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-
-import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
-import { buildingToPlaceDetails, findBuilding, searchBuildings } from "~/utils/buildingDatabase";
-import { findCampusBuildingFeature, isLikelyCampusCoordinate } from "~/src/features/pois/buildingUtils";
-import { buildPoiFromCampusBuilding } from "~/src/features/pois/poiBuildingUtils";
-import { type LocationDetailsBottomSheetRef } from "~/src/features/components/LocationDetailsBottomSheet";
+import { Camera } from "@rnmapbox/maps";
+import { useCallback, useState } from "react";
 
 import buildingsData from "~/assets/geojson/buildings_simple.json";
+import { type LocationDetailsBottomSheetRef } from "~/src/features/components/LocationDetailsBottomSheet";
+import { findCampusBuildingFeature, isLikelyCampusCoordinate } from "~/src/features/pois/buildingUtils";
+import { buildPoiFromCampusBuilding } from "~/src/features/pois/poiBuildingUtils";
+import { buildingToPlaceDetails, findBuilding, searchBuildings } from "~/utils/buildingDatabase";
+import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
 
 const looksLikeCampusAbbreviation = (query: string) => {
   const normalized = query.trim().toUpperCase();

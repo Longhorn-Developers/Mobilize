@@ -1,15 +1,16 @@
 // Main screen controller for the map
 
-import { useCallback, useRef, useState } from "react";
 import { Camera } from "@rnmapbox/maps";
 import { useFocusEffect } from "expo-router";
-import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
+import { useCallback, useRef, useState } from "react";
+
+import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
 import { useMapBottomSheets } from "~/src/features/map/hooks/useMapBottomSheets";
 import { useMapOverlay } from "~/src/features/map/hooks/useMapOverlay";
-import { useReportMode } from "~/src/features/map/hooks/useReportMode";
-import { useMapSearch } from "~/src/features/map/hooks/useMapSearch";
 import { useMapPressHandlers } from "~/src/features/map/hooks/useMapPressHandlers";
-import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import { useMapSearch } from "~/src/features/map/hooks/useMapSearch";
+import { useReportMode } from "~/src/features/map/hooks/useReportMode";
+import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
 
 export function useMapScreenController({
   isTabFocused,

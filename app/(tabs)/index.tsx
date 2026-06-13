@@ -22,6 +22,15 @@ import ReviewModal from "~/src/features/components/ReviewModal";
 import { SearchBar } from "~/src/features/components/SearchBar";
 import { SearchDropdown } from "~/src/features/components/SearchDropdown";
 import SidewalkBottomSheet, { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
+import { getBuildingStyles } from "~/src/features/map/buildingStyles";
+import * as MapConstants from "~/src/features/map/constants";
+import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
+import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
+import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
+import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
+import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
+import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
+import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
   usePOIs,
   useAvoidanceAreas,
@@ -30,18 +39,7 @@ import {
 } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
-import useMapIcons from "~/utils/useMapIcons";
-
-import * as MapConstants from "~/src/features/map/constants";
-
-import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
-import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
-import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
-import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
-import { getBuildingStyles } from "~/src/features/map/buildingStyles";
-import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
-import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
-import { useMapScreenController } from "~/src/features/map/useMapScreenController";
+import { mapIcons } from "~/utils/useMapIcons";
 // Initialise Mapbox
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
@@ -49,7 +47,6 @@ Mapbox.setAccessToken(mapboxToken);
 
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const isTabFocused = useIsFocused();
   const { user } = useAuth();

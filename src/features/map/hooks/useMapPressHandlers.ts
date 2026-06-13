@@ -1,17 +1,17 @@
 // Hook to handle map feature press events (buildings, ramps, POIs, sidewalks, barriers, etc.)
 
-import { useCallback } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
+import { useCallback } from "react";
 import Toast from "react-native-toast-message";
 
+import buildingsData from "~/assets/geojson/buildings_simple.json";
 import { type LocationDetailsBottomSheetRef } from "~/src/features/components/LocationDetailsBottomSheet";
 import { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
-import { apiClient } from "~/utils/api-client";
-import { buildingToPlaceDetails, findBuilding } from "~/utils/buildingDatabase";
 import { findCampusBuildingFeature } from "~/src/features/pois/buildingUtils";
 import { buildPoiFromCampusBuilding } from "~/src/features/pois/poiBuildingUtils";
+import { apiClient } from "~/utils/api-client";
+import { buildingToPlaceDetails, findBuilding } from "~/utils/buildingDatabase";
 
-import buildingsData from "~/assets/geojson/buildings_simple.json";
 
 type UseMapPressHandlersParams = {
   isReportMode: boolean;

@@ -1,6 +1,7 @@
 // Utility functions for buildings as defined in ~/assets/geojson/bulidings_simple.geojson
 
 import * as turf from "@turf/turf";
+
 import buildingsData from "~/assets/geojson/buildings_simple.json";
 import {
   CAMPUS_MATCH_RADIUS_KM,

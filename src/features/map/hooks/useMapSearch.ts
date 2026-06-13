@@ -1,60 +1,46 @@
-/**
- * Manages search state and the `handleSelectLocation` flow for the map screen.
- *
- * `handleSelectLocation` resolves a search result to a Google Place, animates
- * the camera, and opens the correct bottom sheet (POI or location details).
- * It uses the overlay epoch/guard system so stale requests don't open sheets
- * after the user has already dismissed search.
- */
+// Hook to handle map searching
+
 import { useCallback, useState } from "react";
-import type { RefObject } from "react";
+import { Camera } from "@rnmapbox/maps";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 
-import type { LocationDetailsBottomSheetRef } from "~/components/LocationDetailsBottomSheet";
-import {
-  buildingToPlaceDetails,
-  findBuilding,
-  searchBuildings,
-} from "~/utils/buildingDatabase";
 import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
+import { buildingToPlaceDetails, findBuilding, searchBuildings } from "~/utils/buildingDatabase";
+import { findCampusBuildingFeature, isLikelyCampusCoordinate } from "~/src/features/pois/buildingUtils";
+import { buildPoiFromCampusBuilding } from "~/src/features/pois/poiBuildingUtils";
+import { type LocationDetailsBottomSheetRef } from "~/src/features/components/LocationDetailsBottomSheet";
 
-import buildingsData from "../assets/geojson/buildings_simple.json";
+import buildingsData from "~/assets/geojson/buildings_simple.json";
 
 const looksLikeCampusAbbreviation = (query: string) => {
   const normalized = query.trim().toUpperCase();
   return /^[A-Z0-9]{2,6}$/.test(normalized);
 };
 
-type UseMapSearchOptions = {
-  /** Ref to the Mapbox Camera, only `setCamera` is called so we use a structural type. */
-  cameraRef: RefObject<{ setCamera: (opts: Record<string, unknown>) => void } | null>;
-  locationBottomSheetRef: RefObject<LocationDetailsBottomSheetRef | null>;
-  /** Ref to the POI bottom sheet, only `present` and `dismiss` are called. */
-  poiBottomSheetRef: RefObject<{ present: (data?: Record<string, unknown>) => void; dismiss: () => void } | null>;
+type UseMapSearchParams = {
+  cameraRef: React.RefObject<Camera | null>;
+  entrances: any[];
+  locationBottomSheet: React.RefObject<LocationDetailsBottomSheetRef | null>;
+  poiBottomSheet: React.RefObject<BottomSheetModal | null>;
   /** From useMapOverlay */
   beginOverlayAction: () => number;
   canPresent: (epoch: number) => boolean;
   guardedPresent: (epoch: number, fn: () => void, name: string) => boolean;
   registerAbortController: () => AbortController;
   releaseAbortController: (c: AbortController) => void;
-  /** From the component, resolves a place + building to a reviewable POI object */
-  buildPoiFromCampusBuilding: (placeDetails: any, buildingFeature: any) => any;
-  /** From the component, finds a matching building polygon for coordinates/name */
-  findCampusBuildingFeature: (
-    lat: number,
-    lng: number,
-    name?: string,
-    address?: string,
-  ) => any;
-  isLikelyCampusCoordinate: (lat: number, lng: number) => boolean;
 };
 
 export function useMapSearch({
-  cameraRef, locationBottomSheetRef, poiBottomSheetRef,
-  beginOverlayAction, canPresent, guardedPresent,
-  registerAbortController, releaseAbortController,
-  buildPoiFromCampusBuilding, findCampusBuildingFeature,
-  isLikelyCampusCoordinate,
-}: UseMapSearchOptions) {
+  cameraRef,
+  entrances,
+  locationBottomSheet,
+  poiBottomSheet,
+  beginOverlayAction,
+  canPresent,
+  guardedPresent,
+  registerAbortController,
+  releaseAbortController,
+}: UseMapSearchParams) {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -85,15 +71,14 @@ export function useMapSearch({
               searchBuildings(queryText, 1).length > 0 ||
               looksLikeCampusAbbreviation(queryText);
 
-            if (likelyCampusIntent) 
-            {
+            if (likelyCampusIntent) {
               const campusResults = await searchPlaces(queryText, { scope: "campus" });
-              if (controller.signal.aborted || !canPresent(epoch)) 
+              if (controller.signal.aborted || !canPresent(epoch))
                 return undefined;
-              if (campusResults[0]?.place_id) 
+              if (campusResults[0]?.place_id)
                 return campusResults[0].place_id;
               const globalResults = await searchPlaces(queryText, { scope: "global" });
-              if (controller.signal.aborted || !canPresent(epoch)) 
+              if (controller.signal.aborted || !canPresent(epoch))
                 return undefined;
               return globalResults[0]?.place_id;
             }
@@ -157,22 +142,22 @@ export function useMapSearch({
           animationDuration: 800,
         });
 
-        const buildingPoi = buildPoiFromCampusBuilding(placeDetails, matchingBuilding);
+        const buildingPoi = buildPoiFromCampusBuilding(entrances, placeDetails, matchingBuilding);
         if (controller.signal.aborted || !canPresent(epoch)) return;
 
         if (buildingPoi) {
           guardedPresent(
             epoch,
             () => {
-              locationBottomSheetRef.current?.dismiss();
-              poiBottomSheetRef.current?.present({ poi: buildingPoi });
+              locationBottomSheet.current?.dismiss();
+              poiBottomSheet.current?.present({ poi: buildingPoi });
             },
             "search_to_poi",
           );
         } else {
           guardedPresent(
             epoch,
-            () => locationBottomSheetRef.current?.present(placeDetails),
+            () => locationBottomSheet.current?.present(placeDetails),
             "search_to_location",
           );
         }
@@ -187,16 +172,21 @@ export function useMapSearch({
       registerAbortController,
       releaseAbortController,
       cameraRef,
-      locationBottomSheetRef,
-      poiBottomSheetRef,
-      buildPoiFromCampusBuilding,
-      findCampusBuildingFeature,
-      isLikelyCampusCoordinate,
+      entrances,
+      locationBottomSheet,
+      poiBottomSheet,
     ],
   );
 
+  const clear = useCallback(() => {
+    setIsSearchActive(false);
+    setSearchQuery("");
+  }, []);
+
+  const open = useCallback(() => setIsSearchActive(true), []);
+
   return {
-    isSearchActive, setIsSearchActive, searchQuery,
-    setSearchQuery, handleSearchChange, handleSelectLocation,
+    state: { isSearchActive, searchQuery },
+    action: { handleSearchChange, handleSelectLocation, clear, open },
   };
 }

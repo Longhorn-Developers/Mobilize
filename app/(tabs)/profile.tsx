@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
 import {

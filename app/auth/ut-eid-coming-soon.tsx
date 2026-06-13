@@ -4,7 +4,7 @@ import { CaretLeft } from "phosphor-react-native";
 import { Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import { APP_ROUTES } from "~/utils/routes";
 
 export default function UTEidComingSoonScreen() {

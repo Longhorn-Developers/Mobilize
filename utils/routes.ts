@@ -9,7 +9,6 @@ export const APP_ROUTES = {
   AUTH_UT_EID_COMING_SOON: "/auth/ut-eid-coming-soon" as const,
   AUTH_PROFILE_SETUP: "/auth/profile-setup" as const,
   AUTH_MOBILITY_PREFERENCES: "/auth/mobility-preferences" as const,
-  AUTH_LOGIN: "/auth/login" as const,
   AUTH_SIGNUP: "/auth/signup" as const,
 } as const;
 

@@ -127,7 +127,7 @@ export function useMapOverlay({
 
   useEffect(() => {
     return () => {
-      if (overlayResetTimerRef.current) 
+      if (overlayResetTimerRef.current)
       {
         clearTimeout(overlayResetTimerRef.current);
       }

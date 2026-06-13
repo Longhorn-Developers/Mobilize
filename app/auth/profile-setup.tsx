@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import { apiClient } from "~/utils/api-client";
 import { isLikelyNetworkError } from "~/utils/request-utils";
 import { APP_ROUTES } from "~/utils/routes";

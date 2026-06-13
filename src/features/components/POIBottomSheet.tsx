@@ -13,7 +13,7 @@ import { typography } from '~/utils/typography';
 import { mapIcons } from "~/utils/useMapIcons";
 import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
 
-import buildingsData from '../assets/geojson/buildings_simple.json';
+import buildingsData from '~/assets/geojson/buildings_simple.json';
 
 interface POIData {
   poi: any;

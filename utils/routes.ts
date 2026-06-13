@@ -1,3 +1,4 @@
+/** Typed route constants. Use these instead of raw string literals to catch renames at compile time. */
 export const APP_ROUTES = {
   ROOT: "/" as const,
   WELCOME: "/welcome" as const,
@@ -22,6 +23,19 @@ type RedirectDecisionInput = {
 
 const ONBOARDING_SCREENS = new Set(["profile-setup", "mobility-preferences"]);
 
+/**
+ * Determines whether the current route requires a redirect based on auth state.
+ *
+ * Returns the target route to navigate to, or `null` if no redirect is needed.
+ *
+ * Three-state machine:
+ *  1. Not authenticated  → redirect to WELCOME (from root, tabs, or onboarding screens)
+ *  2. Authenticated, onboarding incomplete → redirect to PROFILE_SETUP
+ *  3. Authenticated + onboarding complete → redirect to TABS (from root, welcome, auth)
+ *
+ * The OAuth callback screen (`/auth/callback`) is always allowed through so it can
+ * consume the token before any further navigation occurs.
+ */
 export function getAuthRedirectTarget({
   isAuthenticated,
   onboardingComplete,

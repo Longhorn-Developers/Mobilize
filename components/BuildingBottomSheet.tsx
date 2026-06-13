@@ -5,8 +5,8 @@ import { Linking, Text, Pressable, View } from "react-native";
 
 import { LocationPin } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
-import { typography } from "~/utils/typography";
 import { useTheme } from "~/utils/ThemeContext";
+import { typography } from "~/utils/typography";
 
 export interface BuildingProperties {
   Description?: string;

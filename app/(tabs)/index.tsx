@@ -1,25 +1,12 @@
-﻿import { BottomSheetModal } from "@gorhom/bottom-sheet";
+﻿/** Main map screen — Mapbox accessibility overlay, building/POI/avoidance-area tap handling, search, and all bottom sheets. Requires authenticated + onboarded user. */
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
-import Mapbox, {
-  Camera,
-  CircleLayer,
-  FillExtrusionLayer,
-  FillLayer,
-  Images,
-  LineLayer,
-  MapView,
-  PointAnnotation,
-  RasterDemSource,
-  ShapeSource,
-  SkyLayer,
-  SymbolLayer,
-  Terrain,
-} from "@rnmapbox/maps";
+import Mapbox, { Camera, MapView } from "@rnmapbox/maps";
 import * as turf from "@turf/turf";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, InteractionManager, View } from "react-native";
+import { InteractionManager, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -31,12 +18,15 @@ import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
 } from "~/components/LocationDetailsBottomSheet";
+import { MapLayersRenderer } from "~/components/map/MapLayersRenderer";
 import POIBottomSheet, { POIReviewData } from "~/components/POIBottomSheet";
 import ReportModal from "~/components/ReportModal";
 import ReviewModal from "~/components/ReviewModal";
 import { SearchBar } from "~/components/SearchBar";
 import { SearchDropdown } from "~/components/SearchDropdown";
 import SidewalkBottomSheet, { type SidewalkSegment } from "~/components/SidewalkBottomSheet";
+import { useMapOverlay } from "~/hooks/useMapOverlay";
+import { useMapSearch } from "~/hooks/useMapSearch";
 import { apiClient } from "~/utils/api-client";
 import {
   usePOIs,
@@ -46,14 +36,12 @@ import {
 } from "~/utils/api-hooks";
 import {
   buildingToPlaceDetails,
+  extractBuildingAbbreviation,
   findBuilding,
-  searchBuildings,
 } from "~/utils/buildingDatabase";
-import { getPlaceDetails, searchPlaces } from "~/utils/googlePlaces";
 import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
-import useMapIcons from "~/utils/useMapIcons";
 
 import buildingsData from "../../assets/geojson/buildings_simple.json";
 
@@ -62,7 +50,7 @@ const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
 Mapbox.setAccessToken(mapboxToken);
 
-// ── Constants ──────────────────────────────────────────────────────────────────
+// Constants 
 const UT_CENTER: [number, number] = [-97.733, 30.282];
 const UT_CAMPUS_BOUNDS = {
   low: { latitude: 30.269, longitude: -97.747 },
@@ -84,26 +72,15 @@ type ReviewContext = POIReviewData & { id: number };
 const normalizeCampusText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-const extractBuildingAbbreviation = (value?: string | null): string | null => {
-  if (!value) return null;
-  const parenMatch = value.match(/\(([A-Za-z0-9]{2,8})\)/);
-  if (parenMatch?.[1]) return parenMatch[1].toUpperCase();
-  const leadingCodeMatch = value.match(/^([A-Za-z0-9]{2,8})\b/);
-  if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
-  return null;
-};
 
-const looksLikeCampusAbbreviation = (query: string) => {
-  const normalized = query.trim().toUpperCase();
-  return /^[A-Z0-9]{2,6}$/.test(normalized);
-};
-
-const isEntrancePoi = (poi: any) => {
+const isEntrancePoi = (poi: any) => 
+{
   const poiType = String(poi?.poi_type ?? "").toLowerCase();
   return poiType.includes("entrance") && !poiType.includes("ramp");
 };
 
-const isLikelyCampusCoordinate = (latitude: number, longitude: number) => {
+const isLikelyCampusCoordinate = (latitude: number, longitude: number) => 
+{
   const withinBounds =
     latitude >= UT_CAMPUS_BOUNDS.low.latitude &&
     latitude <= UT_CAMPUS_BOUNDS.high.latitude &&
@@ -113,7 +90,8 @@ const isLikelyCampusCoordinate = (latitude: number, longitude: number) => {
   if (!withinBounds) return false;
 
   const point = turf.point([longitude, latitude]);
-  const distanceKm = turf.distance(point, turf.point(UT_CENTER), {
+  const distanceKm = turf.distance(point, turf.point(UT_CENTER), 
+  {
     units: "kilometers",
   }); // need to change this to current location once out of testing
   return Number.isFinite(distanceKm) && distanceKm <= CAMPUS_MATCH_RADIUS_KM;
@@ -200,7 +178,6 @@ function clusterPOIs(pois: any[]): any[] {
 
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const mapIcons = useMapIcons();
   const bottomTabBarHeight = useBottomTabBarHeight();
   const isTabFocused = useIsFocused();
   const { user } = useAuth();
@@ -219,12 +196,10 @@ export default function Home() {
   const sidewalkBottomSheetRef = useRef<BottomSheetModal>(null);
   const barrierBottomSheetRef = useRef<BottomSheetModal>(null);
   const constructionBottomSheetRef = useRef<BottomSheetModal>(null);
-  const featureTappedRef = useRef(false);
-  const overlayEpochRef = useRef(0);
-  const isScreenActiveRef = useRef(isTabFocused);
-  const isClosingRef = useRef(false);
-  const overlayResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortControllersRef = useRef<Set<AbortController>>(new Set());
+  const onDismissSheetsRef = useRef<() => void>(() => {});
+  const onResetUiStateRef = useRef<() => void>(() => {});
+  const stableDismissSheets = useCallback(() => onDismissSheetsRef.current(), []);
+  const stableResetUiState = useCallback(() => onResetUiStateRef.current(), []);
 
   // ── GeoJSON — deferred load so the app doesn't freeze on startup ───────────
   const [sidewalksGeoJSON, setSidewalksGeoJSON] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
@@ -250,10 +225,8 @@ export default function Home() {
   const [clickedPoint, setClickedPoint] = useState<LatLng | null>(null);
   const [reportStep, setReportStep] = useState(0);
   const [Route] = useState<[number, number][] | null>(null);
-  const [isSearchActive, setIsSearchActive] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
-  const [zoomLevel, setZoomLevel] = useState(15);
+  const [, setZoomLevel] = useState(15);
 
   // Reviews
   const [reviewKey, setReviewKey] = useState(0);
@@ -368,7 +341,8 @@ export default function Home() {
     placeName?: string,
     placeAddress?: string,
   ) => {
-    if (!isLikelyCampusCoordinate(latitude, longitude)) {
+    if (!isLikelyCampusCoordinate(latitude, longitude)) 
+    {
       return null;
     }
 
@@ -397,7 +371,8 @@ export default function Home() {
     }
 
     const normalizedName = normalizeCampusText(placeName);
-    if (normalizedName) {
+    if (normalizedName) 
+      {
       const nameMatch = features.find((feature) => {
         const description = normalizeCampusText(feature?.properties?.Description);
         const abbr = normalizeCampusText(feature?.properties?.Building_Abbr);
@@ -479,59 +454,42 @@ export default function Home() {
     };
   }, [findEntrancePoiForBuilding]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Overlay + search hooks ─────────────────────────────────────────────────
 
-  const beginOverlayAction = useCallback(() => overlayEpochRef.current, []);
+  const {
+    featureTappedRef,
+    beginOverlayAction,
+    canPresent,
+    guardedPresent,
+    registerAbortController,
+    releaseAbortController,
+    closeAllSheets,
+  } = useMapOverlay({
+    isTabFocused,
+    onDismissSheets: stableDismissSheets,
+    onResetUiState: stableResetUiState,
+  });
 
-  const canPresent = useCallback((epoch: number) => {
-    return (
-      isScreenActiveRef.current &&
-      !isClosingRef.current &&
-      epoch === overlayEpochRef.current
-    );
-  }, []);
-
-  const registerAbortController = useCallback(() => {
-    const controller = new AbortController();
-    abortControllersRef.current.add(controller);
-    return controller;
-  }, []);
-
-  const releaseAbortController = useCallback((controller: AbortController) => {
-    abortControllersRef.current.delete(controller);
-  }, []);
-
-  const abortAllPendingActions = useCallback(() => {
-    abortControllersRef.current.forEach((controller) => {
-      try {
-        controller.abort();
-      } catch {
-        // Ignore individual abort failures.
-      }
-    });
-    abortControllersRef.current.clear();
-  }, []);
-
-  const guardedPresent = useCallback(
-    (epoch: number, presentFn: () => void, actionName: string) => {
-      if (!canPresent(epoch)) {
-        if (__DEV__) {
-          console.log(
-            `[overlay] open_blocked_stale action=${actionName} epoch=${epoch} current=${overlayEpochRef.current}`,
-          );
-        }
-        return false;
-      }
-      presentFn();
-      if (__DEV__) {
-        console.log(
-          `[overlay] open_attempt action=${actionName} epoch=${epoch}`,
-        );
-      }
-      return true;
-    },
-    [canPresent],
-  );
+  const {
+    isSearchActive,
+    setIsSearchActive,
+    searchQuery,
+    setSearchQuery,
+    handleSearchChange,
+    handleSelectLocation,
+  } = useMapSearch({
+    cameraRef,
+    locationBottomSheetRef,
+    poiBottomSheetRef,
+    beginOverlayAction,
+    canPresent,
+    guardedPresent,
+    registerAbortController,
+    releaseAbortController,
+    buildPoiFromCampusBuilding,
+    findCampusBuildingFeature,
+    isLikelyCampusCoordinate,
+  });
 
   const isPointValid = (point: LatLng) => {
     if (aaPointsReport.length < 3) return true;
@@ -567,15 +525,9 @@ export default function Home() {
     setReviewKey((prevKey) => prevKey + 1);
   }, []);
 
-  const closeAllSheets = useCallback(() => {
-    overlayEpochRef.current += 1;
-    isClosingRef.current = true;
-    abortAllPendingActions();
-    if (overlayResetTimerRef.current) {
-      clearTimeout(overlayResetTimerRef.current);
-      overlayResetTimerRef.current = null;
-    }
-
+  // Keep stable callback refs current each render so closeAllSheets
+  // (from useMapOverlay) always calls the latest implementations.
+  onDismissSheetsRef.current = () => {
     avoidanceAreaBottomSheetRef.current?.dismiss();
     poiBottomSheetRef.current?.dismiss();
     sidewalkBottomSheetRef.current?.dismiss();
@@ -583,22 +535,15 @@ export default function Home() {
     barrierBottomSheetRef.current?.dismiss();
     constructionBottomSheetRef.current?.dismiss();
     forceCloseReview();
+  };
+  onResetUiStateRef.current = () => {
     setIsSearchActive(false);
     setSearchQuery("");
     setIsReportMode(false);
     setAAPointsReport([]);
     setClickedPoint(null);
     setReportStep(0);
-
-    if (__DEV__) {
-      console.log(`[overlay] closed_all epoch=${overlayEpochRef.current}`);
-    }
-
-    overlayResetTimerRef.current = setTimeout(() => {
-      isClosingRef.current = false;
-      overlayResetTimerRef.current = null;
-    }, 220);
-  }, [abortAllPendingActions, forceCloseReview]);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -613,33 +558,6 @@ export default function Home() {
       };
     }, []),
   );
-
-  useFocusEffect(
-    useCallback(() => {
-      isScreenActiveRef.current = true;
-      isClosingRef.current = false;
-      return () => {
-        isScreenActiveRef.current = false;
-        closeAllSheets();
-      };
-    }, [closeAllSheets]),
-  );
-
-  useEffect(() => {
-    isScreenActiveRef.current = isTabFocused;
-    if (isTabFocused) return;
-    closeAllSheets();
-  }, [isTabFocused, closeAllSheets]);
-
-  useEffect(() => {
-    return () => {
-      if (overlayResetTimerRef.current) {
-        clearTimeout(overlayResetTimerRef.current);
-      }
-      abortAllPendingActions();
-      isScreenActiveRef.current = false;
-    };
-  }, [abortAllPendingActions]);
 
   const handleAvoidanceAreaPress = (polygonId: string) => {
     const area = (avoidanceAreas ?? []).find((a: any) => String(a.id) === polygonId);
@@ -835,139 +753,6 @@ export default function Home() {
   }, [isReportMode, beginOverlayAction, canPresent, buildPoiFromCampusBuilding, guardedPresent]);
 
 
-  const handleSelectLocation = async (location: {
-    id: string;
-    name: string;
-    address?: string;
-    place_id?: string;
-  }) => {
-    const epoch = beginOverlayAction();
-    if (!canPresent(epoch)) return;
-    const controller = registerAbortController();
-
-    // Close search
-    setIsSearchActive(false);
-    setSearchQuery("");
-
-    try {
-      // Resolve missing place_id for recent/manual locations so recenter still works.
-      let resolvedPlaceId = location.place_id;
-      if (!resolvedPlaceId) {
-        const primaryQuery = [location.name, location.address].filter(Boolean).join(" ");
-        const fallbackQuery = location.name;
-
-        const resolvePlaceIdWithScopeFallback = async (queryText: string) => {
-          if (!queryText.trim()) return undefined;
-
-          const likelyCampusIntent =
-            searchBuildings(queryText, 1).length > 0 ||
-            looksLikeCampusAbbreviation(queryText);
-
-          if (likelyCampusIntent) {
-            const campusResults = await searchPlaces(queryText, { scope: "campus" });
-            if (controller.signal.aborted || !canPresent(epoch)) return undefined;
-            if (campusResults[0]?.place_id) return campusResults[0].place_id;
-
-            const globalResults = await searchPlaces(queryText, { scope: "global" });
-            if (controller.signal.aborted || !canPresent(epoch)) return undefined;
-            return globalResults[0]?.place_id;
-          }
-
-          const globalResults = await searchPlaces(queryText, { scope: "global" });
-          if (controller.signal.aborted || !canPresent(epoch)) return undefined;
-          if (globalResults[0]?.place_id) return globalResults[0].place_id;
-
-          const campusResults = await searchPlaces(queryText, { scope: "campus" });
-          if (controller.signal.aborted || !canPresent(epoch)) return undefined;
-          return campusResults[0]?.place_id;
-        };
-
-        resolvedPlaceId = await resolvePlaceIdWithScopeFallback(primaryQuery);
-
-        if (!resolvedPlaceId && fallbackQuery) {
-          resolvedPlaceId = await resolvePlaceIdWithScopeFallback(fallbackQuery);
-        }
-      }
-
-      if (!resolvedPlaceId) {
-        console.error("Could not resolve place_id for selected location", location);
-        return;
-      }
-
-      let placeDetails = null;
-      let matchingBuilding: any = null;
-
-      if (resolvedPlaceId.startsWith("local_")) {
-        const building = findBuilding(resolvedPlaceId.replace(/^local_/, ""));
-        if (building) {
-          placeDetails = buildingToPlaceDetails(building);
-          matchingBuilding =
-            (buildingsData as any).features?.find(
-              (feature: any) =>
-                feature?.properties?.Building_Abbr === building.Building_Abbr,
-            ) ?? null;
-        }
-      } else {
-        placeDetails = await getPlaceDetails(
-          resolvedPlaceId,
-          location.name,
-        );
-        if (controller.signal.aborted || !canPresent(epoch)) return;
-
-        if (placeDetails) {
-          const latitude = placeDetails.geometry.location.lat;
-          const longitude = placeDetails.geometry.location.lng;
-          if (isLikelyCampusCoordinate(latitude, longitude)) {
-            matchingBuilding = findCampusBuildingFeature(
-              latitude,
-              longitude,
-              placeDetails.name,
-              placeDetails.formatted_address,
-            );
-          }
-        }
-      }
-
-      if (!placeDetails || controller.signal.aborted || !canPresent(epoch)) return;
-
-      cameraRef.current?.setCamera({
-        centerCoordinate: [
-          placeDetails.geometry.location.lng,
-          placeDetails.geometry.location.lat,
-        ],
-        zoomLevel: 18,
-        animationDuration: 800,
-      });
-
-      const buildingPoi = buildPoiFromCampusBuilding(placeDetails, matchingBuilding);
-      if (controller.signal.aborted || !canPresent(epoch)) return;
-
-      if (buildingPoi) {
-        guardedPresent(
-          epoch,
-          () => {
-            locationBottomSheetRef.current?.dismiss();
-            poiBottomSheetRef.current?.present({ poi: buildingPoi });
-          },
-          "search_to_poi",
-        );
-      } else {
-        guardedPresent(
-          epoch,
-          () => locationBottomSheetRef.current?.present(placeDetails),
-          "search_to_location",
-        );
-      }
-    } finally {
-      releaseAbortController(controller);
-    }
-  };
-
-  const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
-    if (!isSearchActive && text.length > 0) setIsSearchActive(true);
-  };
-
   // ── Dark-mode-aware layer styles ──────────────────────────────────────────
 
   const buildingExtrusionColor = isDark
@@ -1132,19 +917,23 @@ export default function Home() {
         logoEnabled
         onCameraChanged={(state) => setZoomLevel(state.properties.zoom)}
         onPress={(feature: any) => {
-          if (featureTappedRef.current) {
+          if (featureTappedRef.current) 
+          {
             featureTappedRef.current = false;
             return;
           }
-          if (isReportMode) {
+          if (isReportMode) 
+          {
             const coords = (feature as GeoJSON.Feature<GeoJSON.Point>).geometry?.coordinates;
-            if (coords) {
+            if (coords) 
+              {
               handleMapTap({
                 longitude: coords[0] as number,
                 latitude: coords[1] as number,
               });
             }
-          } else {
+          } else 
+            {
             closeAllSheets();
           }
         }}
@@ -1159,321 +948,39 @@ export default function Home() {
           }}
         />
 
-        {/* ── Icon images for POI SymbolLayer ──────────────────────────────── */}
-        <Images
-          images={{
-            autoDoor: require("../../assets/map_icons/auto_door.png"),
-            manualDoor: require("../../assets/map_icons/manual_door.png"),
-            rampIcon: require("../../assets/map_icons/ramp.png"),
-          }}
+        <MapLayersRenderer
+          buildingsGeoJSON={buildingsGeoJSON}
+          sidewalksGeoJSON={sidewalksGeoJSON}
+          barriersGeoJSON={barriersGeoJSON}
+          rampsGeoJSON={rampsGeoJSON}
+          avoidanceGeoJSON={avoidanceGeoJSON}
+          constructionGeoJSON={constructionGeoJSON}
+          poiGeoJSON={poiGeoJSON}
+          reportGeoJSON={reportGeoJSON}
+          routeGeoJSON={routeGeoJSON}
+          clusteredEntrancePOIs={clusteredEntrancePOIs}
+          aaPointsReport={aaPointsReport}
+          clickedPoint={clickedPoint}
+          showDetailedLayers={showDetailedLayers}
+          isReportMode={isReportMode}
+          buildingExtrusionColor={buildingExtrusionColor}
+          labelTextColor={labelTextColor}
+          labelHaloColor={labelHaloColor}
+          minZoomBuildings={MIN_ZOOM_FOR_BUILDINGS}
+          minZoomPOIs={MIN_ZOOM_FOR_POIS}
+          minZoomSidewalks={MIN_ZOOM_FOR_SIDEWALKS}
+          minZoomBarriers={MIN_ZOOM_FOR_BARRIERS}
+          minZoomLabels={MIN_ZOOM_FOR_LABELS}
+          maxZoomLabels={MAX_ZOOM_FOR_LABELS}
+          featureTappedRef={featureTappedRef}
+          onBuildingPress={handleBuildingTap}
+          onSidewalkPress={handleSidewalkPress}
+          onAvoidanceAreaPress={handleAvoidanceAreaPress}
+          onConstructionPress={handleConstructionPress}
+          onBarrierPress={handleBarrierPress}
+          onPOIPress={handlePOIPress}
+          onRampPress={handleRampPress}
         />
-
-        {/* ── 3D Terrain ───────────────────────────────────────────────────── */}
-        <RasterDemSource
-          id="mapbox-dem"
-          url="mapbox://mapbox.mapbox-terrain-dem-v1"
-          tileSize={512}
-          maxZoomLevel={14}
-        />
-        <Terrain sourceID="mapbox-dem" exaggeration={1.5} />
-
-        {/* ── Atmospheric sky ──────────────────────────────────────────────── */}
-        <SkyLayer
-          id="sky"
-          style={{
-            skyType: "atmosphere",
-            skyAtmosphereSun: [0.0, 90.0],
-            skyAtmosphereSunIntensity: 15,
-          }}
-        />
-
-        {/* ── 3D Campus Buildings + Abbreviation Labels ────────────────────── */}
-        <ShapeSource
-          id="campus-buildings"
-          shape={buildingsGeoJSON}
-          onPress={(e: any) => {
-            if (isReportMode) return;
-            featureTappedRef.current = true;
-            const feature = e.features[0];
-            if (feature) handleBuildingTap(feature as GeoJSON.Feature);
-          }}
-        >
-          <FillExtrusionLayer
-            id="campus-buildings-3d"
-            minZoomLevel={MIN_ZOOM_FOR_BUILDINGS}
-            maxZoomLevel={30}
-            style={{
-              fillExtrusionColor: buildingExtrusionColor,
-              fillExtrusionHeight: [
-                "interpolate",
-                ["linear"],
-                ["get", "Shape__Area"],
-                0, 5,
-                3000, 8,
-                8000, 13,
-                20000, 18,
-                60000, 26,
-                150000, 40,
-              ],
-              fillExtrusionBase: 0,
-              fillExtrusionVerticalGradient: true,
-              fillExtrusionOpacity: [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                14, 0.6,
-                17, 0.9,
-              ],
-            }}
-          />
-
-          {/* Building abbreviations visible at 2D zoom range */}
-          <SymbolLayer
-            id="campus-building-labels"
-            minZoomLevel={MIN_ZOOM_FOR_LABELS}
-            maxZoomLevel={MAX_ZOOM_FOR_LABELS}
-            style={{
-              textField: ["get", "Building_Abbr"],
-              textSize: 11,
-              textColor: labelTextColor,
-              textHaloColor: labelHaloColor,
-              textHaloWidth: 1.5,
-              textAnchor: "center",
-              textAllowOverlap: false,
-              textIgnorePlacement: false,
-              textFont: ["DIN Offc Pro Medium", "Arial Unicode MS Regular"],
-            }}
-          />
-        </ShapeSource>
-
-        {/* ── Sidewalk accessibility overlay (zoom ≥ 17) ───────────────────── */}
-        {showDetailedLayers && (
-        <ShapeSource
-          id="sidewalks"
-          shape={sidewalksGeoJSON}
-          onPress={(e: any) => {
-            if (isReportMode) return;
-            featureTappedRef.current = true;
-            const feat = e.features[0];
-            if (feat?.properties) {
-              handleSidewalkPress({
-                id: String(feat.id ?? feat.properties.OBJECTID ?? ""),
-                compliant: feat.properties.compliant ?? null,
-                score: feat.properties.score ?? 0,
-              });
-            }
-          }}
-        >
-          <FillLayer
-            id="sidewalk-fill"
-            minZoomLevel={MIN_ZOOM_FOR_SIDEWALKS}
-            style={{
-              fillColor: [
-                "match",
-                ["coalesce", ["get", "compliant"], -1],
-                1, "rgba(34,197,94,0.35)",
-                0, "rgba(239,68,68,0.35)",
-                "rgba(156,163,175,0.25)",
-              ],
-            }}
-          />
-          <LineLayer
-            id="sidewalk-line"
-            minZoomLevel={MIN_ZOOM_FOR_SIDEWALKS}
-            style={{
-              lineColor: [
-                "match",
-                ["coalesce", ["get", "compliant"], -1],
-                1, "rgba(34,197,94,0.7)",
-                0, "rgba(239,68,68,0.7)",
-                "rgba(156,163,175,0.5)",
-              ],
-              lineWidth: 1,
-            }}
-          />
-        </ShapeSource>
-        )}
-
-        {/* ── Avoidance areas ──────────────────────────────────────────────── */}
-        <ShapeSource
-          id="avoidance-areas"
-          shape={avoidanceGeoJSON}
-          onPress={(e: any) => {
-            if (isReportMode) return;
-            featureTappedRef.current = true;
-            const id = e.features[0]?.properties?.id;
-            if (id) handleAvoidanceAreaPress(id);
-          }}
-        >
-          <FillLayer
-            id="avoidance-fill"
-            style={{ fillColor: "rgba(209,0,0,0.2)" }}
-          />
-          <LineLayer
-            id="avoidance-line"
-            style={{ lineColor: "rgba(209,0,0,0.6)", lineWidth: 1.5 }}
-          />
-        </ShapeSource>
-
-        {/* ── Live construction zones (ArcGIS) ─────────────────────────────── */}
-        <ShapeSource
-          id="construction"
-          shape={constructionGeoJSON}
-          onPress={(e: any) => {
-            if (isReportMode) return;
-            featureTappedRef.current = true;
-            const id = e.features[0]?.properties?.id as string;
-            const description = e.features[0]?.properties?.description as string | undefined;
-            if (id) handleConstructionPress(id, description);
-          }}
-        >
-          <FillLayer
-            id="construction-fill"
-            style={{ fillColor: "rgba(245,158,11,0.25)" }}
-          />
-          <LineLayer
-            id="construction-line"
-            style={{ lineColor: "rgba(217,119,6,0.8)", lineWidth: 2 }}
-          />
-        </ShapeSource>
-
-        {/* ── Accessibility barriers (points) ──────────────────────────────── */}
-        {showDetailedLayers && (
-        <ShapeSource
-          id="barriers"
-          shape={barriersGeoJSON}
-          onPress={(e: any) => {
-            if (isReportMode) return;
-            featureTappedRef.current = true;
-            const props = e.features[0]?.properties;
-            if (props) handleBarrierPress(props);
-          }}
-        >
-          <CircleLayer
-            id="barriers-circle"
-            minZoomLevel={MIN_ZOOM_FOR_BARRIERS}
-            style={{
-              circleColor: "#EF4444",
-              circleRadius: [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                16, 4,
-                19, 8,
-              ],
-              circleStrokeColor: "#fff",
-              circleStrokeWidth: 1.5,
-              circleOpacity: 0.9,
-            }}
-          />
-        </ShapeSource>
-        )}
-
-        {/* ── In-progress report polygon ────────────────────────────────────── */}
-        {reportGeoJSON && (
-          <ShapeSource id="report-shape" shape={reportGeoJSON}>
-            <FillLayer
-              id="report-fill"
-              style={{ fillColor: "rgba(255,0,0,0.25)" }}
-              filter={["==", ["geometry-type"], "Polygon"]}
-            />
-            <LineLayer
-              id="report-line"
-              style={{ lineColor: "red", lineWidth: 2 }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* ── Route overlay ────────────────────────────────────────────────── */}
-        {routeGeoJSON && (
-          <ShapeSource id="route-shape" shape={routeGeoJSON}>
-            <LineLayer
-              id="route-line"
-              style={{ lineColor: "#50df49", lineWidth: 4, lineCap: "round", lineJoin: "round" }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* ── Report mode point markers ─────────────────────────────────────── */}
-        {aaPointsReport.map((point, index) => (
-          <PointAnnotation
-            key={`report-point-${index}`}
-            id={`report-point-${index}`}
-            coordinate={[point.longitude, point.latitude]}
-          >
-            <Image source={mapIcons.point} style={{ width: 16, height: 16 }} />
-          </PointAnnotation>
-        ))}
-
-        {clickedPoint && (
-          <PointAnnotation
-            key="clicked-point"
-            id="clicked-point"
-            coordinate={[clickedPoint.longitude, clickedPoint.latitude]}
-          >
-            <Image source={mapIcons.crosshair} style={{ width: 24, height: 24 }} />
-          </PointAnnotation>
-        )}
-
-        {/* ── POI markers ──────────────────────────────────────────────────── */}
-        {!isReportMode && (
-          <ShapeSource
-            id="pois"
-            shape={poiGeoJSON}
-            onPress={(e: any) => {
-              featureTappedRef.current = true;
-              const id = e.features[0]?.properties?.id;
-              const poi = clusteredEntrancePOIs.find((p) => String(p.id) === id);
-              if (poi) handlePOIPress(poi);
-            }}
-          >
-            <SymbolLayer
-              id="poi-symbols"
-              minZoomLevel={MIN_ZOOM_FOR_POIS}
-              style={{
-                iconImage: ["get", "icon"],
-                iconSize: [
-                  "interpolate", ["linear"], ["zoom"],
-                  14, 0.15,
-                  16, 0.25,
-                  18, 0.40,
-                  20, 0.60,
-                ],
-                iconAllowOverlap: true,
-                iconAnchor: "bottom",
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {!isReportMode && (
-          <ShapeSource
-            id="ramps"
-            shape={rampsGeoJSON}
-            onPress={(e: any) => {
-              featureTappedRef.current = true;
-              const feature = e.features[0];
-              if (feature) handleRampPress(feature as GeoJSON.Feature);
-            }}
-          >
-            <SymbolLayer
-              id="ramp-symbols"
-              minZoomLevel={MIN_ZOOM_FOR_POIS}
-              style={{
-                iconImage: "rampIcon",
-                iconSize: [
-                  "interpolate", ["linear"], ["zoom"],
-                  14, 0.15,
-                  16, 0.25,
-                  18, 0.40,
-                  20, 0.60,
-                ],
-                iconAllowOverlap: true,
-                iconAnchor: "bottom",
-              }}
-            />
-          </ShapeSource>
-        )}
       </MapView>
 
       {isReportMode ? (

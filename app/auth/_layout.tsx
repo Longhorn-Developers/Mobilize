@@ -1,10 +1,10 @@
+/** Stack navigator for the auth flow (signup → google-oauth → callback → profile-setup → mobility-preferences). */
 import { Stack } from "expo-router";
 
 export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="signup" />
-      <Stack.Screen name="login" />
       <Stack.Screen name="google-oauth" />
       <Stack.Screen name="callback" />
       <Stack.Screen name="ut-eid-coming-soon" />

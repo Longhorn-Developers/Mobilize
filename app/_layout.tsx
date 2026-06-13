@@ -1,3 +1,5 @@
+/** Root layout — wraps the entire app with QueryClient, AuthProvider, ThemeProvider, GestureHandler, and BottomSheetModalProvider. */
+import "react-native-get-random-values"; // Polyfills crypto.getRandomValues — must load before any code that needs it (Mapbox, Places autocomplete session tokens)
 import "~/global.css";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {

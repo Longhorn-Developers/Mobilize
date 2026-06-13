@@ -1,3 +1,4 @@
+/** Step 1 of onboarding: user sets display name, username, and optional bio. Requires authenticated session. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { PencilSimpleLineIcon } from "phosphor-react-native";
@@ -17,10 +18,7 @@ import { Button } from "~/components/Button";
 import { apiClient } from "~/utils/api-client";
 import { isLikelyNetworkError } from "~/utils/request-utils";
 import { APP_ROUTES } from "~/utils/routes";
-import { useAuth } from "~/utils/useAuth";
-
-const USER_KEY = "auth_user";
-const SESSION_TOKEN_KEY = "auth_session_token";
+import { useAuth, SESSION_TOKEN_KEY, USER_KEY } from "~/utils/useAuth";
 
 export default function ProfileSetupScreen() {
   const [firstName, setFirstName] = useState("");

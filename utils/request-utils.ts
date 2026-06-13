@@ -1,3 +1,14 @@
+/**
+ * Low-level HTTP utilities shared across all mobile API clients.
+ *
+ * Key exports:
+ *  - `fetchWithTimeout`    — wraps fetch with an AbortController deadline
+ *  - `parseJsonResponse`   — reads a Response as typed JSON, throwing on HTML / non-JSON / malformed
+ *  - `ClientRequestError`  — typed error class for all network/API failures
+ *  - `isRetriableCandidateError` — returns true when the error warrants trying the next URL candidate
+ */
+
+/** Milliseconds before a request is aborted with TIMEOUT. Increase for slow connections. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 8000;
 
 export type ClientRequestErrorCode =
@@ -41,6 +52,7 @@ export class ClientRequestError extends Error {
   }
 }
 
+/** Returns true when the error was caused by a network outage or request timeout. */
 export function isLikelyNetworkError(error: unknown) {
   if (error instanceof ClientRequestError) {
     return error.code === "TIMEOUT" || error.code === "NETWORK";
@@ -49,6 +61,11 @@ export function isLikelyNetworkError(error: unknown) {
   return /network request failed|failed to fetch|networkerror|timed out/i.test(message);
 }
 
+/**
+ * Returns true when the error is worth retrying against a different URL candidate.
+ * API_ERROR (4xx/5xx from a reachable server) is NOT retriable — the server responded,
+ * so switching candidates would not help.
+ */
 export function isRetriableCandidateError(error: unknown) {
   return (
     error instanceof ClientRequestError &&
@@ -58,6 +75,48 @@ export function isRetriableCandidateError(error: unknown) {
       error.code === "NON_JSON" ||
       error.code === "MALFORMED_JSON")
   );
+}
+
+/**
+ * Reads a Response body as JSON, throwing a typed ClientRequestError for HTML
+ * responses, non-JSON content types, empty bodies, and malformed JSON.
+ * This is the single canonical JSON-parsing helper — use it instead of
+ * rolling per-module implementations.
+ *
+ * @param response  The fetch Response to parse.
+ * @param urlForError  Optional URL string used in error messages (defaults to response.url).
+ */
+export async function parseJsonResponse<T>(response: Response, urlForError?: string): Promise<T> {
+  const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+  const body = await response.text().catch(() => "(unreadable body)");
+  const preview = body.slice(0, 200) || response.statusText || "Empty response body";
+  const requestUrl = urlForError ?? response.url;
+
+  if (!contentType.includes("application/json")) {
+    const isHtml = /<!doctype html|<html/i.test(body);
+    throw new ClientRequestError(
+      isHtml ? "HTML_RESPONSE" : "NON_JSON",
+      isHtml
+        ? `API returned HTML instead of JSON at ${requestUrl}. Check EXPO_PUBLIC_API_URL and tunnel/local API routing.`
+        : `Non-JSON response (${response.status} ${response.statusText}): ${preview}`,
+      { status: response.status, url: requestUrl, responsePreview: preview },
+    );
+  }
+
+  const trimmed = body.trim();
+  if (!trimmed) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    throw new ClientRequestError(
+      "MALFORMED_JSON",
+      `API returned malformed JSON (${response.status} ${response.statusText})`,
+      { status: response.status, url: requestUrl, responsePreview: preview },
+    );
+  }
 }
 
 export async function fetchWithTimeout(

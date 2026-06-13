@@ -1,3 +1,4 @@
+/** 404 fallback screen — shown when the router cannot match a path. */
 import { Link, Stack } from "expo-router";
 import { Text } from "react-native";
 

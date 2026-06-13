@@ -7,9 +7,10 @@ import Toast from "react-native-toast-message";
 
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
+import { extractBuildingAbbreviation } from "~/utils/buildingDatabase";
 import { useTheme } from "~/utils/ThemeContext";
 import { typography } from '~/utils/typography';
-import useMapIcons from "~/utils/useMapIcons";
+import { mapIcons } from "~/utils/useMapIcons";
 import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
 
 import buildingsData from '../assets/geojson/buildings_simple.json';
@@ -29,17 +30,6 @@ export interface POIReviewData {
 const normalizeText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-const extractBuildingAbbr = (value?: string | null): string | null => {
-  if (!value) return null;
-
-  const parenMatch = value.match(/\(([A-Za-z0-9]{2,6})\)/);
-  if (parenMatch?.[1]) return parenMatch[1].toUpperCase();
-
-  const leadingCodeMatch = value.match(/^([A-Za-z0-9]{2,6})\b/);
-  if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
-
-  return null;
-};
 
 const isEntrancePoi = (entry: any) => {
   const poiType = String(entry?.poi_type ?? "").toLowerCase();
@@ -76,7 +66,6 @@ interface POIContentProps {
 }
 
 const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
-  const mapIcons = useMapIcons();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
@@ -109,9 +98,7 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
       .join(" ");
   };
 
-  const getBuildingAbbr = (str?: string | null) => {
-    return extractBuildingAbbr(str) ?? "";
-  };
+  const getBuildingAbbr = (str?: string | null) => extractBuildingAbbreviation(str) ?? "";
 
   const findBuildingFeature = (abbreviation: string) => {
     if (!abbreviation) return null;

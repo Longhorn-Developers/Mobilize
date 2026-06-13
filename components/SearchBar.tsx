@@ -1,5 +1,6 @@
-import { View, Text, TextInput, TouchableOpacity, ViewStyle } from "react-native";
 import { MagnifyingGlassIcon, XIcon } from "phosphor-react-native";
+import { View, Text, TextInput, TouchableOpacity, ViewStyle } from "react-native";
+
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
 

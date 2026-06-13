@@ -1,3 +1,4 @@
+/** Intermediate screen that launches the Google OAuth WebBrowser session. Requires no auth. */
 import { router, useLocalSearchParams } from "expo-router";
 import { CaretLeft } from "phosphor-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";

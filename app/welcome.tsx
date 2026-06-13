@@ -1,3 +1,4 @@
+/** Landing screen for unauthenticated users — entry point to sign up or sign in. Requires no auth. */
 import { router } from "expo-router";
 import { Image, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

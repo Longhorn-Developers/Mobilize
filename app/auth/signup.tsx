@@ -1,3 +1,4 @@
+/** Entry point for new users — shows Google sign-in option. Requires no auth. */
 import { router } from "expo-router";
 import {
   Image,

@@ -1,3 +1,4 @@
+/** Hono-based Cloudflare Worker serving the MobilizeUT API. Handles Google OAuth, profile CRUD, POIs, reviews, votes, avoidance areas, and proxies to Google Places and ArcGIS. */
 import { eq, getTableColumns, sql, and, isNull, inArray, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Context, Hono } from "hono";
@@ -233,7 +234,11 @@ app.use("/*", cors({
 
 // ── Auth helpers ───────────────────────────────────────────────────────────────
 
-/** Resolves a Bearer token to a user row, or null if missing/expired/invalid. */
+/**
+ * Normalises a D1/SQLite timestamp to a JS Date.
+ * D1 stores timestamps as unix-seconds integers, JS Date strings, or Date objects.
+ * Values ≤ 1_000_000_000_000 are treated as seconds; larger values as milliseconds.
+ */
 const parseDbTimestamp = (value: unknown): Date | null => {
   if (value instanceof Date) return value;
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -253,6 +258,7 @@ const parseDbTimestamp = (value: unknown): Date | null => {
   return null;
 };
 
+/** Resolves a Bearer token to a user row. Returns null if the token is missing, expired, or invalid. */
 async function getAuthUser(db: any, token: string | null | undefined) {
   if (!token) return null;
   const session = await db
@@ -269,6 +275,7 @@ async function getAuthUser(db: any, token: string | null | undefined) {
     .get()) ?? null;
 }
 
+/** Promotes a @utexas.edu user to role="student" if they still have the default role. No-op for other domains. */
 async function ensureStudentRole(db: any, user: any) {
   const email = String(user?.email ?? "").toLowerCase();
   if (email.endsWith("@utexas.edu") && user.role !== "student") {
@@ -301,6 +308,7 @@ async function requireStudent(c: any, db: any) {
   return result;
 }
 
+/** Returns the caller's profile row, or responds 403/404. Requires auth + completed onboarding. */
 async function requireCompletedProfile(
   c: Context<{ Bindings: Bindings; Variables: Variables }>,
 ) {
@@ -321,11 +329,16 @@ async function requireCompletedProfile(
 
 // ── OAuth helpers ──────────────────────────────────────────────────────────────
 
+/**
+ * Encodes a nonce, mobile callback URL, and redirect URI into a URL-safe base64 state blob
+ * passed to Google during the OAuth redirect. Prevents CSRF via the nonce.
+ */
 function encodeOAuthState(nonce: string, callbackURL: string, redirectUri: string): string {
   const payload = JSON.stringify({ n: nonce, cb: callbackURL, ru: redirectUri });
   return btoa(payload).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+/** Reverses encodeOAuthState. Returns null if the state blob is malformed or missing required fields. */
 function decodeOAuthState(state: string): { nonce: string; callbackURL: string; redirectUri?: string } | null {
   try {
     const padded = state.replace(/-/g, "+").replace(/_/g, "/");
@@ -408,12 +421,14 @@ app.get("/health", async (c) => {
 
 // ── POIs ───────────────────────────────────────────────────────────────────────
 
+/** GET /pois — returns all POI rows (no auth required). */
 app.get("/pois", async (c) => {
   const db = c.get("db");
   const pois = await db.select().from(schema.pois);
   return c.json(pois);
 });
 
+/** POST /pois/ramp/resolve — idempotent upsert for ramp POIs sourced from local GeoJSON (no auth required). */
 app.post("/pois/ramp/resolve", async (c) => {
   const db = c.get("db");
 
@@ -480,6 +495,7 @@ app.post("/pois/ramp/resolve", async (c) => {
 
 // ── Avoidance Areas ────────────────────────────────────────────────────────────
 
+/** GET /avoidance_areas — returns all avoidance areas with creator profile (no auth required). */
 app.get("/avoidance_areas", async (c) => {
   const db = c.get("db");
   const areas = await db
@@ -494,6 +510,7 @@ app.get("/avoidance_areas", async (c) => {
   return c.json(areas);
 });
 
+/** GET /avoidance_areas/:id — returns a single avoidance area with creator profile (no auth required). */
 app.get("/avoidance_areas/:id", async (c) => {
   const db = c.get("db");
   const areaId = Number(c.req.param("id"));
@@ -540,6 +557,16 @@ app.post("/avoidance_areas", async (c) => {
     return jsonError(c, 400, "BAD_REQUEST", "Missing required fields");
   }
 
+  // Validate that boundary_geojson is a well-formed GeoJSON Polygon before persisting.
+  if (
+    typeof boundary_geojson !== "object" ||
+    boundary_geojson === null ||
+    (boundary_geojson as any).type !== "Polygon" ||
+    !Array.isArray((boundary_geojson as any).coordinates)
+  ) {
+    return jsonError(c, 400, "BAD_REQUEST", "boundary_geojson must be a valid GeoJSON Polygon");
+  }
+
   const result = await db
     .insert(schema.avoidance_areas)
     .values({
@@ -555,6 +582,7 @@ app.post("/avoidance_areas", async (c) => {
 
 // ── Avoidance Area Reports ─────────────────────────────────────────────────────
 
+/** GET /avoidance_areas/:id/reports — returns all reports/comments for an avoidance area (no auth required). */
 app.get("/avoidance_areas/:id/reports", async (c) => {
   const db = c.get("db");
   const areaId = c.req.param("id");
@@ -610,7 +638,7 @@ app.post("/avoidance_areas/:id/reports", async (c) => {
 
 // ── Profile ────────────────────────────────────────────────────────────────────
 
-// GET current active profile (legacy)
+/** GET /profiles/me — legacy endpoint returning the caller's raw profile row. Requires auth. */
 app.get("/profiles/me", async (c) => {
   const db = c.get("db");
   const user = await requireAuth(c, db);
@@ -671,27 +699,10 @@ app.post("/api/profile", async (c) => {
     .set({ username: username.trim(), name: displayName, updatedAt: new Date() })
     .where(eq(schema.users.id, user.id));
 
-  const existing = await db
-    .select()
-    .from(schema.profiles)
-    .where(eq(schema.profiles.user_id, user.id))
-    .get();
-
-  if (existing) {
-    await db
-      .update(schema.profiles)
-      .set({
-        display_name: displayName,
-        class_year: classYear ?? existing.class_year,
-        major: major ?? existing.major,
-        bio: bio ?? existing.bio,
-        is_anonymous: false,
-        onboarding_completed_at: existing.onboarding_completed_at ?? null,
-        updated_at: new Date(),
-      })
-      .where(eq(schema.profiles.user_id, user.id));
-  } else {
-    await db.insert(schema.profiles).values({
+  // Atomic upsert — avoids a TOCTOU race between the read and write on concurrent requests.
+  // COALESCE preserves existing optional fields when they are not supplied in this request.
+  await db.insert(schema.profiles)
+    .values({
       user_id: user.id,
       display_name: displayName,
       class_year: classYear ?? null,
@@ -701,8 +712,18 @@ app.post("/api/profile", async (c) => {
       onboarding_completed_at: null,
       created_at: new Date(),
       updated_at: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: schema.profiles.user_id,
+      set: {
+        display_name: sql`excluded.display_name`,
+        class_year: sql`COALESCE(excluded.class_year, class_year)`,
+        major: sql`COALESCE(excluded.major, major)`,
+        bio: sql`COALESCE(excluded.bio, bio)`,
+        is_anonymous: false,
+        updated_at: sql`excluded.updated_at`,
+      },
     });
-  }
 
   const updatedProfile = await db
     .select()
@@ -807,6 +828,7 @@ app.get("/api/users/:username", async (c) => {
 
 // ── Google OAuth ───────────────────────────────────────────────────────────────
 
+/** GET /api/auth/signin/google — redirects to Google's OAuth consent screen. Accepts optional callbackURL query param for mobile deep-link return. */
 app.get("/api/auth/signin/google", async (c) => {
   const mobileCallbackURL = c.req.query("callbackURL") ?? "";
   const requestedRedirectUri = (c.req.query("redirectUri") ?? "").trim();
@@ -846,6 +868,7 @@ app.get("/api/auth/signin/google", async (c) => {
   return c.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`, 302);
 });
 
+/** GET /api/auth/callback/google — exchanges the Google authorization code for a session token and redirects the mobile client back via the deep-link callback URL. */
 app.get("/api/auth/callback/google", async (c) => {
   try {
     const rawState = c.req.query("state");
@@ -996,6 +1019,7 @@ app.get("/api/auth/callback/google", async (c) => {
 
 // ── Sign out ───────────────────────────────────────────────────────────────────
 
+/** POST /api/auth/signout — deletes the caller's session row. Idempotent; no-op if token is absent. */
 app.post("/api/auth/signout", async (c) => {
   const token = getBearerToken(c.req.header("Authorization"));
   if (token) {
@@ -1051,6 +1075,11 @@ async function fetchArcGISPage(url: string, timeoutMs: number): Promise<Response
   }
 }
 
+/**
+ * Converts a raw ArcGIS feature into the client-facing shape.
+ * Note: ArcGIS stores coordinates as [x=lng, y=lat]; this swaps them to [lat, lng].
+ * Returns null if the feature has no usable geometry.
+ */
 function convertArcGISFeature(
   f: any,
   idx: number,
@@ -1083,6 +1112,7 @@ function convertArcGISFeature(
   };
 }
 
+/** GET /construction_areas — proxies the UT ArcGIS closed-areas service and returns polygons as [{id, points, description}]. Results are cached for 60 s. No auth required. */
 app.get("/construction_areas", async (c) => {
   if (constructionCache && constructionCache.expiresAt > Date.now()) {
     return c.json(constructionCache.rows);
@@ -1155,6 +1185,7 @@ app.get("/api/me", async (c) => {
   return c.json({ user, profile: profile ?? null, onboardingComplete });
 });
 
+/** POST /places/autocomplete — server-side proxy to Google Places Autocomplete (New) API. Keeps the API key server-side. Accepts {input, sessionToken?, scope?}. scope="campus" restricts results to UT bounds. */
 app.post("/places/autocomplete", async (c) => {
   const apiKey = getGooglePlacesApiKey(c.env);
   if (!apiKey) {
@@ -1244,6 +1275,7 @@ app.post("/places/autocomplete", async (c) => {
   return c.json(results);
 });
 
+/** POST /places/details — server-side proxy to Google Places Details (New) API. Accepts {placeId, sessionToken?, displayName?}. Returns {place_id, name, formatted_address, geometry}. */
 app.post("/places/details", async (c) => {
   const apiKey = getGooglePlacesApiKey(c.env);
   if (!apiKey) {
@@ -1317,7 +1349,7 @@ app.post("/places/details", async (c) => {
 
 // ── Reviews ────────────────────────────────────────────────────────────────────
 
-// GET non-deleted reviews by poi id
+/** GET /reviews?poi_id=N — returns non-deleted reviews for a POI with aggregated vote counts. Authenticated users also receive their own user_vote. */
 app.get("/reviews", async (c) => {
   try {
     const db = c.get("db");
@@ -1389,7 +1421,7 @@ app.get("/reviews", async (c) => {
   }
 });
 
-// POST insert new review
+/** POST /reviews — create (or update existing non-deleted) review for a POI. Requires completed profile. */
 app.post("/reviews", async (c) => {
   try {
     const db = c.get("db");
@@ -1488,7 +1520,7 @@ app.post("/reviews", async (c) => {
   }
 });
 
-// PUT update single existing review
+/** PUT /reviews/:id — update rating, features, and content of an existing review. Caller must be the review author. */
 app.put("/reviews/:id", async (c) => {
   try {
     const db = c.get("db");
@@ -1576,7 +1608,7 @@ app.put("/reviews/:id", async (c) => {
   }
 });
 
-// PUT soft delete review
+/** PUT /reviews/:id/delete — soft-deletes a review by setting deleted_at. Caller must be the review author. */
 app.put("/reviews/:id/delete", async (c) => {
   try {
     const db = c.get("db");
@@ -1613,7 +1645,7 @@ app.put("/reviews/:id/delete", async (c) => {
 
 // ── Votes ──────────────────────────────────────────────────────────────────────
 
-// POST /votes - upsert a vote
+/** POST /votes — upsert a vote (+1 or -1) on a review. Requires completed profile. */
 app.post("/votes", async (c) => {
   try {
     const profile = await requireCompletedProfile(c);
@@ -1667,7 +1699,7 @@ app.post("/votes", async (c) => {
   }
 });
 
-// DELETE active user's vote on specified review
+/** DELETE /votes/:review_id — removes the caller's vote on a review. Requires completed profile. */
 app.delete("/votes/:review_id", async (c) => {
   try {
     const db = c.get("db");

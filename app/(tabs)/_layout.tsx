@@ -1,3 +1,4 @@
+/** Tab bar layout for the main app — defines the Map and Profile tabs. Requires authenticated + onboarded user. */
 import "~/global.css";
 
 import { Tabs } from "expo-router";

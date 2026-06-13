@@ -1,3 +1,4 @@
+/** OAuth deep-link callback screen. Processes the token from the redirect URL and navigates. Requires no auth. */
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Text, View } from "react-native";

@@ -2,12 +2,16 @@
 // Posted by Neil Simpson
 // Retrieved 2026-03-08, License - CC BY-SA 3.0
 
-export default function decode( value: any ) {
+/**
+ * Decodes a Google Encoded Polyline v1 string into an array of [lng, lat] coordinate pairs.
+ * See https://developers.google.com/maps/documentation/utilities/polylinealgorithm for the format spec.
+ */
+export default function decode( value: string ) {
 
-  var values = decode.integers( value )
-  var points = []
+  let values = decode.integers( value )
+  let points = []
 
-  for( var i = 0; i < values.length; i += 2 ) {
+  for( let i = 0; i < values.length; i += 2 ) {
     points.push([
       ( values[ i + 1 ] += ( values[ i - 1 ] || 0 ) ) / 1e5,
       ( values[ i + 0 ] += ( values[ i - 2 ] || 0 ) ) / 1e5,
@@ -18,18 +22,18 @@ export default function decode( value: any ) {
 
 }
 
-decode.sign = function( value: any ) {
+decode.sign = function( value: number ) {
   return value & 1 ? ~( value >>> 1 ) : ( value >>> 1 )
 }
 
-decode.integers = function( value: any ) {
+decode.integers = function( value: string ) {
 
-  var values = []
-  var byte = 0
-  var current = 0
-  var bits = 0
+  let values = []
+  let byte = 0
+  let current = 0
+  let bits = 0
 
-  for( var i = 0; i < value.length; i++ ) {
+  for( let i = 0; i < value.length; i++ ) {
 
     byte = value.charCodeAt( i ) - 63
     current = current | (( byte & 0x1F ) << bits )

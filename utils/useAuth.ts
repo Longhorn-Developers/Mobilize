@@ -1,3 +1,4 @@
+/** Authentication context and provider. Manages session token lifecycle in AsyncStorage, Google OAuth flow via expo-web-browser, and exposes auth state to all screens. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
@@ -14,24 +15,24 @@ import {
 } from "react";
 
 import {
+  getApiBaseCandidates,
+  promoteApiBaseUrl,
+  resolveApiBaseUrl,
+} from "~/utils/api-base";
+import {
   ClientRequestError,
   DEFAULT_REQUEST_TIMEOUT_MS,
   fetchWithTimeout,
   isLikelyNetworkError,
   isRetriableCandidateError,
+  parseJsonResponse,
 } from "~/utils/request-utils";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const LOCAL_API_URL = "http://localhost:54321";
 const CONFIGURED_API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").trim().replace(/\/$/, "");
-const API_URL = CONFIGURED_API_URL || LOCAL_API_URL;
-const API_URL_CANDIDATES = Array.from(
-  new Set([API_URL, LOCAL_API_URL].map((value) => value.replace(/\/$/, ""))),
-).filter(Boolean);
-let activeApiUrl = API_URL_CANDIDATES[0] ?? LOCAL_API_URL;
-const SESSION_TOKEN_KEY = "auth_session_token";
-const USER_KEY = "auth_user";
+export const SESSION_TOKEN_KEY = "auth_session_token";
+export const USER_KEY = "auth_user";
 
 function getOAuthBaseUrl() {
   if (!CONFIGURED_API_URL) {
@@ -44,72 +45,6 @@ function getOAuthBaseUrl() {
   return CONFIGURED_API_URL;
 }
 
-async function safeJson(response: Response, urlForError?: string) {
-  const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
-  const body = await response.text().catch(() => "(unreadable body)");
-  const preview = body.slice(0, 200) || response.statusText || "Empty response body";
-
-  if (!contentType.includes("application/json")) {
-    const isHtml = /<!doctype html|<html/i.test(body);
-    if (isHtml) {
-      throw new ClientRequestError(
-        "HTML_RESPONSE",
-        `API returned HTML instead of JSON at ${urlForError ?? response.url}. Check EXPO_PUBLIC_API_URL and tunnel/local API routing.`,
-        { status: response.status, url: urlForError ?? response.url, responsePreview: preview },
-      );
-    }
-    throw new ClientRequestError(
-      "NON_JSON",
-      `API returned non-JSON (${response.status} ${response.statusText})`,
-      { status: response.status, url: urlForError ?? response.url, responsePreview: preview },
-    );
-  }
-
-  const trimmed = body.trim();
-  if (!trimmed) {
-    return {} as any;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    throw new ClientRequestError(
-      "MALFORMED_JSON",
-      `API returned malformed JSON (${response.status} ${response.statusText})`,
-      { status: response.status, url: urlForError ?? response.url, responsePreview: preview },
-    );
-  }
-}
-
-function getApiBaseCandidates() {
-  return [
-    activeApiUrl,
-    ...API_URL_CANDIDATES.filter((candidate) => candidate !== activeApiUrl),
-  ];
-}
-
-async function resolveApiBaseUrl(): Promise<string> {
-  let fallbackError: unknown = null;
-  for (const candidate of getApiBaseCandidates()) {
-    try {
-      const healthUrl = `${candidate}/health`;
-      const response = await fetchWithTimeout(healthUrl, undefined, DEFAULT_REQUEST_TIMEOUT_MS);
-      await safeJson(response, healthUrl);
-      // Any reachable JSON response (including degraded non-200) is a valid candidate.
-      activeApiUrl = candidate;
-      return candidate;
-    } catch (error) {
-      fallbackError = error;
-      if (!isRetriableCandidateError(error)) {
-        break;
-      }
-    }
-  }
-  if (fallbackError) {
-    console.warn("Could not auto-resolve API base URL:", fallbackError);
-  }
-  return activeApiUrl;
-}
 
 function parseCachedUser(raw: string | null): User | null {
   if (!raw) return null;
@@ -125,6 +60,15 @@ function normalizeCallbackValue(value: string | null | undefined) {
   return trimmed.length ? trimmed : null;
 }
 
+/**
+ * Extracts the session token and any error from a Google OAuth callback.
+ *
+ * Accepts two formats:
+ *   1. A deep-link URL string (e.g. "mobilize://auth/callback?session_token=...")
+ *   2. A plain object with `session_token`, `token`, and `error` fields
+ *
+ * The `signature` field is a stable string used to deduplicate re-renders.
+ */
 function parseOAuthCallbackInput(input: OAuthCallbackInput): {
   token: string | null;
   error: string | null;
@@ -214,6 +158,11 @@ type AuthContextType = AuthState & {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/**
+ * Fetches /api/me using the provided session token.
+ * Tries each URL candidate in order (active URL first), promoting whichever responds.
+ * Returns null if all candidates return 401 or fail with network errors.
+ */
 async function fetchMe(sessionToken: string) {
   let lastError: unknown = null;
   const candidates = getApiBaseCandidates();
@@ -230,7 +179,7 @@ async function fetchMe(sessionToken: string) {
         DEFAULT_REQUEST_TIMEOUT_MS,
       );
 
-      const data = await safeJson(response, requestUrl);
+      const data = await parseJsonResponse<any>(response, requestUrl);
       const hasNextCandidate = index < candidates.length - 1;
 
       if (response.status === 401) {
@@ -241,7 +190,7 @@ async function fetchMe(sessionToken: string) {
       }
 
       // Reachable JSON endpoint: promote candidate.
-      activeApiUrl = baseUrl;
+      promoteApiBaseUrl(baseUrl);
       if (!response.ok) {
         const message = data?.error?.message || data?.message || "Failed to refresh session";
         throw new ClientRequestError(
@@ -398,7 +347,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { success: false, error: parsed.error };
         }
 
-        if (!parsed.token) {
+        // Guard against the server returning a literal "null" string as the token value.
+        if (!parsed.token || parsed.token === "null") {
           setAuthState((prev) => ({ ...prev, isLoading: false }));
           return {
             success: false,
@@ -453,7 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true }));
       const apiBaseUrl = getOAuthBaseUrl();
-      activeApiUrl = apiBaseUrl;
+      promoteApiBaseUrl(apiBaseUrl);
       const redirectUrl = Linking.createURL("auth/callback");
       const redirectUri = `${apiBaseUrl}/api/auth/callback/google`;
       const authUrl = `${apiBaseUrl}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;

@@ -1,17 +1,11 @@
+import { getApiBaseCandidates, promoteApiBaseUrl } from "~/utils/api-base";
 import {
   ClientRequestError,
   DEFAULT_REQUEST_TIMEOUT_MS,
   fetchWithTimeout,
   isRetriableCandidateError,
+  parseJsonResponse,
 } from "~/utils/request-utils";
-
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:54321").replace(/\/+$/, "");
-const FALLBACK_API_BASE_URL = "http://localhost:54321";
-
-const API_BASE_CANDIDATES = Array.from(
-  new Set([FALLBACK_API_BASE_URL, API_BASE_URL].map((url) => url.replace(/\/+$/, ""))),
-).filter(Boolean);
-let activeApiBaseUrl = API_BASE_CANDIDATES[0] ?? FALLBACK_API_BASE_URL;
 
 export interface PlaceAutocompletePrediction {
   place_id: string;
@@ -45,42 +39,6 @@ export interface PlaceDetails {
   types?: string[];
 }
 
-const isJsonResponse = (response: Response) =>
-  (response.headers.get("content-type") ?? "").toLowerCase().includes("application/json");
-
-const parseJsonOrThrow = async <T>(response: Response): Promise<T> => {
-  const text = await response.text();
-  const preview = text.slice(0, 200) || response.statusText || "Empty body";
-  if (!isJsonResponse(response)) {
-    const isHtml = /<!doctype html|<html/i.test(text);
-    throw new ClientRequestError(
-      isHtml ? "HTML_RESPONSE" : "NON_JSON",
-      isHtml
-        ? `API returned HTML instead of JSON while calling Places proxy (${response.status})`
-        : `Non-JSON response (${response.status}): ${preview}`,
-      { status: response.status, responsePreview: preview, url: response.url },
-    );
-  }
-
-  if (!text.trim()) {
-    return {} as T;
-  }
-
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new ClientRequestError("MALFORMED_JSON", `Malformed JSON response (${response.status})`, {
-      status: response.status,
-      responsePreview: preview,
-      url: response.url,
-    });
-  }
-};
-
-const getApiBaseCandidates = () => [
-  activeApiBaseUrl,
-  ...API_BASE_CANDIDATES.filter((candidate) => candidate !== activeApiBaseUrl),
-];
 
 const requestPlacesProxy = async <T>(
   path: "/places/autocomplete" | "/places/details",
@@ -100,10 +58,10 @@ const requestPlacesProxy = async <T>(
         },
         DEFAULT_REQUEST_TIMEOUT_MS,
       );
-      const data = await parseJsonOrThrow<any>(response);
+      const data = await parseJsonResponse<any>(response, requestUrl);
 
       // Candidate proved API reachability by returning JSON.
-      activeApiBaseUrl = apiBase;
+      promoteApiBaseUrl(apiBase);
 
       if (!response.ok) {
         const message = data?.error?.message ?? `Request failed (${response.status})`;
@@ -127,8 +85,11 @@ const requestPlacesProxy = async <T>(
 };
 
 const buildSessionToken = () => {
-  const random = Math.random().toString(36).slice(2, 12);
-  return `places_${Date.now()}_${random}`;
+  // Use crypto.getRandomValues for a well-distributed token; Math.random() is not suitable.
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `places_${Date.now()}_${hex}`;
 };
 
 let activeSessionToken: string | null = null;

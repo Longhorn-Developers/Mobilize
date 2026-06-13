@@ -1,7 +1,5 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { forwardRef, Ref, useImperativeHandle, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TouchableOpacity, View } from "react-native";
 import {
   BookmarkSimpleIcon,
   WarningIcon,
@@ -12,13 +10,16 @@ import {
   ToiletIcon,
   DoorOpenIcon,
 } from "phosphor-react-native";
-import { StarFill, StarBorder } from "~/assets/map_icons/svg_icons";
+import { forwardRef, Ref, useImperativeHandle, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, Text, TouchableOpacity, View } from "react-native";
 
-import { Button } from "./Button";
+import { StarFill, StarBorder } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
 import type { PlaceDetails } from "~/utils/googlePlaces";
 import { formatOpeningHours } from "~/utils/googlePlaces";
 import { useTheme } from "~/utils/ThemeContext";
+
+import { Button } from "./Button";
 
 interface EntranceAccess {
   hasPowerDoor?: boolean;

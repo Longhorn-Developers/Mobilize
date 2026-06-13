@@ -1,3 +1,4 @@
+/** Public profile view — displays any user's profile by username. Accessible without auth. */
 import { useLocalSearchParams, router } from "expo-router";
 import { ArrowLeftIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";

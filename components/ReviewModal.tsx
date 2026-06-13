@@ -1,47 +1,15 @@
-import {
-  Camera,
-  FillLayer,
-  LineLayer,
-  MapView,
-  PointAnnotation,
-  ShapeSource,
-} from "@rnmapbox/maps";
-import {
-  XIcon,
-  QuestionIcon,
-  DotsThreeIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
-  InfoIcon,
-} from "phosphor-react-native";
+import {Camera, FillLayer, LineLayer, MapView, PointAnnotation, ShapeSource, } from "@rnmapbox/maps";
+import {XIcon, QuestionIcon, DotsThreeIcon, ArrowDownIcon, ArrowUpIcon, InfoIcon, } from "phosphor-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
-import {
-  ActivityIndicator,
-  Pressable,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  Image,
-} from "react-native";
+import { ActivityIndicator, Pressable, View, Text, TextInput, TouchableOpacity, FlatList, Image, } from "react-native";
 import Toast from "react-native-toast-message";
-
 import { Wheelchair } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
-import {
-  useDeleteReview,
-  useDeleteVote,
-  useInsertReview,
-  useMyProfile,
-  useReviews,
-  useUpdateReview,
-  useUpsertVote,
-} from "~/utils/api-hooks";
+import {useDeleteReview, useDeleteVote, useInsertReview, useMyProfile, useReviews, useUpdateReview, useUpsertVote,} from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
-import useMapIcons from "~/utils/useMapIcons";
+import { mapIcons } from "~/utils/useMapIcons";
 import { getEntranceLabel } from "~/utils/utils";
 
 import { Button } from "./Button";
@@ -164,11 +132,7 @@ const FeatureButtons = ({
   );
 };
 
-const ReviewContentInput = ({
-  name,
-  defaultValue,
-  control,
-  isDark,
+const ReviewContentInput = ({name, defaultValue, control, isDark,
 }: {
   name: "content";
   defaultValue: string;
@@ -215,7 +179,8 @@ const ReviewCard = ({
   const displayName = review.profile_display_name?.trim() || "UT Student";
   const avatarUrl = review.profile_avatar_url || "";
 
-  const handleVote = async (vote: 1 | -1) => {
+  const handleVote = async (vote: 1 | -1) => 
+    {
     if (isVoting) return;
     setIsVoting(true);
     try {
@@ -399,8 +364,6 @@ const MiniMap = ({
   entrances: any[];
   onSelectEntrance: (entrance: any) => void;
 }) => {
-  const mapIcons = useMapIcons();
-
   const buildingFeature = useMemo(
     () => ({
       type: "FeatureCollection" as const,

@@ -1,3 +1,4 @@
+/** Root loading route — shows a spinner while AuthProvider determines where to navigate (tabs, welcome, or onboarding). */
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootRoute() {

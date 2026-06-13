@@ -1,3 +1,4 @@
+/** Placeholder screen shown when a user taps "Sign in with UT EID" — feature not yet implemented. */
 import { router } from "expo-router";
 import { CaretLeft } from "phosphor-react-native";
 import { Text, TouchableOpacity, View } from "react-native";

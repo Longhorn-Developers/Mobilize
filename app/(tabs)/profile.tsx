@@ -1,3 +1,5 @@
+/** Profile editing screen — displays and allows editing of name, username, bio, mobility preference, and theme. 
+ * Requires authenticated + onboarded user. */
 import { router, useFocusEffect } from "expo-router";
 import {
   MonitorIcon,

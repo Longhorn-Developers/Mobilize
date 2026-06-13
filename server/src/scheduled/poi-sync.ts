@@ -5,8 +5,29 @@ import { kml } from "@tmcw/togeojson";
 
 import { pois } from '../db/schema';
 
-const ACCESSIBLE_ENTRANCES_KML_URL = 'https://www.google.com/maps/d/kml?forcekml=1&mid=1B_X9WRe0kkTlPbfYpmOQz7pHSQs'; // Replace with actual KML data source URL
+/**
+ * KML data source for accessible entrance points on the UT Austin campus.
+ * Hosted as a Google Maps "My Maps" layer exported as KML.
+ * To change the source without a code redeploy, move this to a wrangler.toml [vars] entry.
+ */
+const ACCESSIBLE_ENTRANCES_KML_URL = 'https://www.google.com/maps/d/kml?forcekml=1&mid=1B_X9WRe0kkTlPbfYpmOQz7pHSQs';
 
+/**
+ * Fetches the accessible-entrances KML, converts it to GeoJSON, and upserts
+ * all Point features into the `pois` table as "accessible_entrance" records.
+ *
+ * This is an **upsert-only** sync: existing POIs are updated, but no POIs are
+ * deleted (the KML source does not track removals).
+ *
+ * Conflict resolution: uses `location_geojson` as the unique key, relying on
+ * `JSON.stringify(geometry)` producing identical output for the same coordinates
+ * across consecutive KML fetches.
+ *
+ * Properties extracted from the KML description field:
+ *  - `BldName`    → building name
+ *  - `Auto_Opene` → 1 if door is power-assisted, 0 otherwise
+ *  - `Floor`      → numeric floor level (or null if non-numeric / missing)
+ */
 export async function syncPOIs(env: Env): Promise<void> {
 	const db = drizzle(env.mobilize_db);
 

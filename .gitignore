@@ -27,9 +27,9 @@ android
 
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
-.claude
-.expo
-.idea
+.claude/
+.expo/
+.idea/
 server/.wrangler/state/
 server/.wrangler/tmp/
 graphify-out/
@@ -39,3 +39,6 @@ CLAUDE.md
 AGENTS.md
 .checkpoints/
 .vscode/    
+temp-changelog.md
+scripts/
+

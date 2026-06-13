@@ -26,7 +26,8 @@ import { useAuth } from "~/utils/useAuth";
 
 import { ActionButtonGroup } from "./ActionButtonGroup";
 
-type Polygon = {
+type Polygon = 
+{
   type: "Polygon";
   coordinates: number[][][];
 };
@@ -44,7 +45,8 @@ const commentSchema = z.object({
 
 type CommentFormData = z.infer<typeof commentSchema>;
 
-const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
+const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => 
+{
   const areaId = String(area.id);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
@@ -68,7 +70,8 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
   const { mutateAsync: insertAvoidanceAreaReport } =
     useInsertAvoidanceAreaReport();
 
-  const {
+  const 
+  {
     control,
     handleSubmit,
     reset,
@@ -80,9 +83,11 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
     },
   });
 
-  const handleAddComment = async (data: CommentFormData) => {
+  const handleAddComment = async (data: CommentFormData) => 
+  {
     setIsSubmittingComment(true);
-    try {
+    try 
+    {
       await insertAvoidanceAreaReport({
         avoidance_area_id: areaId,
         title: "User Comment",
@@ -90,14 +95,19 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) => {
       });
       await refetchReports();
       reset();
-    } catch (error) {
+    } 
+    catch (error) 
+    {
       console.error("Failed to add comment:", error);
-    } finally {
+    } 
+    finally 
+    {
       setIsSubmittingComment(false);
     }
   };
 
-  const formatTimeAgo = (dateStr: string | Date) => {
+  const formatTimeAgo = (dateStr: string | Date) => 
+    {
     const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);

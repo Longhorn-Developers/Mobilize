@@ -1,4 +1,6 @@
+/** Public profile view — displays any user's profile by username. Accessible without auth. */
 import { useLocalSearchParams, router } from "expo-router";
+import { ArrowLeftIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import {
   View,
@@ -9,7 +11,6 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeftIcon } from "phosphor-react-native";
 
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
@@ -27,14 +28,26 @@ export default function PublicProfileScreen() {
 
   const [data, setData] = useState<{ user: any; profile: any } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<"not_found" | "network" | null>(null);
 
   useEffect(() => {
     if (!username) return;
+    setLoading(true);
+    setLoadError(null);
     apiClient
       .getPublicProfile(username)
-      .then(setData)
-      .catch(() => setNotFound(true))
+      .then((result) => {
+        setData(result);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error ?? "");
+        if (message.includes("404")) {
+          setLoadError("not_found");
+        } else {
+          setLoadError("network");
+        }
+      })
       .finally(() => setLoading(false));
   }, [username]);
 
@@ -46,10 +59,14 @@ export default function PublicProfileScreen() {
     );
   }
 
-  if (notFound || !data) {
+  if (loadError || !data) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: insets.top }}>
-        <Text className="text-lg text-gray-600">User not found.</Text>
+        <Text className="text-lg text-gray-600">
+          {loadError === "not_found"
+            ? "User not found."
+            : "Could not load this profile right now."}
+        </Text>
         <TouchableOpacity className="mt-4" onPress={() => router.back()}>
           <Text className="text-ut-burntorange">Go back</Text>
         </TouchableOpacity>
@@ -139,7 +156,7 @@ export default function PublicProfileScreen() {
         {!profile && (
           <View className="mb-8 rounded-xl bg-gray-50 p-4">
             <Text className="text-center text-gray-500">
-              This user hasn't set up their profile yet.
+              This user has not set up their profile yet.
             </Text>
           </View>
         )}

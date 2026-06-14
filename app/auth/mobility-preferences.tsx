@@ -1,3 +1,4 @@
+/** Step 2 of onboarding: user selects mobility preference (walking / wheelchair / cane / other). Requires authenticated session. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -11,8 +12,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import { apiClient } from "~/utils/api-client";
+import { isLikelyNetworkError } from "~/utils/request-utils";
+import { APP_ROUTES } from "~/utils/routes";
 import { useAuth } from "~/utils/useAuth";
 
 type MobilityOption = { id: string; title: string };
@@ -30,7 +33,12 @@ export default function MobilityPreferencesScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const insets = useSafeAreaInsets();
-  const { refreshSession, signOut } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    refreshSession,
+    signOut,
+  } = useAuth();
 
   useEffect(() => {
     AsyncStorage.getItem("auth_user").then((json) => {
@@ -42,6 +50,12 @@ export default function MobilityPreferencesScreen() {
   }, []);
 
   const handleNext = async () => {
+    if (!isAuthenticated) {
+      Alert.alert("Session expired", "Please sign in again.");
+      router.replace(APP_ROUTES.WELCOME as any);
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (selectedOption) {
@@ -56,16 +70,31 @@ export default function MobilityPreferencesScreen() {
       const token = await AsyncStorage.getItem("auth_session_token");
       if (!token) {
         Alert.alert("Session expired", "Please sign in again to continue.");
-        router.replace("../welcome" as any);
+        router.replace(APP_ROUTES.WELCOME as any);
         return;
       }
-      router.replace("../(tabs)" as any);
+      const refreshedMe = await apiClient.getMe().catch(() => null);
+      if (!refreshedMe?.onboardingComplete) {
+        Alert.alert(
+          "Profile not finished",
+          "We could not confirm onboarding completion yet. Please try again.",
+        );
+        return;
+      }
+      router.replace(APP_ROUTES.TABS as any);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
       if (message.includes("401")) {
         Alert.alert("Session expired", "Please sign in again to finish onboarding.");
         await signOut();
-        router.replace("../welcome" as any);
+        router.replace(APP_ROUTES.WELCOME as any);
+        return;
+      }
+      if (isLikelyNetworkError(err)) {
+        Alert.alert(
+          "Cannot reach server",
+          "Saving your preference timed out. Please check your connection and API server, then try again.",
+        );
         return;
       }
       console.warn("Could not save mobility preference:", err);
@@ -139,10 +168,11 @@ export default function MobilityPreferencesScreen() {
           {isSaving ? (
             <ActivityIndicator size="large" color="#BF5700" />
           ) : (
-            <Button
+          <Button
               title={selectedOption ? "Save & Continue" : "Skip for now"}
               onPress={handleNext}
               variant="primary"
+              disabled={isSaving || isAuthLoading || !isAuthenticated}
             />
           )}
         </View>

@@ -1,3 +1,5 @@
+/** Root layout — wraps the entire app with QueryClient, AuthProvider, ThemeProvider, GestureHandler, and BottomSheetModalProvider. */
+import "react-native-get-random-values"; // Polyfills crypto.getRandomValues — must load before any code that needs it (Mapbox, Places autocomplete session tokens)
 import "~/global.css";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {
@@ -7,9 +9,10 @@ import {
   onlineManager,
 } from "@tanstack/react-query";
 import * as Network from "expo-network";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { CheckIcon, XIcon } from "phosphor-react-native";
+import { useEffect, useRef } from "react";
 import { AppStateStatus, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Toast, {
@@ -20,9 +23,10 @@ import Toast, {
 import { useSyncQueriesExternal } from "react-query-external-sync";
 
 import colors from "~/types/colors";
+import { getAuthRedirectTarget } from "~/utils/routes";
 import { ThemeProvider, useTheme } from "~/utils/ThemeContext";
 import { useAppState } from "~/utils/useAppState";
-import { AuthProvider } from "~/utils/useAuth";
+import { AuthProvider, useAuth } from "~/utils/useAuth";
 
 function onAppStateChange(status: AppStateStatus) {
   if (Platform.OS !== "web") {
@@ -53,6 +57,47 @@ export default function Layout() {
 
 function App() {
   const { colorScheme } = useTheme();
+  const { isAuthenticated, onboardingComplete, isLoading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+  const lastRedirectRef = useRef<{ target: string; timestamp: number } | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const target = getAuthRedirectTarget({
+      isAuthenticated,
+      onboardingComplete,
+      segments,
+    });
+    if (!target) return;
+
+    const now = Date.now();
+    if (
+      lastRedirectRef.current &&
+      lastRedirectRef.current.target === target &&
+      now - lastRedirectRef.current.timestamp < 800
+    ) {
+      if (__DEV__) {
+        console.log("[auth-guard] deduped redirect", {
+          segments,
+          target,
+        });
+      }
+      return;
+    }
+
+    lastRedirectRef.current = { target, timestamp: now };
+    if (__DEV__) {
+      console.log("[auth-guard] redirect", {
+        isAuthenticated,
+        onboardingComplete,
+        segments,
+        target,
+      });
+    }
+    router.replace(target as any);
+  }, [isAuthenticated, isLoading, onboardingComplete, router, segments]);
 
   const toastConfig = {
     success: (props: { props: ToastConfig }) => (

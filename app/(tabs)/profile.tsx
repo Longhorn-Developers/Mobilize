@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+/** Profile editing screen — displays and allows editing of name, username, bio, mobility preference, and theme. 
+ * Requires authenticated + onboarded user. */
 import { router, useFocusEffect } from "expo-router";
 import {
   MonitorIcon,
@@ -8,21 +9,20 @@ import {
   SignOutIcon,
   SunIcon,
 } from "phosphor-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   ScrollView,
-  Switch,
-  View,
   Text,
   TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
 import {
@@ -30,20 +30,10 @@ import {
   setStoredMapDetailMode,
   type MapDetailMode,
 } from "~/utils/mapPreferences";
+import { isLikelyNetworkError } from "~/utils/request-utils";
+import { APP_ROUTES } from "~/utils/routes";
 import { useTheme, type ThemeMode } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
-
-const SESSION_TOKEN_KEY = "auth_session_token";
-const USER_KEY = "auth_user";
-
-type StoredUser = {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-  username: string | null;
-  role: string;
-};
 
 type ProfileData = {
   display_name: string;
@@ -51,25 +41,30 @@ type ProfileData = {
   major: string | null;
   bio: string | null;
   mobility_preference: string | null;
-  is_anonymous: boolean;
 };
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const { colorScheme, themeMode, setThemeMode } = useTheme();
-  const { signOut } = useAuth();
+  const {
+    user,
+    profile: authProfile,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    signOut,
+    refreshSession,
+  } = useAuth();
+
   const isDark = colorScheme === "dark";
+  const profile = (authProfile as ProfileData | null) ?? null;
 
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [classYear, setClassYear] = useState("");
   const [major, setMajor] = useState("");
   const [bio, setBio] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
   const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
 
   const [saved, setSaved] = useState({
@@ -77,81 +72,91 @@ export default function ProfileTab() {
     classYear: "",
     major: "",
     bio: "",
-    isAnonymous: false,
   });
 
-  const loadProfile = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const userJson = await AsyncStorage.getItem(USER_KEY);
-      const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-      const storedMapMode = await getStoredMapDetailMode();
-      setMapDetailMode(storedMapMode);
+  useEffect(() => {
+    if (isEditing) return;
 
-      if (!userJson || !token) {
-        setStoredUser(null);
-        setProfile(null);
-        setIsLoading(false);
-        return;
-      }
+    const dn = profile?.display_name ?? user?.name ?? "";
+    const cy = profile?.class_year ?? "";
+    const maj = profile?.major ?? "";
+    const b = profile?.bio ?? "";
 
-      setStoredUser(JSON.parse(userJson));
+    setDisplayName(dn);
+    setClassYear(cy);
+    setMajor(maj);
+    setBio(b);
+    setSaved({
+      displayName: dn,
+      classYear: cy,
+      major: maj,
+      bio: b,
+    });
+  }, [isEditing, profile, user]);
 
-      const data = await apiClient.getMe();
-      if (data.user) {
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-        setStoredUser(data.user);
-      }
-
-      const p = data.profile as ProfileData | null;
-      setProfile(p);
-
-      const dn = p?.display_name ?? data.user?.name ?? "";
-      const cy = p?.class_year ?? "";
-      const maj = p?.major ?? "";
-      const b = p?.bio ?? "";
-      const anon = p?.is_anonymous ?? false;
-
-      setDisplayName(dn);
-      setClassYear(cy);
-      setMajor(maj);
-      setBio(b);
-      setIsAnonymous(anon);
-      setSaved({ displayName: dn, classYear: cy, major: maj, bio: b, isAnonymous: anon });
-    } catch (err) {
-      console.warn("Error loading profile:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
 
   useFocusEffect(
     useCallback(() => {
-      loadProfile();
-    }, [loadProfile]),
+      let active = true;
+      const loadMapMode = async () => {
+        try {
+          const storedMapMode = await getStoredMapDetailMode();
+          if (active) {
+            setMapDetailMode(storedMapMode);
+          }
+        } catch (error) {
+          console.warn("Failed to load map detail mode:", error);
+        }
+      };
+
+      void loadMapMode();
+      return () => {
+        active = false;
+      };
+    }, []),
   );
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
       await apiClient.updateProfile({
         displayName: displayName.trim(),
         classYear: classYear.trim() || undefined,
         major: major.trim() || undefined,
         bio: bio.trim() || undefined,
-        isAnonymous,
       });
-      const snap = {
+      await refreshSession();
+
+      const snapshot = {
         displayName: displayName.trim(),
         classYear: classYear.trim(),
         major: major.trim(),
         bio: bio.trim(),
-        isAnonymous,
       };
-      setSaved(snap);
+      setSaved(snapshot);
       setIsEditing(false);
       Alert.alert("Saved", "Profile updated successfully.");
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? "Unknown error");
+      if (message.includes("401")) {
+        Alert.alert("Session expired", "Please sign in again.");
+        await signOut();
+        router.replace(APP_ROUTES.WELCOME as any);
+        return;
+      }
+      if (isLikelyNetworkError(error)) {
+        Alert.alert(
+          "Cannot reach server",
+          "Saving changes timed out. Please confirm the API is available and try again.",
+        );
+        return;
+      }
       Alert.alert("Error", "Could not save profile. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,7 +165,6 @@ export default function ProfileTab() {
     setClassYear(saved.classYear);
     setMajor(saved.major);
     setBio(saved.bio);
-    setIsAnonymous(saved.isAnonymous);
     setIsEditing(false);
   };
 
@@ -172,8 +176,7 @@ export default function ProfileTab() {
         style: "destructive",
         onPress: async () => {
           await signOut();
-          setStoredUser(null);
-          setProfile(null);
+          setIsEditing(false);
         },
       },
     ]);
@@ -189,10 +192,16 @@ export default function ProfileTab() {
     }
   };
 
-  const isSignedIn = !!storedUser;
-  const mobilityLabel = profile?.mobility_preference
-    ? profile.mobility_preference.charAt(0).toUpperCase() + profile.mobility_preference.slice(1)
-    : "Not set";
+  const isSignedIn = isAuthenticated && Boolean(user);
+  const shouldShowLoading = isAuthLoading && !user && !profile;
+
+  const mobilityLabel = useMemo(() => {
+    if (!profile?.mobility_preference) return "Not set";
+    return (
+      profile.mobility_preference.charAt(0).toUpperCase() +
+      profile.mobility_preference.slice(1)
+    );
+  }, [profile?.mobility_preference]);
 
   const inputClass =
     "rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white";
@@ -206,7 +215,7 @@ export default function ProfileTab() {
     { mode: "dark", label: "Dark", Icon: MoonIcon },
   ];
 
-  if (isLoading) {
+  if (shouldShowLoading) {
     return (
       <View
         className="flex-1 items-center justify-center bg-white dark:bg-neutral-900"
@@ -223,7 +232,6 @@ export default function ProfileTab() {
       contentContainerStyle={{ paddingTop: insets.top }}
     >
       <View className="px-6">
-        {/* Header */}
         <View className="mb-8 mt-8 flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-ut-black dark:text-white">Profile</Text>
           {isSignedIn && !isEditing && (
@@ -236,37 +244,32 @@ export default function ProfileTab() {
           )}
         </View>
 
-        {/* Avatar + name */}
         <View className="mb-8 items-center">
           <View className="relative mb-4">
             <View className="h-24 w-24 items-center justify-center rounded-full bg-gray-300 dark:bg-neutral-700">
-              {storedUser?.image ? (
-                <Image
-                  source={{ uri: storedUser.image }}
-                  className="h-full w-full rounded-full"
-                />
+              {user?.image ? (
+                <Image source={{ uri: user.image }} className="h-full w-full rounded-full" />
               ) : (
                 <Text className="text-2xl text-gray-600 dark:text-gray-300">
-                  {(displayName[0] ?? storedUser?.name?.[0] ?? "?").toUpperCase()}
+                  {(displayName[0] ?? user?.name?.[0] ?? "?").toUpperCase()}
                 </Text>
               )}
             </View>
           </View>
           <Text className="text-xl font-bold text-ut-black dark:text-white">
-            {displayName || storedUser?.name || "Your Profile"}
+            {displayName || user?.name || "Your Profile"}
           </Text>
-          {storedUser?.username ? (
-            <Text className="text-gray-600 dark:text-gray-400">@{storedUser.username}</Text>
+          {user?.username ? (
+            <Text className="text-gray-600 dark:text-gray-400">@{user.username}</Text>
           ) : null}
-          {storedUser?.email ? (
-            <Text className="mt-1 text-sm text-gray-500 dark:text-gray-400">{storedUser.email}</Text>
+          {user?.email ? (
+            <Text className="mt-1 text-sm text-gray-500 dark:text-gray-400">{user.email}</Text>
           ) : null}
           {!isSignedIn && (
             <Text className="mt-2 text-sm italic text-gray-400 dark:text-gray-500">Not signed in</Text>
           )}
         </View>
 
-        {/* Profile fields */}
         {isSignedIn && (
           <View className="mb-8">
             <Text className={sectionTitleClass}>Information</Text>
@@ -287,7 +290,7 @@ export default function ProfileTab() {
                     className={inputClass}
                   />
                 ) : (
-                  <Text className="text-base text-gray-900 dark:text-gray-100">{value || "—"}</Text>
+                  <Text className="text-base text-gray-900 dark:text-gray-100">{value || "-"}</Text>
                 )}
               </View>
             ))}
@@ -298,7 +301,7 @@ export default function ProfileTab() {
                 <TextInput
                   value={bio}
                   onChangeText={setBio}
-                  placeholder="Tell us about yourself…"
+                  placeholder="Tell us about yourself..."
                   placeholderTextColor="#9CA3AF"
                   className={inputClass}
                   multiline
@@ -306,45 +309,18 @@ export default function ProfileTab() {
                   textAlignVertical="top"
                 />
               ) : (
-                <Text className="text-base text-gray-900 dark:text-gray-100">{bio || "—"}</Text>
+                <Text className="text-base text-gray-900 dark:text-gray-100">{bio || "-"}</Text>
               )}
             </View>
 
-            {/* Anonymous toggle */}
-            <View className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
-              <View className="flex-1 pr-4">
-                <Text className="text-base font-medium text-gray-900 dark:text-white">
-                  Appear anonymous
-                </Text>
-                <Text className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                  Hide your name and profile from other users
-                </Text>
-              </View>
-              <Switch
-                value={isAnonymous}
-                onValueChange={(v) => {
-                  setIsAnonymous(v);
-                  if (!isEditing) {
-                    // Save immediately when toggled outside of edit mode
-                    apiClient.updateProfile({ isAnonymous: v }).catch(() =>
-                      Alert.alert("Error", "Could not update anonymity setting.")
-                    );
-                  }
-                }}
-                trackColor={{ false: "#D1D5DB", true: "#BF5700" }}
-                thumbColor="#FFFFFF"
-                disabled={isEditing}
-              />
-            </View>
           </View>
         )}
 
-        {/* Mobility Preferences */}
         {isSignedIn && (
           <View className="mb-8">
             <View className="mb-4 flex-row items-center justify-between">
               <Text className={sectionTitleClass}>Mobility Preferences</Text>
-              <TouchableOpacity onPress={() => router.push("../auth/mobility-preferences" as any)}>
+              <TouchableOpacity onPress={() => router.push(APP_ROUTES.AUTH_MOBILITY_PREFERENCES as any)}>
                 <PencilSimpleLineIcon size={16} color={colors.ut.burntorange} />
               </TouchableOpacity>
             </View>
@@ -355,7 +331,6 @@ export default function ProfileTab() {
           </View>
         )}
 
-        {/* Appearance */}
         <View className="mb-8">
           <Text className={sectionTitleClass}>Appearance</Text>
           <View className="flex-row gap-2">
@@ -419,23 +394,23 @@ export default function ProfileTab() {
           </View>
         </View>
 
-        {/* Action Buttons */}
         <View className="gap-3 pb-8">
           {isEditing ? (
             <>
-              <Button title="Save Changes" onPress={handleSave} />
-              <Button title="Cancel" variant="gray" onPress={handleCancelEdit} />
+              <Button title="Save Changes" onPress={handleSave} disabled={isSaving} />
+              <Button title="Cancel" variant="gray" onPress={handleCancelEdit} disabled={isSaving} />
             </>
           ) : isSignedIn ? (
             <Button
-              title="Sign Out" 
+              title="Sign Out"
               variant="gray"
               onPress={handleSignOut}
-              icon={<SignOutIcon size={20} color={isDark ? "#FFFFFF" : "#000000"} />} />
+              icon={<SignOutIcon size={20} color={isDark ? "#FFFFFF" : "#000000"} />}
+            />
           ) : (
             <Button
-              title="Sign In with Google"
-              onPress={() => router.push("../welcome" as any)}
+              title="Sign In"
+              onPress={() => router.push(APP_ROUTES.WELCOME as any)}
               icon={<SignInIcon size={20} color="white" />}
             />
           )}

@@ -1,16 +1,21 @@
-import { router } from "expo-router";
+/** Intermediate screen that launches the Google OAuth WebBrowser session. Requires no auth. */
+import { router, useLocalSearchParams } from "expo-router";
 import { CaretLeft } from "phosphor-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
+import { APP_ROUTES } from "~/utils/routes";
 import { useAuth } from "~/utils/useAuth";
 
 export default function GoogleOAuthScreen() {
+  const params = useLocalSearchParams<{ error?: string | string[] }>();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const insets = useSafeAreaInsets();
+  const hasStartedRef = useRef(false);
+  const hasConsumedRouteErrorRef = useRef(false);
   const { signInWithGoogle } = useAuth();
 
   const handleGoogleSignIn = useCallback(async () => {
@@ -19,11 +24,16 @@ export default function GoogleOAuthScreen() {
 
     const result = await signInWithGoogle();
     if (result.success) {
-      if (result.isNewUser) {
-        router.replace("./profile-setup" as any);
-      } else {
-        router.replace("../(tabs)" as any);
+      if (!result.callbackUrl) {
+        setIsLoading(false);
+        setError("No OAuth callback URL returned.");
+        return;
       }
+      const encodedCallbackUrl = encodeURIComponent(result.callbackUrl);
+      router.replace({
+        pathname: APP_ROUTES.AUTH_CALLBACK as any,
+        params: { callbackUrl: encodedCallbackUrl } as any,
+      });
       return;
     }
 
@@ -32,8 +42,17 @@ export default function GoogleOAuthScreen() {
   }, [signInWithGoogle]);
 
   useEffect(() => {
+    const routeErrorValue = Array.isArray(params.error) ? params.error[0] : params.error;
+    if (routeErrorValue && !hasConsumedRouteErrorRef.current) {
+      hasConsumedRouteErrorRef.current = true;
+      setError(routeErrorValue);
+      setIsLoading(false);
+      return;
+    }
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
     void handleGoogleSignIn();
-  }, [handleGoogleSignIn]);
+  }, [handleGoogleSignIn, params.error]);
 
   if (error) {
     return (

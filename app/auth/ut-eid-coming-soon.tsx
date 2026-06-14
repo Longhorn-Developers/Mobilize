@@ -1,9 +1,11 @@
+/** Placeholder screen shown when a user taps "Sign in with UT EID" — feature not yet implemented. */
 import { router } from "expo-router";
 import { CaretLeft } from "phosphor-react-native";
 import { Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
+import { APP_ROUTES } from "~/utils/routes";
 
 export default function UTEidComingSoonScreen() {
   const insets = useSafeAreaInsets();
@@ -25,7 +27,7 @@ export default function UTEidComingSoonScreen() {
         <Text className="mb-8 text-center text-base text-gray-600 dark:text-gray-300">
           This flow is coming soon. For now, use Continue with Google.
         </Text>
-        <Button title="Back to Sign In" onPress={() => router.replace("../welcome" as any)} />
+        <Button title="Back to Sign In" onPress={() => router.replace(APP_ROUTES.WELCOME as any)} />
       </View>
     </View>
   );

@@ -69,6 +69,20 @@ for (const feature of buildingsData.features) {
   });
 }
 
+/**
+ * Extract a building abbreviation from a free-form name or address string.
+ * Matches codes inside parentheses "(GDC)" or bare leading codes "GDC Main".
+ * Returns the abbreviation in uppercase, or null if none found.
+ */
+export function extractBuildingAbbreviation(value?: string | null): string | null {
+  if (!value) return null;
+  const parenMatch = value.match(/\(([A-Za-z0-9]{2,8})\)/);
+  if (parenMatch?.[1]) return parenMatch[1].toUpperCase();
+  const leadingCodeMatch = value.match(/^([A-Za-z0-9]{2,8})\b/);
+  if (leadingCodeMatch?.[1]) return leadingCodeMatch[1].toUpperCase();
+  return null;
+}
+
 /** Look up a building by its abbreviation (case-insensitive). */
 export function findBuilding(abbr: string): BuildingProperties | null {
   return buildingIndex.get(abbr.toUpperCase()) ?? null;

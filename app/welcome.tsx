@@ -1,19 +1,20 @@
+/** Landing screen for unauthenticated users — entry point to sign up or sign in. Requires no auth. */
 import { router } from "expo-router";
-import { Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "~/components/Button";
+import { Button } from "~/src/features/components/Button";
+import { APP_ROUTES } from "~/utils/routes";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
 
   const handleUTEIDContinue = () => {
-    router.push("./auth/ut-eid-coming-soon" as any);
+    router.push(APP_ROUTES.AUTH_UT_EID_COMING_SOON as any);
   };
 
-  // Step 2 fix: route through the real OAuth flow, not directly to profile-setup
   const handleGoogleContinue = () => {
-    router.push("./auth/google-oauth" as any);
+    router.push(APP_ROUTES.AUTH_GOOGLE_OAUTH as any);
   };
 
   return (
@@ -23,10 +24,11 @@ export default function WelcomeScreen() {
     >
       {/* Header */}
       <View className="mb-8 mt-8 items-center">
-        {/* Main Image Placeholder */}
-        <View className="mb-6 h-40 w-full items-center justify-center rounded-lg bg-gray-200 dark:bg-neutral-800">
-          <Text className="text-gray-500 dark:text-gray-400">MobilizeUT Logo</Text>
-        </View>
+        <Image
+          source={require("../assets/image.png")}
+          resizeMode="contain"
+          className="mb-6 h-40 w-full rounded-lg"
+        />
 
         <Text className="text-2xl font-bold text-ut-black dark:text-white">
           Welcome to Mobilize UT

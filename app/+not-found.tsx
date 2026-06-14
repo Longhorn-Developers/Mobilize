@@ -1,12 +1,15 @@
+/** 404 fallback screen — shown when the router cannot match a path. */
 import { Link, Stack } from "expo-router";
 import { Text } from "react-native";
+
+import { APP_ROUTES } from "~/utils/routes";
 
 export default function NotFoundScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Oops!" }} />
       <Text className={styles.title}>{"This screen doesn't exist."}</Text>
-      <Link href={"./(tabs)" as any} className={styles.link}>
+      <Link href={APP_ROUTES.WELCOME as any} className={styles.link}>
         <Text className={styles.linkText}>Go to home screen!</Text>
       </Link>
     </>

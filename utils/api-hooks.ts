@@ -6,6 +6,12 @@ import Toast from "react-native-toast-message";
 
 import { apiClient } from "./api-client";
 
+const TOAST_MESSAGES = {
+  reviewSubmitted: "Thank you for your review! Your insights are helpful in shaping the community's experience.",
+  reviewDeleted: "Review deleted successfully!",
+  avoidanceAreaSubmitted: "Thank you for your review! Your insights are helpful in shaping the community's experience.",
+} as const;
+
 // Query Keys
 export const queryKeys = {
   pois: ["pois"] as const,
@@ -127,8 +133,7 @@ export function useInsertAvoidanceArea() {
 
       Toast.show({
         type: "success",
-        text2:
-          "Thank you for your review! Your insights are helpful in shaping thecommunity’s experience.",
+        text2: TOAST_MESSAGES.avoidanceAreaSubmitted,
         topOffset: insets.top + 35,
       });
     },
@@ -192,7 +197,7 @@ export function useInsertReview() {
       Toast.show({
         type: "success",
         text2:
-          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+          TOAST_MESSAGES.reviewSubmitted,
         position: "bottom",
         bottomOffset: 40 * 3,
       });
@@ -231,7 +236,7 @@ export function useUpdateReview() {
       Toast.show({
         type: "success",
         text2:
-          "Thank you for your review! Your insights are helpful in shaping the community’s experience.",
+          TOAST_MESSAGES.reviewSubmitted,
         position: "bottom",
         bottomOffset: 40 * 3,
       });
@@ -261,7 +266,7 @@ export function useDeleteReview() {
 
       Toast.show({
         type: "success",
-        text2: "Review deleted successfully!",
+        text2: TOAST_MESSAGES.reviewDeleted,
         position: "bottom",
         bottomOffset: 40 * 3,
       });

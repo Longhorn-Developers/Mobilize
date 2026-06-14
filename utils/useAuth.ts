@@ -1,3 +1,4 @@
+/** Authentication context and provider. Manages session token lifecycle in AsyncStorage, Google OAuth flow via expo-web-browser, and exposes auth state to all screens. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
@@ -9,24 +10,101 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
+import {
+  getApiBaseCandidates,
+  promoteApiBaseUrl,
+  resolveApiBaseUrl,
+} from "~/utils/api-base";
+import {
+  ClientRequestError,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  fetchWithTimeout,
+  isLikelyNetworkError,
+  isRetriableCandidateError,
+  parseJsonResponse,
+} from "~/utils/request-utils";
+
 WebBrowser.maybeCompleteAuthSession();
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:54321").replace(/\/$/, "");
-const SESSION_TOKEN_KEY = "auth_session_token";
-const USER_KEY = "auth_user";
+const CONFIGURED_API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").trim().replace(/\/$/, "");
+export const SESSION_TOKEN_KEY = "auth_session_token";
+export const USER_KEY = "auth_user";
 
-async function safeJson(response: Response) {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    const body = await response.text().catch(() => "(unreadable body)");
-    throw new Error(
-      `API returned non-JSON (${response.status} ${response.statusText}): ${body.slice(0, 200)}`,
-    );
+function getOAuthBaseUrl() {
+  if (!CONFIGURED_API_URL) {
+    throw new Error("EXPO_PUBLIC_API_URL must be set to your devtunnels URL for Google sign-in.");
   }
-  return response.json();
+  const normalizedConfigured = CONFIGURED_API_URL.toLowerCase();
+  if (normalizedConfigured.startsWith("http://localhost") || normalizedConfigured.startsWith("http://127.0.0.1")) {
+    throw new Error("EXPO_PUBLIC_API_URL must be a devtunnels HTTPS URL for Google sign-in, not localhost.");
+  }
+  return CONFIGURED_API_URL;
+}
+
+
+function parseCachedUser(raw: string | null): User | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeCallbackValue(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim();
+  return trimmed.length ? trimmed : null;
+}
+
+/**
+ * Extracts the session token and any error from a Google OAuth callback.
+ *
+ * Accepts two formats:
+ *   1. A deep-link URL string (e.g. "mobilize://auth/callback?session_token=...")
+ *   2. A plain object with `session_token`, `token`, and `error` fields
+ *
+ * The `signature` field is a stable string used to deduplicate re-renders.
+ */
+function parseOAuthCallbackInput(input: OAuthCallbackInput): {
+  token: string | null;
+  error: string | null;
+  signature: string;
+} {
+  if (typeof input === "string") {
+    const raw = input.trim();
+    try {
+      const url = new URL(raw);
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const token = normalizeCallbackValue(
+        url.searchParams.get("session_token") ||
+          url.searchParams.get("token") ||
+          hashParams.get("session_token") ||
+          hashParams.get("token"),
+      );
+      const error = normalizeCallbackValue(
+        url.searchParams.get("error") || hashParams.get("error"),
+      );
+      return { token, error, signature: url.toString() };
+    } catch {
+      return {
+        token: null,
+        error: "Invalid OAuth callback URL.",
+        signature: raw || "invalid-oauth-callback-url",
+      };
+    }
+  }
+
+  const token = normalizeCallbackValue(input.session_token || input.token);
+  const error = normalizeCallbackValue(input.error);
+  return {
+    token,
+    error,
+    signature: `token:${token ?? ""}|error:${error ?? ""}`,
+  };
 }
 
 export type User = {
@@ -49,8 +127,30 @@ type AuthState = {
   isAuthenticated: boolean;
 };
 
+type GoogleSignInResult = {
+  success: boolean;
+  error?: string;
+  callbackUrl?: string;
+  cancelled?: boolean;
+};
+
+type OAuthCallbackInput =
+  | string
+  | {
+      session_token?: string | null;
+      token?: string | null;
+      error?: string | null;
+    };
+
+type OAuthCallbackResult = {
+  success: boolean;
+  error?: string;
+  onboardingComplete?: boolean;
+};
+
 type AuthContextType = AuthState & {
-  signInWithGoogle: () => Promise<{ success: boolean; error?: string; isNewUser?: boolean }>;
+  signInWithGoogle: () => Promise<GoogleSignInResult>;
+  completeGoogleOAuthCallback: (input: OAuthCallbackInput) => Promise<OAuthCallbackResult>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   refreshSession: () => Promise<void>;
@@ -58,32 +158,77 @@ type AuthContextType = AuthState & {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/**
+ * Fetches /api/me using the provided session token.
+ * Tries each URL candidate in order (active URL first), promoting whichever responds.
+ * Returns null if all candidates return 401 or fail with network errors.
+ */
 async function fetchMe(sessionToken: string) {
-  const response = await fetch(`${API_URL}/api/me`, {
-    headers: { Authorization: `Bearer ${sessionToken}` },
-  });
+  let lastError: unknown = null;
+  const candidates = getApiBaseCandidates();
 
-  if (response.status === 401) {
-    return null;
-  }
-  if (!response.ok) {
-    const body = await response.text().catch(() => "(unreadable body)");
-    throw new Error(`Failed to refresh session (${response.status}): ${body.slice(0, 200)}`);
+  for (let index = 0; index < candidates.length; index += 1) {
+    const baseUrl = candidates[index];
+    const requestUrl = `${baseUrl}/api/me`;
+    try {
+      const response = await fetchWithTimeout(
+        requestUrl,
+        {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        },
+        DEFAULT_REQUEST_TIMEOUT_MS,
+      );
+
+      const data = await parseJsonResponse<any>(response, requestUrl);
+      const hasNextCandidate = index < candidates.length - 1;
+
+      if (response.status === 401) {
+        if (hasNextCandidate) {
+          continue;
+        }
+        return null;
+      }
+
+      // Reachable JSON endpoint: promote candidate.
+      promoteApiBaseUrl(baseUrl);
+      if (!response.ok) {
+        const message = data?.error?.message || data?.message || "Failed to refresh session";
+        throw new ClientRequestError(
+          "API_ERROR",
+          `Failed to refresh session (${response.status}): ${message}`,
+          { status: response.status, url: requestUrl, details: data },
+        );
+      }
+
+      if (!data?.user) {
+        return null;
+      }
+
+      return {
+        user: data.user as User,
+        profile: data.profile ?? null,
+        onboardingComplete: Boolean(data.onboardingComplete),
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isRetriableCandidateError(error)) {
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    }
   }
 
-  const data = await safeJson(response);
-  if (!data?.user) {
-    return null;
-  }
-
-  return {
-    user: data.user as User,
-    profile: data.profile ?? null,
-    onboardingComplete: Boolean(data.onboardingComplete),
-  };
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Could not reach a valid API endpoint for session refresh");
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const refreshSessionInFlightRef = useRef<Promise<void> | null>(null);
+  const oauthCompletionInFlightRef = useRef<{
+    signature: string;
+    promise: Promise<OAuthCallbackResult>;
+  } | null>(null);
+  const lastCompletedOAuthSignatureRef = useRef<string | null>(null);
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     profile: null,
@@ -103,98 +248,199 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const applyAuthState = useCallback((me: { user: User; profile: any | null; onboardingComplete: boolean }) => {
+    setAuthState({
+      user: me.user,
+      profile: me.profile,
+      onboardingComplete: me.onboardingComplete,
+      isLoading: false,
+      isAuthenticated: true,
+    });
+  }, []);
+
   const refreshSession = useCallback(async () => {
-    try {
-      const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-      if (!sessionToken) {
-        await clearSession();
-        return;
-      }
-
-      const me = await fetchMe(sessionToken);
-      if (!me) {
-        await clearSession();
-        return;
-      }
-
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
-      setAuthState({
-        user: me.user,
-        profile: me.profile,
-        onboardingComplete: me.onboardingComplete,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-    } catch (error) {
-      console.error("Error refreshing session:", error);
-      setAuthState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
+    if (refreshSessionInFlightRef.current) {
+      return refreshSessionInFlightRef.current;
     }
-  }, [clearSession]);
+
+    const run = (async () => {
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
+      try {
+        const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+        if (!sessionToken) {
+          await clearSession();
+          return;
+        }
+
+        const me = await fetchMe(sessionToken);
+        if (!me) {
+          await clearSession();
+          return;
+        }
+
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+        applyAuthState(me);
+      } catch (error) {
+        console.error("Error refreshing session:", error);
+        if (isLikelyNetworkError(error)) {
+          const cachedUser = parseCachedUser(await AsyncStorage.getItem(USER_KEY));
+          if (cachedUser) {
+            setAuthState((prev) => ({
+              ...prev,
+              user: cachedUser,
+              isAuthenticated: true,
+              isLoading: false,
+            }));
+            return;
+          }
+        }
+        await clearSession();
+      } finally {
+        refreshSessionInFlightRef.current = null;
+      }
+    })();
+
+    refreshSessionInFlightRef.current = run;
+    return run;
+  }, [applyAuthState, clearSession]);
 
   useEffect(() => {
-    refreshSession();
+    const bootstrap = async () => {
+      const cachedUser = parseCachedUser(await AsyncStorage.getItem(USER_KEY));
+      if (cachedUser) {
+        setAuthState((prev) => ({
+          ...prev,
+          user: cachedUser,
+          isAuthenticated: true,
+        }));
+      }
+      await refreshSession();
+    };
+
+    void bootstrap();
   }, [refreshSession]);
+
+  const completeGoogleOAuthCallback = useCallback(
+    async (input: OAuthCallbackInput): Promise<OAuthCallbackResult> => {
+      const parsed = parseOAuthCallbackInput(input);
+
+      if (
+        lastCompletedOAuthSignatureRef.current === parsed.signature &&
+        authState.isAuthenticated
+      ) {
+        return {
+          success: true,
+          onboardingComplete: authState.onboardingComplete,
+        };
+      }
+
+      const existingInFlight = oauthCompletionInFlightRef.current;
+      if (existingInFlight && existingInFlight.signature === parsed.signature) {
+        return existingInFlight.promise;
+      }
+
+      const run = (async () => {
+        setAuthState((prev) => ({ ...prev, isLoading: true }));
+
+        if (parsed.error) {
+          setAuthState((prev) => ({ ...prev, isLoading: false }));
+          return { success: false, error: parsed.error };
+        }
+
+        // Guard against the server returning a literal "null" string as the token value.
+        if (!parsed.token || parsed.token === "null") {
+          setAuthState((prev) => ({ ...prev, isLoading: false }));
+          return {
+            success: false,
+            error: "No session token returned from OAuth callback.",
+          };
+        }
+
+        await AsyncStorage.setItem(SESSION_TOKEN_KEY, parsed.token);
+        const me = await fetchMe(parsed.token);
+
+        if (!me) {
+          await clearSession();
+          return { success: false, error: "Unable to load user after sign-in." };
+        }
+
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+        applyAuthState(me);
+        lastCompletedOAuthSignatureRef.current = parsed.signature;
+
+        return {
+          success: true,
+          onboardingComplete: me.onboardingComplete,
+        };
+      })()
+        .catch((error) => {
+          console.error("Error completing OAuth callback:", error);
+          setAuthState((prev) => ({ ...prev, isLoading: false }));
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        })
+        .finally(() => {
+          if (
+            oauthCompletionInFlightRef.current?.signature === parsed.signature
+          ) {
+            oauthCompletionInFlightRef.current = null;
+          }
+        });
+
+      oauthCompletionInFlightRef.current = {
+        signature: parsed.signature,
+        promise: run,
+      };
+
+      return run;
+    },
+    [applyAuthState, authState.isAuthenticated, authState.onboardingComplete, clearSession],
+  );
 
   const signInWithGoogle = useCallback(async () => {
     try {
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
+      const apiBaseUrl = getOAuthBaseUrl();
+      promoteApiBaseUrl(apiBaseUrl);
       const redirectUrl = Linking.createURL("auth/callback");
-      const redirectUri = `${API_URL}/api/auth/callback/google`;
-      const authUrl = `${API_URL}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
+      const redirectUri = `${apiBaseUrl}/api/auth/callback/google`;
+      const authUrl = `${apiBaseUrl}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
 
       if (result.type !== "success" || !result.url) {
         const cancelled = result.type === "cancel" || result.type === "dismiss";
+        setAuthState((prev) => ({ ...prev, isLoading: false }));
         return {
           success: false,
+          cancelled,
           error: cancelled ? "Authentication cancelled" : "Authentication failed",
         };
       }
 
-      const callbackUrl = new URL(result.url);
-      const token = callbackUrl.searchParams.get("session_token") || callbackUrl.searchParams.get("token");
-      const error = callbackUrl.searchParams.get("error");
-
-      if (error) {
-        return { success: false, error };
-      }
-      if (!token) {
-        return { success: false, error: "No session token returned from OAuth callback" };
-      }
-
-      await AsyncStorage.setItem(SESSION_TOKEN_KEY, token);
-      const me = await fetchMe(token);
-      if (!me) {
-        await clearSession();
-        return { success: false, error: "Unable to load user after sign-in" };
-      }
-
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
-      setAuthState({
-        user: me.user,
-        profile: me.profile,
-        onboardingComplete: me.onboardingComplete,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-
-      return { success: true, isNewUser: !me.onboardingComplete };
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
+      return { success: true, callbackUrl: result.url };
     } catch (error) {
       console.error("Google sign-in error:", error);
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
       return { success: false, error: String(error) };
     }
-  }, [clearSession]);
+  }, []);
 
   const signOut = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-      if (token && API_URL) {
-        await fetch(`${API_URL}/api/auth/signout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+      if (token) {
+        const apiBaseUrl = await resolveApiBaseUrl();
+        await fetchWithTimeout(
+          `${apiBaseUrl}/api/auth/signout`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+          DEFAULT_REQUEST_TIMEOUT_MS,
+        ).catch(() => {});
       }
     } finally {
       await clearSession();
@@ -209,11 +455,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...authState,
       signInWithGoogle,
+      completeGoogleOAuthCallback,
       signOut,
       getAccessToken,
       refreshSession,
     }),
-    [authState, signInWithGoogle, signOut, getAccessToken, refreshSession],
+    [
+      authState,
+      signInWithGoogle,
+      completeGoogleOAuthCallback,
+      signOut,
+      getAccessToken,
+      refreshSession,
+    ],
   );
 
   return createElement(AuthContext.Provider, { value }, children);

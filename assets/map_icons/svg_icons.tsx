@@ -1,4 +1,5 @@
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+
 import colors from '~/types/colors';
 
   export const Warning = () => (

@@ -3,8 +3,8 @@ INSERT OR IGNORE INTO user (id, email, name, email_verified, role, username, cre
 ('test-user-1', 'test@utexas.edu', 'Test Student', 1, 'student', 'teststudent', unixepoch(), unixepoch());
 
 -- Create profile for the test user
-INSERT OR IGNORE INTO profiles (user_id, display_name, avatar_url, class_year, major, mobility_preference, created_at, updated_at) VALUES
-('test-user-1', 'Test Student', 'https://example.com/avatars/alice.png', 'Senior', 'Computer Science', 'walking', unixepoch(), unixepoch());
+INSERT OR IGNORE INTO profiles (user_id, display_name, avatar_url, class_year, major, mobility_preference, onboarding_completed_at, created_at, updated_at) VALUES
+('test-user-1', 'Test Student', 'https://example.com/avatars/alice.png', 'Senior', 'Computer Science', 'walking', unixepoch(), unixepoch(), unixepoch());
 
 -- Create avoidance area
 INSERT OR IGNORE INTO avoidance_areas (user_id, name, description, boundary_geojson, created_at, updated_at) VALUES 

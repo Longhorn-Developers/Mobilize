@@ -17,6 +17,22 @@ An Expo React Native mobile application that helps disabled students have more a
    pnpm install
    ```
 
+   2.1 **Setup subdependency for gradle (android)**
+      ```javascript
+      // in ./android/build.gradle
+      ...
+      allprojects {
+         repositories {
+            /* Add these 3 lines below \/\/\/ */
+            maven {
+               url "$rootDir/../node_modules/expo-camera/android/maven"
+            }
+            
+         }
+      }
+      ...
+      ```
+
 3. **Install server dependencies**
 
    ```bash

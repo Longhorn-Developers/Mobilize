@@ -5,7 +5,7 @@ import {
   WarningIcon,
   XIcon,
 } from "phosphor-react-native";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   View,
@@ -13,6 +13,10 @@ import {
   TextInput,
   TouchableOpacity,
   ViewStyle,
+  Modal,
+  Dimensions, 
+  Platform,
+  Image
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { z, ZodType } from "zod";
@@ -21,6 +25,8 @@ import colors from "~/types/colors";
 
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { Button } from "./Button";
+
+import { Camera, CameraType, CameraView } from 'expo-camera';
 
 type LatLng = { latitude: number; longitude: number };
 
@@ -90,6 +96,120 @@ const ReportModal = ({
 
   const bottomTabBarHeight = 50;
 
+  const [cameraPermission, setCameraPermission] = useState<boolean>(false);
+  // const [galleryPermission, setGalleryPermission] = useState<boolean>(false);
+
+  const [cameraOn, setCameraOn] = useState<boolean>(false);
+  const [camera, setCamera] = useState(null);
+
+
+  useEffect(() => {
+    if (cameraPermission) {
+      setCameraOn(true);
+    }
+  }, [cameraPermission]);
+
+  const getPermissions = async () => {
+    // here is how you can get the camera permission
+    const cameraPermission = await Camera.requestCameraPermissionsAsync();
+
+    setCameraPermission(cameraPermission.status === 'granted');
+
+    // const imagePermission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    // console.log(imagePermission.status);
+
+    // setGalleryPermission(imagePermission.status === 'granted');
+
+    // console.log(imagePermission.status);
+    console.log(cameraPermission.status);
+
+    if (
+      // imagePermission.status !== 'granted' &&
+      cameraPermission.status !== 'granted'
+    ) {
+      alert('Permission for media access needed.');
+    }
+  };
+
+  // Screen Ratio and image padding
+  const [imagePadding, setImagePadding] = useState(0);
+  const [ratio, setRatio] = useState('4:3'); 
+  const { height, width } = Dimensions.get('window');
+  const screenRatio = height / width;
+  const [isRatioSet, setIsRatioSet] =  useState(false);
+
+
+  {/* Camera Functionality --------------------------------------------------------*/}
+  const prepareRatio = async () => {
+    let desiredRatio = '4:3';  // Start with the system default
+    if (Platform.OS === 'android') {
+      setTimeout(async () => {}, 10) // for some reason, needed to make next line work
+    
+
+      camera.getAvailablePictureSizesAsync().then(
+        (ratios) => {
+
+          console.log(ratios)
+
+          // find the ratio that is closest to the screen ratio without going over
+          let distances = {};
+          let realRatios = {};
+          let minDistance = null;
+          for (const ratio of ratios) {
+            const parts = ratio.split(':');
+            const realRatio = parseInt(parts[0]) / parseInt(parts[1]);
+            realRatios[ratio] = realRatio;
+            const distance = screenRatio - realRatio; 
+            distances[ratio] = distance;
+            if (minDistance == null) {
+              minDistance = ratio;
+            } else {
+              if (distance >= 0 && distance < distances[minDistance]) {
+                minDistance = ratio;
+              }
+            }
+          }
+          // set the best match
+          desiredRatio = minDistance;
+          //  calculate the difference between the camera width and the screen height
+          const remainder = Math.floor(
+            (height - realRatios[desiredRatio] * width) / 2
+          );
+
+          setImagePadding(remainder);
+          setRatio(desiredRatio);
+          setIsRatioSet(true);
+        }
+      )
+    }
+  };
+
+  const setCameraReady = async () => {
+    if (!isRatioSet) {
+      await prepareRatio();
+    }
+  };
+  
+  const handleCamera = async () => {
+    if (!cameraPermission) {
+      await getPermissions();
+    } else {
+      setCameraOn(true);
+    }
+  }
+
+  const takePicture = async () => {
+    if (!camera) return;
+    const photo = await camera.takePictureAsync({base64:true,quality:1});
+    
+    setValue("images", [photo.base64]);
+    // console.log(getValues("images"));
+
+    setCameraOn(false);
+  }
+  
+  {/* Form Functionality --------------------------------------------------------*/}
+
   // Sync aaPoints with form whenever they change
   useEffect(() => {
     setValue("aaPoints", aaPoints);
@@ -140,6 +260,9 @@ const ReportModal = ({
     if (!state.error) {
       if (currentStep === steps.length - 1) {
         // Last step submit
+        if (getValues("name") === "") {
+          setValue("name", "Avoidance Area");
+        }
         handleSubmit(handleFormSubmit)();
       } else {
         // Go to next
@@ -181,6 +304,7 @@ const ReportModal = ({
                   errors.description ? "border-red-500" : "border-gray-300"
                 }`}
                 placeholder="Please describe any issues encountered in the blockage's surroundings..."
+                placeholderTextColor="#a7a7a7"
                 onBlur={onBlur}
                 onChangeText={onChange}
                 value={value}
@@ -207,14 +331,79 @@ const ReportModal = ({
         control={control}
         name="images"
         render={({ field: { onBlur } }) => (
+        <>
+          {(getValues("images") !== undefined) ?
+            <Image 
+              style={{
+                height: 200,
+                marginBottom: 25,
+                borderWidth: 1, 
+                borderColor: 'bf5700',
+                borderRadius: 15
+              }} 
+              source={{uri: 'data:image/png;base64,'+getValues("images")[0]}}/>
+          :
+            <></>
+          }
+    
           <Button
             variant="gray"
+            onPress={handleCamera}
             onBlur={onBlur}
             title="Add Photo"
             icon={<CameraPlusIcon style={{ marginRight: 4 }} size={20} />}
           />
+          </>
         )}
+      
       />
+      <Modal visible={cameraOn}> 
+          <CameraView
+            active={cameraOn}
+            style={
+              (isRatioSet ?
+              [{flex: 1}, imagePadding ? {marginTop: imagePadding, marginBottom: imagePadding}:{}]
+              :
+              {opacity: 0}
+              )
+            }
+            onCameraReady={setCameraReady}
+            pictureSize={ratio}
+            ref={setCamera}
+          /> 
+          <View style={{
+            flex: 1,
+            flexDirection: 'row', 
+            maxHeight: '10%', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            }}>
+              <TouchableOpacity style={{
+                  position: 'absolute',
+                  width: 75, //px
+                  height: 75,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: 10,
+                  borderRadius: 100,
+                  backgroundColor: '#eb934a',
+                }}
+                onPress={takePicture}
+              >
+                <CameraPlusIcon style={{ marginRight: 0}} size={40}/>
+              </TouchableOpacity>
+              
+              <Button
+                style={{marginLeft: '50%'}}
+                variant="gray"
+                onPress={() => {setCameraOn(false)}}
+                title="Close"
+                icon={<XIcon style={{ marginRight: 0}} size={20} />}
+              />
+            
+          </View>
+          
+      </Modal>
     </View>,
 
     // Step 3: Review and submit
@@ -225,10 +414,24 @@ const ReportModal = ({
         numberOfLines={4}
         className={`mt-2 rounded-lg border border-gray-300 px-4 py-3`}
         placeholder="Please describe any issues encountered in the blockage's surroundings..."
+        placeholderTextColor="#a7a7a7" 
         value={getValues("description")}
         maxLength={500}
         editable={false}
       />
+      {(getValues("images") !== undefined) ?
+            <Image 
+              style={{
+                height: 200,
+                marginTop: 25,
+                borderWidth: 1, 
+                borderColor: 'bf5700',
+                borderRadius: 15
+              }} 
+              source={{uri: 'data:image/png;base64,'+getValues("images")[0]}}/>
+          :
+            <></>
+        }
     </View>,
   ];
 
@@ -277,6 +480,7 @@ const ReportModal = ({
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
+                      placeholderTextColor="#a7a7a7"
                       className="flex-1 text-2xl font-bold text-gray-400"
                     />
                   </View>

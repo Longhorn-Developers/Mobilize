@@ -99,9 +99,9 @@ export default function Home() {
   const isTabFocused = useIsFocused();
   const { user } = useAuth();
   const { colorScheme } = useTheme();
-  const canReport =
-    user?.role === "student" ||
-    user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
+  const canReport = true;
+    // user?.role === "student" ||
+    // user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
   const isDark = colorScheme === "dark";
 
   // ── Refs ───────────────────────────────────────────────────────────────────

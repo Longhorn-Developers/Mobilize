@@ -20,6 +20,13 @@ export default {
           RNMAPBOX_MAPS_DOWNLOAD_TOKEN: process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN,
         },
       ],
+      [
+      "expo-camera",
+        {
+          cameraPermission: "Allow MobilizeUT to access your camera",
+          recordAudioAndroid: false
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true,

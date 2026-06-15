@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "00f4f8b0-3880-4537-985e-f1b14fa6be2a",
-  "prevId": "5ec12c1a-e720-49b4-a9e3-ea8bba649f5d",
+  "id": "c824a6cd-e69b-4a8d-b59a-ace5facfa19f",
+  "prevId": "4c21d604-0dd4-4288-9982-8882cc5f40c4",
   "tables": {
     "account": {
       "name": "account",
@@ -245,6 +245,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "images": {
+          "name": "images",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -577,7 +584,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

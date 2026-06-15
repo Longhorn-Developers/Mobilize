@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bd6231db-a98e-4cd5-93df-615e4f4d2b26",
+  "id": "4c21d604-0dd4-4288-9982-8882cc5f40c4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -247,6 +247,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "images": {
+          "name": "images",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -405,6 +412,21 @@
           "notNull": false,
           "autoincrement": false
         },
+        "is_anonymous": {
+          "name": "is_anonymous",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "onboarding_completed_at": {
+          "name": "onboarding_completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -527,6 +549,15 @@
             "deleted_at"
           ],
           "isUnique": false
+        },
+        "reviews_user_poi_deleted_idx": {
+          "name": "reviews_user_poi_deleted_idx",
+          "columns": [
+            "user_id",
+            "poi_id",
+            "deleted_at"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -553,7 +584,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

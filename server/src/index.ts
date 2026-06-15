@@ -551,7 +551,7 @@ app.post("/avoidance_areas", async (c) => {
     return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
 
-  const { name, description, boundary_geojson } = body;
+  const { name, description, boundary_geojson, images } = body;
 
   if (!name || !boundary_geojson) {
     return jsonError(c, 400, "BAD_REQUEST", "Missing required fields");
@@ -566,7 +566,6 @@ app.post("/avoidance_areas", async (c) => {
   ) {
     return jsonError(c, 400, "BAD_REQUEST", "boundary_geojson must be a valid GeoJSON Polygon");
   }
-
   const result = await db
     .insert(schema.avoidance_areas)
     .values({
@@ -574,6 +573,7 @@ app.post("/avoidance_areas", async (c) => {
       name,
       description: description || null,
       boundary_geojson: JSON.stringify(boundary_geojson),
+      images: images ? JSON.stringify(images) : null,
     })
     .returning();
 

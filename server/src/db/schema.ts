@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, unique } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, unique, blob } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -200,6 +200,7 @@ export const avoidance_areas = sqliteTable('avoidance_areas', {
     name: text('name').notNull(),
     description: text('description'),
     boundary_geojson: text('boundary_geojson').notNull(),
+    images: text('images'),
     created_at: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .default(sql`(unixepoch())`),

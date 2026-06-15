@@ -1,4 +1,4 @@
-import { BottomSheetModal } from "@gorhom/bottom-sheet";
+﻿import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import Mapbox, {
@@ -51,9 +51,9 @@ export default function Home() {
   const isTabFocused = useIsFocused();
   const { user } = useAuth();
   const { colorScheme } = useTheme();
-  const canReport = true;
-    // user?.role === "student" ||
-    // user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
+  const canReport = //true;
+    user?.role === "student" ||
+    user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
   const isDark = colorScheme === "dark";
 
   // Loads GeoJSON data for sidewalks, buildings, barriers, and ramps (src/features/map/hooks/geojsonBuilders.ts)

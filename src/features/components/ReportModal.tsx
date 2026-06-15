@@ -91,6 +91,7 @@ const ReportModal = ({
       name: "",
       description: "",
       aaPoints: [],
+      images: undefined,
     },
   });
 
@@ -200,7 +201,7 @@ const ReportModal = ({
 
   const takePicture = async () => {
     if (!camera) return;
-    const photo = await camera.takePictureAsync({base64:true,quality:1});
+    const photo = await camera.takePictureAsync({base64:true,quality:0.5});
     
     setValue("images", [photo.base64]);
     // console.log(getValues("images"));

@@ -522,9 +522,8 @@ app.post("/poi_reports", async (c) => {
     .insert(schema.poi_reports)
     .values({
       user_id: user.id,
-      poi_id: body.poi_id,
       description: body.description,
-
+      poi_id: body.poi_id,
       created_at: new Date(),
       updated_at: new Date(),
     })

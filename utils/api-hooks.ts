@@ -46,7 +46,6 @@ export function usePOIs() {
 
 // insert a POI report
 export function useInsertPOIReport() {
-  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
   return useMutation({

@@ -26,6 +26,8 @@ import colors from "~/types/colors";
 import { ActionButtonGroup } from "./ActionButtonGroup";
 import { Button } from "./Button";
 
+import { POIReportData } from "./POIBottomSheet";
+
 
 const reportFormSchema = z.object({
   description: z
@@ -38,6 +40,7 @@ const reportFormSchema = z.object({
 type ReportFormData = z.infer<typeof reportFormSchema>;
 
 interface ReportModeDialogProps {
+  data?: POIReportData;
   className?: string;
   style?: ViewStyle;
   onSubmit: (data: ReportFormData) => Promise<void> | void;
@@ -45,6 +48,7 @@ interface ReportModeDialogProps {
 }
 
 const POIReportForm = ({
+  data,
   className,
   style,
   onSubmit,
@@ -68,6 +72,12 @@ const POIReportForm = ({
   });
 
   const bottomTabBarHeight = 50;
+
+  useEffect(() => {
+    if (data) {
+      setValue("poi_id", data.id);
+    }
+  }, []);
 
   {/* Form Functionality --------------------------------------------------------*/}
 
@@ -113,13 +123,76 @@ const POIReportForm = ({
             <WarningIcon size={24} color={colors.theme.red} />
           </View>
 
+          <View className="flex-col gap-1">
+
+            {/* Heading */}
+            <Text className={`text-2xl font-bold`}>
+                Report Inaccuracy
+            </Text>
+
             {/* Subheading */}
             <Text className="text-sm font-medium">
-              Report an Inaccuracy
+              {data ? `${data.buildingName}` : ""}
             </Text>
 
           </View>
         </View>
+
+        {/* Text Input */}
+        <Text className="font-medium">What's inaccurate about this landmark?</Text>
+        <Controller
+        control={control}
+        name="description"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <>
+            <View>
+              <TextInput
+                multiline={true}
+                numberOfLines={4}
+                textAlignVertical="top"
+                className={`mt-2 rounded-xl border px-4 pb-16 pt-3 ${
+                  errors.description ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="Please describe any inaccuracies about this landmark..."
+                placeholderTextColor="#a7a7a7"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+                maxLength={500}
+              />
+              <Text className="absolute bottom-2 right-3 text-xs text-gray-500">
+                {value ? value.length : 0}/500
+              </Text>
+            </View>
+            <View className="mb-2 mt-1">
+              <View>
+                {errors.description && (
+                  <Text className="text-sm text-red-500">
+                    {errors.description.message}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </>
+        )}
+      />
+      
+      {/* Buttons */}
+      <View className="flex-row justify-content gap-4">
+        <Button
+          title="Cancel"
+          variant="gray"
+          className="flex-1"
+          onPress={handleClose}
+        />
+        <Button
+          title="Submit Report"
+          className="flex-1"
+          onPress={() => handleSubmit(handleFormSubmit)()}
+        />
+      </View>
+
+      </View>
 
     </>
   );

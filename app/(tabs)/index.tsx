@@ -37,6 +37,7 @@ import {
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
+  useInsertPOIReport,
 } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
@@ -70,6 +71,7 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+  const { mutateAsync: insertPOIReport } = useInsertPOIReport();
 
   // GeoJSON sources
   const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
@@ -139,10 +141,11 @@ export default function Home() {
             ref={map.bottomSheet.ref.poiBottomSheet}
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={map.handleEnterReviewMode}
-            handleReports={() => {
+            handleReports={(reportData) => {
               // map.bottomSheet.action.closeAllSheets();
               map.search.action.clear();
               map.poiReport.action.setIsPOIReportMode(true);
+              map.poiReport.action.setReportData(reportData);
             }}
           />
           <SidewalkBottomSheet ref={map.bottomSheet.ref.sidewalkBottomSheet} />
@@ -263,8 +266,10 @@ export default function Home() {
         <POIReportOverlay
           report={map.poiReport}
           insets={insets}
+          insertPOIReport={insertPOIReport}
         />
       ): null}
+
       {!map.poiReport.state.isPOIReportMode ? (
         <ReportOverlay
           report={map.report}

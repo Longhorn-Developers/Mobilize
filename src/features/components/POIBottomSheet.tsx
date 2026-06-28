@@ -27,6 +27,13 @@ export interface POIReviewData {
   entrances: any[];
 }
 
+
+export interface POIReportData {
+  id: number;
+  buildingName: string;
+}
+
+
 const normalizeText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -57,14 +64,14 @@ interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
-  handleReports: () => void;
+  handleReports: (reportData: POIReportData) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
-  handleReports: () => void;
+  handleReports: (reportData: POIReportData) => void;
 }
 
 const POIContent = ({ poi, allPOIs, handleReviews, handleReports }: POIContentProps) => {
@@ -319,7 +326,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, handleReports }: POIContentPr
               <Favorite />
             </TouchableHighlight>
 
-            <TouchableHighlight onPress={handleReports} underlayColor="#BF5700">
+            <TouchableHighlight onPress={() => handleReports({ id: poi?.id, buildingName: buildingName})} underlayColor="#BF5700">
               <Warning />
             </TouchableHighlight>
           </View>

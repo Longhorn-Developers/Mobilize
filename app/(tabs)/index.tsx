@@ -258,21 +258,27 @@ export default function Home() {
           onFeatureTapped={() => { map.featureTappedRef.current = true; }}
         />
       </MapView>
-      <ReportOverlay
-        report={map.report}
-        canReport={canReport}
-        insets={insets}
-        insertAvoidanceArea={insertAvoidanceArea}
-        onEnterReport={() => {
-          map.bottomSheet.action.closeAllSheets();
-          map.search.action.clear();
-          map.report.action.setIsReportMode(true);
-        }}
-      />
-      <POIReportOverlay
-        report={map.poiReport}
-        insets={insets}
-      />
+
+      {!map.report.state.isReportMode ? (
+        <POIReportOverlay
+          report={map.poiReport}
+          insets={insets}
+        />
+      ): null}
+      {!map.poiReport.state.isPOIReportMode ? (
+        <ReportOverlay
+          report={map.report}
+          canReport={canReport}
+          insets={insets}
+          insertAvoidanceArea={insertAvoidanceArea}
+          onEnterReport={() => {
+            map.bottomSheet.action.closeAllSheets();
+            map.search.action.clear();
+            map.report.action.setIsReportMode(true);
+          }}
+        />
+      ): null}
+      
     </>
   );
 }

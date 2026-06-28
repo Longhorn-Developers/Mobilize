@@ -33,9 +33,21 @@ CREATE TABLE `avoidance_areas` (
 	`name` text NOT NULL,
 	`description` text,
 	`boundary_geojson` text NOT NULL,
+	`images` text,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `poi_reports` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` text NOT NULL,
+	`poi_id` integer NOT NULL,
+	`description` text NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `pois` (
@@ -57,6 +69,8 @@ CREATE TABLE `profiles` (
 	`major` text,
 	`bio` text,
 	`mobility_preference` text,
+	`is_anonymous` integer DEFAULT false NOT NULL,
+	`onboarding_completed_at` integer,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
@@ -74,10 +88,11 @@ CREATE TABLE `reviews` (
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`deleted_at` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`poi_id`) REFERENCES `pois`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `poi_deleted_idx` ON `reviews` (`poi_id`,`deleted_at`);--> statement-breakpoint
+CREATE INDEX `reviews_user_poi_deleted_idx` ON `reviews` (`user_id`,`poi_id`,`deleted_at`);--> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

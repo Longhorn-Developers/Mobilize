@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1781492602840,
-      "tag": "0000_many_maria_hill",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1781494767069,
-      "tag": "0001_mute_blizzard",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1781495631675,
-      "tag": "0002_dapper_microbe",
+      "when": 1782633923388,
+      "tag": "0000_parched_killmonger",
       "breakpoints": true
     }
   ]

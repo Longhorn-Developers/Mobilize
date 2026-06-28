@@ -10,6 +10,7 @@ import { useMapOverlay } from "~/src/features/map/hooks/useMapOverlay";
 import { useMapPressHandlers } from "~/src/features/map/hooks/useMapPressHandlers";
 import { useMapSearch } from "~/src/features/map/hooks/useMapSearch";
 import { useReportMode } from "~/src/features/map/hooks/useReportMode";
+import { usePOIReportMode } from "~/src/features/map/hooks/usePOIReportMode";
 import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
 
 export function useMapScreenController({
@@ -22,6 +23,7 @@ export function useMapScreenController({
 
   const bottomSheet = useMapBottomSheets();
   const report = useReportMode(bottomTabBarHeight);
+  const poiReport = usePOIReportMode(bottomTabBarHeight);
 
   const [poi, setPoi] = useState<POIReviewData>();
   const [reviewKey, setReviewKey] = useState(0);
@@ -61,6 +63,7 @@ export function useMapScreenController({
 
   const mapPress = useMapPressHandlers({
     isReportMode: report.state.isReportMode,
+    isPOIReportMode: poiReport.state.isPOIReportMode,
     entrances,
     avoidanceAreas,
     bottomTabBarHeight,
@@ -82,6 +85,7 @@ export function useMapScreenController({
   onResetUiStateRef.current = () => {
     search.action.clear();
     report.action.resetReport();
+    poiReport.action.resetReport();
     setPoi(undefined);
   };
 
@@ -115,6 +119,7 @@ export function useMapScreenController({
     featureTappedRef,
     bottomSheet,
     report,
+    poiReport,
     search,
     poi,
     reviewKey,

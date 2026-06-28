@@ -30,6 +30,7 @@ import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
 import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
 import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
 import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
+import { POIReportOverlay } from "~/src/features/map/rendering/POIReportOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
   usePOIs,
@@ -102,7 +103,7 @@ export default function Home() {
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* Search bar — hidden in report mode */}
-      {!map.report.state.isReportMode && (
+      {!map.report.state.isReportMode && !map.poiReport.state.isPOIReportMode && (
         <SearchBar
           onPress={() => map.search.action.open()}
           onChangeText={map.search.action.handleSearchChange}
@@ -118,7 +119,7 @@ export default function Home() {
       )}
 
       {/* Search results dropdown */}
-      {!map.report.state.isReportMode && (
+      {!map.report.state.isReportMode && !map.poiReport.state.isPOIReportMode && (
         <SearchDropdown
           visible={map.search.state.isSearchActive}
           searchQuery={map.search.state.searchQuery}
@@ -131,13 +132,18 @@ export default function Home() {
       )}
 
       {/* Bottom sheets */}
-      {isTabFocused ? (
+      {!map.report.state.isReportMode && !map.poiReport.state.isPOIReportMode && isTabFocused ? (
         <>
           <AvoidanceAreaBottomSheet ref={map.bottomSheet.ref.avoidanceAreaBottomSheet} />
           <POIBottomSheet
             ref={map.bottomSheet.ref.poiBottomSheet}
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={map.handleEnterReviewMode}
+            handleReports={() => {
+              // map.bottomSheet.action.closeAllSheets();
+              map.search.action.clear();
+              map.poiReport.action.setIsPOIReportMode(true);
+            }}
           />
           <SidewalkBottomSheet ref={map.bottomSheet.ref.sidewalkBottomSheet} />
           <LocationDetailsBottomSheet ref={map.bottomSheet.ref.locationBottomSheet} />
@@ -236,6 +242,7 @@ export default function Home() {
           reportGeoJSON={map.report.state.reportGeoJSON}
           showDetailedLayers={map.showDetailedLayers}
           isReportMode={map.report.state.isReportMode}
+          isPOIReportMode={map.poiReport.state.isPOIReportMode}
           aaPointsReport={map.report.state.aaPointsReport}
           clickedPoint={map.report.state.clickedPoint}
           clusteredEntrancePOIs={clusteredEntrancePOIs}
@@ -261,6 +268,10 @@ export default function Home() {
           map.search.action.clear();
           map.report.action.setIsReportMode(true);
         }}
+      />
+      <POIReportOverlay
+        report={map.poiReport}
+        insets={insets}
       />
     </>
   );

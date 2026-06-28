@@ -2,7 +2,7 @@ import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
 import React, { ForwardedRef, useEffect, useState } from "react";
-import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import { Text, View, Pressable, Image, ScrollView, TouchableHighlight } from "react-native";
 import Toast from "react-native-toast-message";
 
 import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
@@ -57,15 +57,17 @@ interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
+  handleReports: () => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
+  handleReports: () => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews, handleReports }: POIContentProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
@@ -313,8 +315,13 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-            <Favorite />
-            <Warning />
+            <TouchableHighlight onPress={() => console.log("DEBUG: Favorite pressed")} underlayColor="#BF5700">
+              <Favorite />
+            </TouchableHighlight>
+
+            <TouchableHighlight onPress={handleReports} underlayColor="#BF5700">
+              <Warning />
+            </TouchableHighlight>
           </View>
         </View>
 
@@ -430,7 +437,7 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
   );
 };
 
-const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, handleReports }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -452,6 +459,7 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews }: POIBottomShe
           poi={data.poi}
           allPOIs={allPOIs}
           handleReviews={handleReviews}
+          handleReports={handleReports}
         />;
       }}
     </BottomSheetModal>

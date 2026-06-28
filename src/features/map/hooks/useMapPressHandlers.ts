@@ -15,6 +15,7 @@ import { buildingToPlaceDetails, findBuilding } from "~/utils/buildingDatabase";
 
 type UseMapPressHandlersParams = {
   isReportMode: boolean;
+  isPOIReportMode: boolean;
   entrances: any[];
   avoidanceAreas: any[] | undefined;
   bottomTabBarHeight: number;
@@ -34,6 +35,7 @@ type UseMapPressHandlersParams = {
 
 export function useMapPressHandlers({
   isReportMode,
+  isPOIReportMode,
   entrances,
   avoidanceAreas,
   bottomTabBarHeight,
@@ -52,6 +54,8 @@ export function useMapPressHandlers({
 
   const handleRampPress = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
+    if (isPOIReportMode) return;
+
     const epoch = beginOverlayAction();
     if (!canPresent(epoch)) return;
 
@@ -175,6 +179,8 @@ export function useMapPressHandlers({
   /** Handle a tap on a campus building polygon using the local building database. */
   const handleBuildingTap = useCallback((feature: GeoJSON.Feature) => {
     if (isReportMode) return;
+    if (isPOIReportMode) return;
+
     const epoch = beginOverlayAction();
     if (!canPresent(epoch)) return;
 

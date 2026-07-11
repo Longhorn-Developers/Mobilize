@@ -1,19 +1,20 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
-import React, { ForwardedRef, useEffect, useState } from "react";
+import React, { ForwardedRef, useEffect, useMemo, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView } from "react-native";
 import Toast from "react-native-toast-message";
 
-import { StarFill, StarBorder, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
+import buildingsData from '~/assets/geojson/buildings_simple.json';
+import { Wheelchair, LocationPin, ChevronRight, InformationSym, Warning, Favorite } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
+import { useBuildingRating } from "~/utils/api-hooks";
 import { extractBuildingAbbreviation } from "~/utils/buildingDatabase";
 import { useTheme } from "~/utils/ThemeContext";
 import { typography } from '~/utils/typography';
 import { mapIcons } from "~/utils/useMapIcons";
 import { getCardinalLabel, getCardinalLabelFromNeighbors } from "~/utils/utils";
 
-import buildingsData from '~/assets/geojson/buildings_simple.json';
 
 interface POIData {
   poi: any;
@@ -57,32 +58,45 @@ interface POIBottomSheetProps {
   ref: ForwardedRef<BottomSheetModal>;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
+  onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
 }
 
 interface POIContentProps {
   poi: any;
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
+  onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview }: POIContentProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
   const [entrances, setEntrances] = useState<any[]>([]);
   const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
-  const [rating] = useState<number>(0);
-  const [reviewCount] = useState<number>(0);
 
-  const renderStars = (value: number, size: number) => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const StarComponent = i < Math.floor(value) ? StarFill : StarBorder;
-      return (
-        <React.Fragment key={i}>
-          <StarComponent width={size} height={size} />
-        </React.Fragment>
-      );
-    });
+  const buildingPoiIds = useMemo(() => {
+    const ids = entrances
+      .map((entrance) => Number(entrance.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    const selfId = Number(poi?.id);
+    if (Number.isFinite(selfId) && selfId > 0 && !ids.includes(selfId)) {
+      ids.push(selfId);
+    }
+    return ids;
+  }, [entrances, poi?.id]);
+
+  const { averageRating: rating, reviewCount } = useBuildingRating(buildingPoiIds);
+
+  const renderWheelchairRating = (value: number, size: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <React.Fragment key={i}>
+        <Wheelchair
+          size={size}
+          color={i < Math.round(value) ? colors.ut.burntorange : "#9CA3AF"}
+        />
+      </React.Fragment>
+    ));
   };
 
   const metadata = poi.metadata || {};
@@ -329,7 +343,7 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
         {/* Rating */}
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
           <View style={{ flexDirection: "row", marginRight: 12 }}>
-            {renderStars(rating, 23.6)}
+            {renderWheelchairRating(rating, 23.6)}
           </View>
           <Text style={{ fontFamily: "Inter", fontSize: 15.35, fontWeight: "bold", marginRight: 24, color: isDark ? "#F3F4F6" : "#1A2024" }}>
             {rating.toFixed(1)}
@@ -414,14 +428,22 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
           </ScrollView>
         </View>
 
-        {/* Get Directions */}
-        {/* TODO: Include searching logic here when we get it */}
-        <Pressable style={{
-          backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
-          borderRadius: 9.31, alignItems: "center", flexDirection: "row",
-          justifyContent: "center", marginBottom: 8,
-        }}>
-          <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "500" }}>
+        {/* Get Directions button */}
+        <Pressable
+          onPress={() => {
+            const activeEntrance = entrances.find((e) => e.id.toString() === selectedEntrance) ?? entrances[0];
+            const coords: [number, number] = activeEntrance?.location_geojson?.coordinates
+              ?? poi?.location_geojson?.coordinates
+              ?? [-97.7335, 30.2861];
+            onRequestPreview([coords[0], coords[1]], buildingName, curEntranceLabel);
+          }}
+          style={{
+            backgroundColor: "#BF5700", height: 41.32, paddingHorizontal: 8,
+            borderRadius: 9.31, alignItems: "center", flexDirection: "row",
+            justifyContent: "center", marginBottom: 8,
+          }}
+        >
+          <Text style={{ fontFamily: "RobotoFlex", color: "white", fontSize: 16.79, fontWeight: "700" }}>
             Get Directions
           </Text>
         </Pressable>
@@ -430,7 +452,7 @@ const POIContent = ({ poi, allPOIs, handleReviews }: POIContentProps) => {
   );
 };
 
-const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPreview }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -445,14 +467,16 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews }: POIBottomShe
       handleIndicatorStyle={{ backgroundColor: isDark ? "#52525B" : colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
     >
-
       {({ data }) => {
         if (!data?.poi) return null;
-        return <POIContent
-          poi={data.poi}
-          allPOIs={allPOIs}
-          handleReviews={handleReviews}
-        />;
+        return (
+          <POIContent
+            poi={data.poi}
+            allPOIs={allPOIs}
+            handleReviews={handleReviews}
+            onRequestPreview={onRequestPreview}
+          />
+        );
       }}
     </BottomSheetModal>
   );

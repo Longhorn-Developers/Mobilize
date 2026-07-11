@@ -5,19 +5,24 @@ import Mapbox, {
   Camera,
   Images,
   MapView,
+  PointAnnotation,
 } from "@rnmapbox/maps";
 import { Stack } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image, Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AvoidanceAreaBottomSheet from "~/src/features/components/AvoidanceAreaBottomSheet";
 import BarrierBottomSheet from "~/src/features/components/BarrierBottomSheet";
 import ConstructionBottomSheet from "~/src/features/components/ConstructionBottomSheet";
+import { DirectionsBanner } from "~/src/features/components/DirectionsBanner";
 import {
   LocationDetailsBottomSheet,
   type LocationDetailsBottomSheetRef,
 } from "~/src/features/components/LocationDetailsBottomSheet";
+import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
 import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import RoutePreviewSheet from "~/src/features/components/RoutePreviewSheet";
 import ReviewModal from "~/src/features/components/ReviewModal";
 import { SearchBar } from "~/src/features/components/SearchBar";
 import { SearchDropdown } from "~/src/features/components/SearchDropdown";
@@ -40,6 +45,7 @@ import {
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 import { mapIcons } from "~/utils/useMapIcons";
+
 // Initialise Mapbox
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
@@ -56,21 +62,15 @@ export default function Home() {
     user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
   const isDark = colorScheme === "dark";
 
-  // Loads GeoJSON data for sidewalks, buildings, barriers, and ramps (src/features/map/hooks/geojsonBuilders.ts)
   const { sidewalksGeoJSON, buildingsGeoJSON, barriersGeoJSON, rampsGeoJSON } = useMapGeoJSON();
 
-  // Encompasses all report related states/functions (src/features/map/hooks/useReportMode.ts)
-  const [Route] = useState<[number, number][] | null>(null);
   const [zoomLevel, setZoomLevel] = useState(15);
 
-
-  // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
 
-  // GeoJSON sources
   const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
   const constructionGeoJSON = useConstructionGeoJSON(constructionAreas);
   const { poiGeoJSON, clusteredEntrancePOIs, entrances } = usePOIFeatures(POIs);
@@ -79,58 +79,144 @@ export default function Home() {
     isTabFocused,
     bottomTabBarHeight,
     avoidanceAreas,
+    constructionAreas,
     entrances,
   });
 
-  // Route as GeoJSON for Mapbox LineLayer
+  const { navigation } = map;
+  const isNavigating = navigation.state.isNavigating;
+
+  // Show navigation route while navigating, preview route while the sheet is open
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
-    if (!Route || Route.length < 2) return null;
+    const coords = isNavigating
+      ? navigation.state.route?.coordinates
+      : map.routePreview.state.isOpen
+        ? map.routePreview.state.route?.coordinates
+        : undefined;
+    if (!coords || coords.length < 2) return null;
     return {
       type: "FeatureCollection",
       features: [{
         type: "Feature",
         properties: {},
-        geometry: { type: "LineString", coordinates: Route },
+        geometry: { type: "LineString", coordinates: coords },
       }],
     };
-  }, [Route]);
+  }, [isNavigating, navigation.state.route, map.routePreview.state.isOpen, map.routePreview.state.route]);
+
+  // Fit camera to show the full route whenever the preview route loads
+  useEffect(() => {
+    if (isNavigating) return;
+    const route = map.routePreview.state.route;
+    if (!route || route.coordinates.length < 2) return;
+    const lngs = route.coordinates.map(([lng]) => lng);
+    const lats = route.coordinates.map(([, lat]) => lat);
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+    // Bottom padding accounts for the route preview sheet (~42% screen height)
+    map.cameraRef.current?.fitBounds(ne, sw, [80, 40, 220, 40], 800);
+  }, [map.routePreview.state.route]);
+
+  // Fly to the start coordinate of the active navigation step when it changes
+  useEffect(() => {
+    if (!isNavigating || !navigation.state.route) return;
+    const step = navigation.state.route.steps[navigation.state.currentStepIndex];
+    if (step?.coordinate) {
+      map.cameraRef.current?.flyTo(step.coordinate, 500);
+    }
+  }, [navigation.state.currentStepIndex]);
 
   const emptyPOIs = useMemo(() => [], []);
+
+  // When navigation starts, fly to the first step's location at street-level zoom
+  const prevIsNavigating = useRef(false);
+  useEffect(() => {
+    if (isNavigating && !prevIsNavigating.current) {
+      const step = navigation.state.route?.steps[0];
+      const coord = step?.coordinate ?? navigation.state.userPosition;
+      map.cameraRef.current?.setCamera({
+        centerCoordinate: coord,
+        zoomLevel: 18,
+        pitch: 60,
+        animationDuration: 800,
+      });
+    }
+    prevIsNavigating.current = isNavigating;
+  }, [isNavigating]);
+
+  const handleGoFromPreview = useCallback(async () => {
+    const { destinationCoords, destinationName, profile, route } = map.routePreview.state;
+    if (!destinationCoords) return;
+    map.bottomSheet.ref.routePreviewSheet.current?.dismiss();
+    map.routePreview.action.closePreview();
+    await navigation.action.startNavigation(
+      destinationCoords,
+      destinationName,
+      profile,
+      route ?? undefined,
+    );
+  }, [map.routePreview, map.bottomSheet.ref, navigation.action]);
 
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
-      {/* Search bar — hidden in report mode */}
-      {!map.report.state.isReportMode && (
+      {/* iOS status bar background — adapts to theme when not in navigation */}
+      {Platform.OS === "ios" && !isNavigating && !map.report.state.isReportMode && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top,
+            backgroundColor: isDark ? "#1A2024" : "#FFFFFF",
+            zIndex: 19,
+          }}
+          pointerEvents="none"
+        />
+      )}
+
+      {/* Directions banner — shown at top during navigation */}
+      {isNavigating && (
+        <DirectionsBanner
+          step={navigation.state.route?.steps[navigation.state.currentStepIndex]}
+          isDark={isDark}
+          insetTop={insets.top}
+        />
+      )}
+
+      {/* Search bar — hidden in report mode and during navigation */}
+      {!map.report.state.isReportMode && !isNavigating && (
         <SearchBar
           onPress={() => map.search.action.open()}
           onChangeText={map.search.action.handleSearchChange}
-          onClear={() => {
-            map.search.action.clear();
-          }}
+          onClear={() => map.search.action.clear()}
           value={map.search.state.searchQuery}
           editable={map.search.state.isSearchActive}
           isActive={map.search.state.isSearchActive}
-          className="absolute left-4 right-4 z-20"
-          style={{ top: insets.top + 10 }}
+          style={{
+            position: "absolute",
+            top: insets.top + 10,
+            left: 16,
+            right: 16,
+            zIndex: 20,
+          }}
         />
       )}
 
       {/* Search results dropdown */}
-      {!map.report.state.isReportMode && (
+      {!map.report.state.isReportMode && !isNavigating && (
         <SearchDropdown
           visible={map.search.state.isSearchActive}
           searchQuery={map.search.state.searchQuery}
           onSelectLocation={map.search.action.handleSelectLocation}
-          onDismiss={() => {
-            map.search.action.clear();
-          }}
+          onDismiss={() => map.search.action.clear()}
           topOffset={insets.top + 70}
         />
       )}
 
-      {/* Bottom sheets */}
+      {/* Bottom sheets — only mounted when tab is focused */}
       {isTabFocused ? (
         <>
           <AvoidanceAreaBottomSheet ref={map.bottomSheet.ref.avoidanceAreaBottomSheet} />
@@ -138,13 +224,26 @@ export default function Home() {
             ref={map.bottomSheet.ref.poiBottomSheet}
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={map.handleEnterReviewMode}
+            onRequestPreview={map.handleRequestPreview}
+          />
+          <RoutePreviewSheet
+            ref={map.bottomSheet.ref.routePreviewSheet}
+            previewState={map.routePreview.state}
+            onGo={handleGoFromPreview}
+            onChangeProfile={map.routePreview.action.changeProfile}
+            onSwapOriginDest={map.routePreview.action.swapOriginDest}
+            onSetOrigin={map.routePreview.action.setOrigin}
+            onSetDestination={map.routePreview.action.setDestination}
+            onAddStop={map.routePreview.action.addStop}
+            onRemoveStop={map.routePreview.action.removeStop}
+            onToggleDirectionsList={map.routePreview.action.toggleDirectionsList}
+            onDismiss={map.routePreview.action.closePreview}
           />
           <SidewalkBottomSheet ref={map.bottomSheet.ref.sidewalkBottomSheet} />
           <LocationDetailsBottomSheet ref={map.bottomSheet.ref.locationBottomSheet} />
           <BarrierBottomSheet ref={map.bottomSheet.ref.barrierBottomSheet} />
           <ConstructionBottomSheet ref={map.bottomSheet.ref.constructionBottomSheet} />
 
-          {/* Review Modal */}
           <BottomSheetModal
             ref={map.bottomSheet.ref.reviewSheet}
             bottomInset={bottomTabBarHeight}
@@ -166,6 +265,7 @@ export default function Home() {
               building={map.poi && map.poi.building}
               buildingName={map.poi ? map.poi.buildingName : "No Building Name Found"}
               onExit={map.handleExitReviewMode}
+              onActiveChange={map.setReviewActive}
             />
           </BottomSheetModal>
         </>
@@ -181,7 +281,6 @@ export default function Home() {
         }
         pitchEnabled
         rotateEnabled
-        // compassEnabled /* Disabled for now, not sure of how it looks */
         compassViewPosition={1}
         compassViewMargins={{ x: 16, y: insets.top + 70 }}
         attributionEnabled
@@ -201,12 +300,11 @@ export default function Home() {
                 latitude: coords[1] as number,
               });
             }
-          } else {
+          } else if (!isNavigating) {
             map.closeAllSheets();
           }
         }}
       >
-        {/* Camera */}
         <Camera
           ref={map.cameraRef}
           defaultSettings={{
@@ -216,7 +314,19 @@ export default function Home() {
           }}
         />
 
-        {/* ── Icon images for POI SymbolLayer ──────────────────────────────── */}
+        {/* User position marker during navigation (UT Tower placeholder) */}
+        {isNavigating && (
+          <PointAnnotation
+            id="nav-user-position"
+            coordinate={navigation.state.userPosition}
+          >
+            <Image
+              source={mapIcons.crosshair}
+              style={{ width: 28, height: 28 }}
+            />
+          </PointAnnotation>
+        )}
+
         <Images
           images={{
             autoDoor: require("../../assets/map_icons/auto_door.png"),
@@ -234,6 +344,7 @@ export default function Home() {
           constructionGeoJSON={constructionGeoJSON}
           poiGeoJSON={poiGeoJSON}
           reportGeoJSON={map.report.state.reportGeoJSON}
+          routeGeoJSON={routeGeoJSON}
           showDetailedLayers={map.showDetailedLayers}
           isReportMode={map.report.state.isReportMode}
           aaPointsReport={map.report.state.aaPointsReport}
@@ -251,9 +362,10 @@ export default function Home() {
           onFeatureTapped={() => { map.featureTappedRef.current = true; }}
         />
       </MapView>
+
       <ReportOverlay
         report={map.report}
-        canReport={canReport}
+        canReport={canReport && !isNavigating}
         insets={insets}
         insertAvoidanceArea={insertAvoidanceArea}
         onEnterReport={() => {
@@ -262,6 +374,29 @@ export default function Home() {
           map.report.action.setIsReportMode(true);
         }}
       />
+
+      {/* Navigation bottom bar */}
+      {isNavigating && (
+        <NavigationBottomBar
+          destinationName={navigation.state.destinationName}
+          totalDistanceMi={navigation.state.route?.totalDistanceMi ?? 0}
+          totalDurationSec={navigation.state.route?.totalDurationSec ?? 0}
+          currentStepIndex={navigation.state.currentStepIndex}
+          totalSteps={navigation.state.route?.steps.length ?? 1}
+          isMuted={navigation.state.isMuted}
+          isDark={isDark}
+          bottomInset={bottomTabBarHeight}
+          onToggleMute={navigation.action.toggleMute}
+          onNextStep={navigation.action.nextStep}
+          onPrevStep={navigation.action.prevStep}
+          onReportIncident={() => {
+            map.bottomSheet.action.closeAllSheets();
+            map.search.action.clear();
+            map.report.action.setIsReportMode(true);
+          }}
+          onEnd={navigation.action.endNavigation}
+        />
+      )}
     </>
   );
 }

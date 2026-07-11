@@ -43,6 +43,17 @@ onlineManager.setEventListener((setOnline) => {
 
 const queryClient = new QueryClient();
 
+function DevQuerySync() {
+  useSyncQueriesExternal({
+    queryClient,
+    socketURL: "http://localhost:42831",
+    deviceName: Platform?.OS || "web",
+    platform: Platform?.OS || "web",
+    deviceId: Platform?.OS || "web",
+  });
+  return null;
+}
+
 export default function Layout() {
   return (
     <ThemeProvider>
@@ -146,22 +157,19 @@ function App() {
     ),
   };
 
-  useSyncQueriesExternal({
-    queryClient,
-    socketURL: "http://localhost:42831",
-    deviceName: Platform?.OS || "web",
-    platform: Platform?.OS || "web",
-    deviceId: Platform?.OS || "web",
-  });
   useAppState(onAppStateChange);
 
   return (
     <GestureHandlerRootView>
       <BottomSheetModalProvider>
-        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+        <StatusBar
+          style={colorScheme === "dark" ? "light" : "dark"}
+          backgroundColor={colorScheme === "dark" ? "#1A2024" : "#FFFFFF"}
+        />
         <Stack screenOptions={{ headerShown: false }} />
       </BottomSheetModalProvider>
       <Toast config={toastConfig} />
+      {__DEV__ && <DevQuerySync />}
     </GestureHandlerRootView>
   );
 }

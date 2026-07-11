@@ -22,8 +22,11 @@ export function ReportOverlay({
 }: ReportOverlayProps) {
   if (report.state.isReportMode) {
     return (
-      <>
-        <View className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 bg-ut-blue/15" />
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.45)" }}
+        />
         <ReportModal
           className="absolute left-10 right-10"
           style={{ top: insets.top + 25 }}
@@ -49,7 +52,7 @@ export function ReportOverlay({
           }}
           onExit={() => report.action.resetReport()}
         />
-      </>
+      </View>
     );
   }
 

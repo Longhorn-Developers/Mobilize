@@ -31,6 +31,7 @@ import {
     constructionGeoJSON: GeoJSON.FeatureCollection;
     poiGeoJSON: GeoJSON.FeatureCollection;
     reportGeoJSON: GeoJSON.FeatureCollection | null;
+    routeGeoJSON?: GeoJSON.FeatureCollection | null;
   
     // display state
     showDetailedLayers: boolean;
@@ -61,6 +62,7 @@ import {
     constructionGeoJSON,
     poiGeoJSON,
     reportGeoJSON,
+    routeGeoJSON,
     showDetailedLayers,
     isReportMode,
     aaPointsReport,
@@ -276,6 +278,45 @@ import {
                 ],
                 iconAllowOverlap: true,
                 iconAnchor: "bottom",
+              }}
+            />
+          </ShapeSource>
+        )}
+
+        {/* Navigation / preview route with directional arrows */}
+        {routeGeoJSON && (
+          <ShapeSource id="nav-route" shape={routeGeoJSON}>
+            <LineLayer
+              id="nav-route-casing"
+              style={{
+                lineColor: "#FFFFFF",
+                lineWidth: 10,
+                lineJoin: "round",
+                lineCap: "round",
+                lineOpacity: 0.9,
+              }}
+            />
+            <LineLayer
+              id="nav-route-fill"
+              style={{
+                lineColor: "#BF5700",
+                lineWidth: 6,
+                lineJoin: "round",
+                lineCap: "round",
+              }}
+            />
+            <SymbolLayer
+              id="nav-route-arrows"
+              style={{
+                symbolPlacement: "line",
+                symbolSpacing: 180,
+                textField: "▶",
+                textSize: 13,
+                textColor: "#FFFFFF",
+                textRotationAlignment: "map",
+                textKeepUpright: false,
+                textAllowOverlap: true,
+                textIgnorePlacement: true,
               }}
             />
           </ShapeSource>

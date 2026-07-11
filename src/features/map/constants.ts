@@ -3,6 +3,9 @@
 /* Center of UT Campus */
 export const UT_CENTER: [number, number] = [-97.733, 30.282];
 
+/* UT Tower (Main Building) — placeholder start for navigation until real GPS is wired */
+export const UT_TOWER: [number, number] = [-97.7335, 30.2861];
+
 /* Bounding box used to quickly reject coordinates that are nowhere near campus */
 export const UT_CAMPUS_BOUNDS = {
   low: { latitude: 30.269, longitude: -97.747 },

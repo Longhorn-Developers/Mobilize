@@ -1,5 +1,5 @@
 // TanStack Query hooks for the Hono backend
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Polygon } from "geojson";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -104,6 +104,30 @@ export function useReviews(poi_id: number) {
     enabled: !!poi_id,
     retry: false,
   });
+}
+
+// fetch reviews for every entrance POI belonging to a building and aggregate a single average rating
+export function useBuildingRating(poi_ids: number[]) {
+  const results = useQueries({
+    queries: poi_ids.map((poi_id) => ({
+      queryKey: queryKeys.review(poi_id),
+      queryFn: () => apiClient.getReviews(poi_id),
+      enabled: !!poi_id,
+      retry: false,
+    })),
+  });
+
+  const reviews = results.flatMap((result) => result.data ?? []);
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount > 0
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
+    : 0;
+
+  return {
+    averageRating,
+    reviewCount,
+    isLoading: results.some((result) => result.isLoading),
+  };
 }
 
 // health check

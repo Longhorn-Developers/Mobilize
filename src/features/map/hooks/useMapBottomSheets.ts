@@ -16,6 +16,7 @@ export function useMapBottomSheets() {
   const sidewalkBottomSheet = useRef<BottomSheetModal>(null);
   const barrierBottomSheet = useRef<BottomSheetModal>(null);
   const constructionBottomSheet = useRef<BottomSheetModal>(null);
+  const routePreviewSheet = useRef<BottomSheetModal>(null);
 
   const closeAllSheets = useCallback(() => {
     avoidanceAreaBottomSheet.current?.dismiss();
@@ -25,6 +26,7 @@ export function useMapBottomSheets() {
     barrierBottomSheet.current?.dismiss();
     constructionBottomSheet.current?.dismiss();
     reviewSheet.current?.dismiss();
+    routePreviewSheet.current?.dismiss();
   }, []);
 
   return {
@@ -36,6 +38,7 @@ export function useMapBottomSheets() {
       sidewalkBottomSheet,
       barrierBottomSheet,
       constructionBottomSheet,
+      routePreviewSheet,
     },
 
     action: {

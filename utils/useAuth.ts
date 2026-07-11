@@ -33,6 +33,7 @@ WebBrowser.maybeCompleteAuthSession();
 const CONFIGURED_API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").trim().replace(/\/$/, "");
 export const SESSION_TOKEN_KEY = "auth_session_token";
 export const USER_KEY = "auth_user";
+export const ONBOARDING_KEY = "auth_onboarding_complete";
 
 function getOAuthBaseUrl() {
   if (!CONFIGURED_API_URL) {
@@ -238,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const clearSession = useCallback(async () => {
-    await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY]);
+    await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY, ONBOARDING_KEY]);
     setAuthState({
       user: null,
       profile: null,
@@ -258,13 +259,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (opts?: { silent?: boolean }) => {
     if (refreshSessionInFlightRef.current) {
       return refreshSessionInFlightRef.current;
     }
 
     const run = (async () => {
-      setAuthState((prev) => ({ ...prev, isLoading: true }));
+      if (!opts?.silent) {
+        setAuthState((prev) => ({ ...prev, isLoading: true }));
+      }
       try {
         const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
         if (!sessionToken) {
@@ -278,7 +281,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+        await Promise.all([
+          AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user)),
+          AsyncStorage.setItem(ONBOARDING_KEY, me.onboardingComplete ? "1" : "0"),
+        ]);
         applyAuthState(me);
       } catch (error) {
         console.error("Error refreshing session:", error);
@@ -306,14 +312,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const bootstrap = async () => {
-      const cachedUser = parseCachedUser(await AsyncStorage.getItem(USER_KEY));
-      if (cachedUser) {
-        setAuthState((prev) => ({
-          ...prev,
-          user: cachedUser,
-          isAuthenticated: true,
-        }));
+      const [sessionToken, rawCachedUser, rawOnboarding] = await Promise.all([
+        AsyncStorage.getItem(SESSION_TOKEN_KEY),
+        AsyncStorage.getItem(USER_KEY),
+        AsyncStorage.getItem(ONBOARDING_KEY),
+      ]);
+
+      if (!sessionToken) {
+        setAuthState({
+          user: null,
+          profile: null,
+          onboardingComplete: false,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+        return;
       }
+
+      const cachedUser = parseCachedUser(rawCachedUser);
+      if (cachedUser) {
+        setAuthState({
+          user: cachedUser,
+          profile: null,
+          onboardingComplete: rawOnboarding === "1",
+          isLoading: false,
+          isAuthenticated: true,
+        });
+        void refreshSession({ silent: true });
+        return;
+      }
+
       await refreshSession();
     };
 
@@ -364,7 +392,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { success: false, error: "Unable to load user after sign-in." };
         }
 
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user));
+        await Promise.all([
+          AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user)),
+          AsyncStorage.setItem(ONBOARDING_KEY, me.onboardingComplete ? "1" : "0"),
+        ]);
         applyAuthState(me);
         lastCompletedOAuthSignatureRef.current = parsed.signature;
 

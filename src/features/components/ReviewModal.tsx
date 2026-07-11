@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, useController, Control } from "react-hook-form";
 import { ActivityIndicator, Pressable, View, Text, TextInput, TouchableOpacity, FlatList, Image, } from "react-native";
 import Toast from "react-native-toast-message";
+
 import { Wheelchair } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
 import { Review, ReviewEntry } from "~/types/database";
@@ -482,6 +483,8 @@ interface ReviewModalProps {
   building: any;
   buildingName: string;
   onExit: () => void;
+  /** Called whenever the user starts/stops actively writing a review (formState). */
+  onActiveChange?: (isActive: boolean) => void;
 }
 
 const ReviewModal = ({
@@ -492,6 +495,7 @@ const ReviewModal = ({
   building,
   buildingName,
   onExit,
+  onActiveChange,
 }: ReviewModalProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -503,9 +507,19 @@ const ReviewModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // Don't let a stale/cleared poi_id prop clobber the in-progress form —
+    // otherwise submit permanently fails with "Please select a valid entrance."
+    if (formState === 1) return;
     setSelectedPoiId(poi_id);
     setSelectedEntranceName(entranceName);
-  }, [poi_id, entranceName]);
+  }, [poi_id, entranceName, formState]);
+
+  useEffect(() => {
+    onActiveChange?.(formState === 1);
+    // Reset on unmount too (e.g. the tab loses focus mid-review) so the
+    // guard in the map controller doesn't stay stuck "active" forever.
+    return () => onActiveChange?.(false);
+  }, [formState, onActiveChange]);
 
   // Api Client Hooks
   const { mutateAsync: insertReview } = useInsertReview();

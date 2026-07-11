@@ -135,7 +135,7 @@ export const searchPlaces = async (
     if (!Array.isArray(data)) return [];
     return data.filter((item) => typeof item?.place_id === "string");
   } catch (error) {
-    console.error("Google Places autocomplete proxy error:", error);
+    console.warn("Google Places autocomplete unavailable:", error);
     return [];
   }
 };
@@ -160,7 +160,7 @@ export const getPlaceDetails = async (
     if (!data?.geometry?.location) return null;
     return data as PlaceDetails;
   } catch (error) {
-    console.error("Google Places details proxy error:", error);
+    console.warn("Google Places details unavailable:", error);
     return null;
   }
 };

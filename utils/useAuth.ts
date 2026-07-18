@@ -438,6 +438,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirectUrl = Linking.createURL("auth/callback");
       const redirectUri = `${apiBaseUrl}/api/auth/callback/google`;
       const authUrl = `${apiBaseUrl}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
+      console.log(authUrl);
+      console.log(redirectUrl);
+      console.log(redirectUri);
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
 
       if (result.type !== "success" || !result.url) {

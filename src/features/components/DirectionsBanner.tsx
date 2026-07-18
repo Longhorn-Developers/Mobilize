@@ -85,6 +85,6 @@ const styles = StyleSheet.create({
   distance: {
     fontFamily: "Inter",
     fontWeight: "500",
-    fontSize: 14,
+    fontSize: 18,
   },
 });

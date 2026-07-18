@@ -835,6 +835,8 @@ app.get("/api/auth/signin/google", async (c) => {
   const callbackURL = getCanonicalGoogleRedirectUri(c.env);
 
   if (requestedRedirectUri) {
+    console.log("MOBILE SENT:", requestedRedirectUri);
+    console.log("BACKEND EXPECTS:", callbackURL);
     const requestedNormalized = normalizeComparableUrl(requestedRedirectUri);
     const callbackNormalized = normalizeComparableUrl(callbackURL);
     if (!requestedNormalized || !callbackNormalized || requestedNormalized !== callbackNormalized) {

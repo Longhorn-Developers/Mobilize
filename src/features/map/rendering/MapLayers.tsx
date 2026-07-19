@@ -14,6 +14,7 @@ import {
   } from "@rnmapbox/maps";
   import { Image } from "react-native";
   
+  import UserNavigation from "~/src/features/map/layers/userNavigation";
   import SidewalkLayer from "~/src/features/map/layers/sidewalks";
   import AvoidanceAreas from "~/src/features/map/layers/avoidanceAreas";
   import ConstructionZones from "~/src/features/map/layers/constructionZones";
@@ -110,6 +111,7 @@ import {
             if (feature) onBuildingPress(feature as GeoJSON.Feature);
           }}
         >
+          <UserNavigation />
           <FillExtrusionLayer
             id="campus-buildings-3d"
             minZoomLevel={MapConstants.MIN_ZOOM_FOR_BUILDINGS}

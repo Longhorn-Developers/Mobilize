@@ -184,6 +184,11 @@ export default function Home() {
       {isNavigating && (
         <DirectionsBanner
           step={navigation.state.route?.steps[navigation.state.currentStepIndex]}
+          leadDistance={
+            navigation.state.currentStepIndex > 0
+              ? navigation.state.route?.steps[navigation.state.currentStepIndex - 1]?.distance
+              : undefined
+          }
           isDark={isDark}
           insetTop={insets.top}
         />

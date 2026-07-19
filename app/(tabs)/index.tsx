@@ -42,6 +42,8 @@ import {
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 import { mapIcons } from "~/utils/useMapIcons";
+
+
 // Initialise Mapbox
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
@@ -65,7 +67,6 @@ export default function Home() {
   const [Route] = useState<[number, number][] | null>(null);
   const [zoomLevel, setZoomLevel] = useState(15);
 
-
   // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
@@ -84,6 +85,7 @@ export default function Home() {
     avoidanceAreas,
     entrances,
   });
+
 
   // Route as GeoJSON for Mapbox LineLayer
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {

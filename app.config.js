@@ -26,7 +26,21 @@ export default {
           cameraPermission: "Allow MobilizeUT to access your camera",
           recordAudioAndroid: false
         }
-      ]
+      ],
+      [
+      "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "Allow MobilizeUT to use your location.",
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          motionPermission: "Allow MobilizeUT to access your device motion."
+        }
+      ],
     ],
     experiments: {
       typedRoutes: true,

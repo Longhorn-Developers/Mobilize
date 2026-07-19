@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, unique } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, unique, blob } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -187,8 +187,33 @@ export const pois = sqliteTable('pois', {
 });
 
 /**
+ * User-reports for inaccuracies in a POI.
+ * References users.id (not profiles.id) because area ownership is tied to the auth identity,
+ * not the campus profile.
+ * References pois.id
+ */
+export const poi_reports = sqliteTable('poi_reports', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    user_id: text('user_id')
+        .notNull()
+        .references(() => users.id),
+    poi_id: integer('poi_id')
+        .notNull()
+        .references(() => pois.id, { onDelete: "cascade" }),
+    description: text('description').notNull(),
+    created_at: integer('created_at', { mode: 'timestamp' })
+        .notNull()
+        .default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+        .notNull()
+        .default(sql`(unixepoch())`),
+});
+
+
+/**
  * User-reported zones to avoid (construction, broken elevators, etc.).
  * `boundary_geojson`: GeoJSON Polygon stored as JSON string.
+ * `images`: List of base64 encoded images as JSON string.
  * References users.id (not profiles.id) because area ownership is tied to the auth identity,
  * not the campus profile.
  */
@@ -200,6 +225,7 @@ export const avoidance_areas = sqliteTable('avoidance_areas', {
     name: text('name').notNull(),
     description: text('description'),
     boundary_geojson: text('boundary_geojson').notNull(),
+    images: text('images'),
     created_at: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .default(sql`(unixepoch())`),

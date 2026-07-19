@@ -493,6 +493,44 @@ app.post("/pois/ramp/resolve", async (c) => {
   return c.json(created);
 });
 
+/** Upload a poi report. Requires student role. */
+app.post("/poi_reports", async (c) => {
+  const db = c.get("db");
+  const user = await requireStudent(c, db);
+  if (user instanceof Response) return user;
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+  if (!body.description) return jsonError(c, 400, "BAD_REQUEST", "description is required");
+  if (!body.poi_id) return jsonError(c, 400, "BAD_REQUEST", "poi_id is required");
+
+  const poi = await db
+    .select()
+    .from(schema.pois)
+    .where(eq(schema.pois.id, body.poi_id))
+    .get();
+
+  if (!poi) {
+    return jsonError(c, 404, "NOT_FOUND", "POI not found");
+  }
+
+  const result = await db
+    .insert(schema.poi_reports)
+    .values({
+      user_id: user.id,
+      description: body.description,
+      poi_id: body.poi_id,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+  return c.json(result);
+});
+
 // ── Avoidance Areas ────────────────────────────────────────────────────────────
 
 /** GET /avoidance_areas — returns all avoidance areas with creator profile (no auth required). */
@@ -551,7 +589,7 @@ app.post("/avoidance_areas", async (c) => {
     return jsonError(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
 
-  const { name, description, boundary_geojson } = body;
+  const { name, description, boundary_geojson, images } = body;
 
   if (!name || !boundary_geojson) {
     return jsonError(c, 400, "BAD_REQUEST", "Missing required fields");
@@ -566,7 +604,6 @@ app.post("/avoidance_areas", async (c) => {
   ) {
     return jsonError(c, 400, "BAD_REQUEST", "boundary_geojson must be a valid GeoJSON Polygon");
   }
-
   const result = await db
     .insert(schema.avoidance_areas)
     .values({
@@ -574,6 +611,7 @@ app.post("/avoidance_areas", async (c) => {
       name,
       description: description || null,
       boundary_geojson: JSON.stringify(boundary_geojson),
+      images: images ? JSON.stringify(images) : null,
     })
     .returning();
 

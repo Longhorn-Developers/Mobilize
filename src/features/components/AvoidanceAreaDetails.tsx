@@ -13,7 +13,7 @@ import {
 } from "phosphor-react-native";
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { View, Text, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { z } from "zod";
 
 import colors from "~/types/colors";
@@ -60,6 +60,8 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) =>
     ? { type: "Polygon", coordinates: [area.boundary_geojson.coordinates[0]] }
     : null;
   const areaAuthorName = (area as any)?.profile_display_name || "UT Community Member";
+
+  // console.log("[test]" + area.images.length);
 
   const {
     data: reports,
@@ -201,6 +203,21 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) =>
             No description provided
           </Text>
         )}
+
+        {/* Image */}
+        { area.images ?
+          <Image 
+            style={{
+              height: 200,
+              marginBottom: 25,
+              borderWidth: 1, 
+              borderColor: 'bf5700',
+              borderRadius: 15
+            }} 
+            source={{uri: 'data:image/png;base64,'+JSON.parse(area.images)[0]}}/>
+        :
+          <></>
+        }
 
         {/* Status Question */}
         <View className="flex-row items-center justify-between rounded-lg bg-ut-burntorange/20 px-4 py-2">

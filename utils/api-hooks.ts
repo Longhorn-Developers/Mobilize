@@ -9,6 +9,7 @@ import { apiClient } from "./api-client";
 const TOAST_MESSAGES = {
   reviewSubmitted: "Thank you for your review! Your insights are helpful in shaping the community's experience.",
   reviewDeleted: "Review deleted successfully!",
+  reportSubmitted: "Thank you for your report! Your insights are helpful in shaping the community's experience.",
   avoidanceAreaSubmitted: "Thank you for your review! Your insights are helpful in shaping the community's experience.",
 } as const;
 
@@ -42,6 +43,34 @@ export function usePOIs() {
     staleTime: 1000 * 60 * 60 * 24, // 24 hour
   });
 }
+
+// insert a POI report
+export function useInsertPOIReport() {
+  const insets = useSafeAreaInsets();
+
+  return useMutation({
+    mutationFn: (data: {
+      description: string;
+      poi_id: number;
+    }) => apiClient.insertPOIReport(data),
+    onSuccess: () => {
+      Toast.show({
+        type: "success",
+        text2: TOAST_MESSAGES.reportSubmitted,
+        topOffset: insets.top + 35,
+      });
+    },
+    onError: (error) => {
+      Toast.show({
+        type: "error",
+        text2: `Error reporting POI: ${error.message}`,
+        position: "bottom",
+        bottomOffset: 40 * 3,
+      });
+    },
+  });
+}
+
 
 // fetch all avoidance areas
 export function useAvoidanceAreas() {

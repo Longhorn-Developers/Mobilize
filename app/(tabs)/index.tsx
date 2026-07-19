@@ -22,8 +22,8 @@ import {
 } from "~/src/features/components/LocationDetailsBottomSheet";
 import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
 import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
-import RoutePreviewSheet from "~/src/features/components/RoutePreviewSheet";
 import ReviewModal from "~/src/features/components/ReviewModal";
+import RoutePreviewSheet from "~/src/features/components/RoutePreviewSheet";
 import { SearchBar } from "~/src/features/components/SearchBar";
 import { SearchDropdown } from "~/src/features/components/SearchDropdown";
 import SidewalkBottomSheet, { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
@@ -34,6 +34,7 @@ import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useCon
 import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
 import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
 import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
+import { POIReportOverlay } from "~/src/features/map/rendering/POIReportOverlay";
 import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
@@ -41,6 +42,7 @@ import {
   useAvoidanceAreas,
   useConstructionAreas,
   useInsertAvoidanceArea,
+  useInsertPOIReport,
 } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
@@ -70,6 +72,7 @@ export default function Home() {
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
   const { mutateAsync: insertAvoidanceArea } = useInsertAvoidanceArea();
+  const { mutateAsync: insertPOIReport } = useInsertPOIReport();
 
   const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
   const constructionGeoJSON = useConstructionGeoJSON(constructionAreas);
@@ -162,7 +165,7 @@ export default function Home() {
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* iOS status bar background — adapts to theme when not in navigation */}
-      {Platform.OS === "ios" && !isNavigating && !map.report.state.isReportMode && (
+      {Platform.OS === "ios" && !isNavigating && !map.report.state.isReportMode && !map.poiReport.state.isPOIReportMode && (
         <View
           style={{
             position: "absolute",
@@ -187,7 +190,7 @@ export default function Home() {
       )}
 
       {/* Search bar — hidden in report mode and during navigation */}
-      {!map.report.state.isReportMode && !isNavigating && (
+      {!map.report.state.isReportMode && !isNavigating && !map.poiReport.state.isPOIReportMode && (
         <SearchBar
           onPress={() => map.search.action.open()}
           onChangeText={map.search.action.handleSearchChange}
@@ -206,7 +209,7 @@ export default function Home() {
       )}
 
       {/* Search results dropdown */}
-      {!map.report.state.isReportMode && !isNavigating && (
+      {!map.report.state.isReportMode && !isNavigating && !map.poiReport.state.isPOIReportMode && (
         <SearchDropdown
           visible={map.search.state.isSearchActive}
           searchQuery={map.search.state.searchQuery}
@@ -216,7 +219,7 @@ export default function Home() {
         />
       )}
 
-      {/* Bottom sheets — only mounted when tab is focused */}
+      {/* Bottom sheets */}
       {isTabFocused ? (
         <>
           <AvoidanceAreaBottomSheet ref={map.bottomSheet.ref.avoidanceAreaBottomSheet} />
@@ -225,6 +228,12 @@ export default function Home() {
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={map.handleEnterReviewMode}
             onRequestPreview={map.handleRequestPreview}
+            handleReports={(reportData) => {
+              map.bottomSheet.action.closeAllSheets();
+              map.search.action.clear();
+              map.poiReport.action.setReportData(reportData);
+              map.poiReport.action.setIsPOIReportMode(true);
+            }}
           />
           <RoutePreviewSheet
             ref={map.bottomSheet.ref.routePreviewSheet}
@@ -347,6 +356,7 @@ export default function Home() {
           routeGeoJSON={routeGeoJSON}
           showDetailedLayers={map.showDetailedLayers}
           isReportMode={map.report.state.isReportMode}
+          isPOIReportMode={map.poiReport.state.isPOIReportMode}
           aaPointsReport={map.report.state.aaPointsReport}
           clickedPoint={map.report.state.clickedPoint}
           clusteredEntrancePOIs={clusteredEntrancePOIs}
@@ -363,17 +373,27 @@ export default function Home() {
         />
       </MapView>
 
-      <ReportOverlay
-        report={map.report}
-        canReport={canReport && !isNavigating}
-        insets={insets}
-        insertAvoidanceArea={insertAvoidanceArea}
-        onEnterReport={() => {
-          map.bottomSheet.action.closeAllSheets();
-          map.search.action.clear();
-          map.report.action.setIsReportMode(true);
-        }}
-      />
+      {!map.poiReport.state.isPOIReportMode && (
+        <ReportOverlay
+          report={map.report}
+          canReport={canReport}
+          insets={insets}
+          insertAvoidanceArea={insertAvoidanceArea}
+          onEnterReport={() => {
+            map.bottomSheet.action.closeAllSheets();
+            map.search.action.clear();
+            map.report.action.setIsReportMode(true);
+          }}
+        />
+      )}
+
+      {!map.report.state.isReportMode && (
+        <POIReportOverlay
+          report={map.poiReport}
+          insets={insets}
+          insertPOIReport={insertPOIReport}
+        />
+      )}
 
       {/* Navigation bottom bar */}
       {isNavigating && (

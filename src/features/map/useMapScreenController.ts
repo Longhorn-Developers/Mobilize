@@ -2,15 +2,15 @@
 
 import { Camera } from "@rnmapbox/maps";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
 import type { Polygon } from "geojson";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
 import { useMapBottomSheets } from "~/src/features/map/hooks/useMapBottomSheets";
-import { OVERLAY_CLOSE_ANIMATION_MS } from "~/src/features/map/hooks/useMapOverlay";
-import { useMapOverlay } from "~/src/features/map/hooks/useMapOverlay";
+import { OVERLAY_CLOSE_ANIMATION_MS , useMapOverlay } from "~/src/features/map/hooks/useMapOverlay";
 import { useMapPressHandlers } from "~/src/features/map/hooks/useMapPressHandlers";
 import { useMapSearch } from "~/src/features/map/hooks/useMapSearch";
+import { usePOIReportMode } from "~/src/features/map/hooks/usePOIReportMode";
 import { useReportMode } from "~/src/features/map/hooks/useReportMode";
 import { useNavigationMode } from "~/src/features/navigation/useNavigationMode";
 import { useRoutePreview } from "~/src/features/navigation/useRoutePreview";
@@ -49,6 +49,7 @@ export function useMapScreenController({
   const report = useReportMode(bottomTabBarHeight);
   const navigation = useNavigationMode(avoidPolygons);
   const routePreview = useRoutePreview(avoidPolygons);
+  const poiReport = usePOIReportMode(bottomTabBarHeight);
 
   const [poi, setPoi] = useState<POIReviewData>();
   const [reviewKey, setReviewKey] = useState(0);
@@ -104,6 +105,7 @@ export function useMapScreenController({
 
   const mapPress = useMapPressHandlers({
     isReportMode: report.state.isReportMode,
+    isPOIReportMode: poiReport.state.isPOIReportMode,
     entrances,
     avoidanceAreas,
     bottomTabBarHeight,
@@ -125,6 +127,7 @@ export function useMapScreenController({
   onResetUiStateRef.current = () => {
     search.action.clear();
     report.action.resetReport();
+    poiReport.action.resetReport();
     setPoi(undefined);
   };
 
@@ -174,6 +177,7 @@ export function useMapScreenController({
     report,
     navigation,
     routePreview,
+    poiReport,
     search,
     poi,
     reviewKey,

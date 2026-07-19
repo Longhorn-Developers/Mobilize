@@ -36,6 +36,7 @@ import {
     // display state
     showDetailedLayers: boolean;
     isReportMode: boolean;
+    isPOIReportMode: boolean;
     aaPointsReport: { latitude: number; longitude: number }[];
     clickedPoint: { latitude: number; longitude: number } | null;
     clusteredEntrancePOIs: any[];
@@ -65,6 +66,7 @@ import {
     routeGeoJSON,
     showDetailedLayers,
     isReportMode,
+    isPOIReportMode,
     aaPointsReport,
     clickedPoint,
     clusteredEntrancePOIs,
@@ -104,7 +106,7 @@ import {
           id="campus-buildings"
           shape={buildingsGeoJSON}
           onPress={(e: any) => {
-            if (isReportMode) return;
+            if (isReportMode || isPOIReportMode) return;
             onFeatureTapped();
             const feature = e.features[0];
             if (feature) onBuildingPress(feature as GeoJSON.Feature);
@@ -149,20 +151,20 @@ import {
         <SidewalkLayer
           geojson={sidewalksGeoJSON}
           visible={showDetailedLayers}
-          isReportMode={isReportMode}
+          isReportMode={isReportMode || isPOIReportMode}
           onPress={onSidewalkPress}
         />
   
         <AvoidanceAreas
           geojson={avoidanceGeoJSON}
-          isReportMode={isReportMode}
+          isReportMode={isReportMode || isPOIReportMode}
           onPress={onAvoidanceAreaPress}
           onFeatureTap={onFeatureTapped}
         />
   
         <ConstructionZones
           geojson={constructionGeoJSON}
-          isReportMode={isReportMode}
+          isReportMode={isReportMode || isPOIReportMode}
           onPress={onConstructionPress}
           onFeatureTap={onFeatureTapped}
         />
@@ -172,7 +174,7 @@ import {
             id="barriers"
             shape={barriersGeoJSON}
             onPress={(e: any) => {
-              if (isReportMode) return;
+              if (isReportMode || isPOIReportMode) return;
               onFeatureTapped();
               const props = e.features[0]?.properties;
               if (props) onBarrierPress(props);
@@ -229,7 +231,7 @@ import {
         )}
   
         {/* POI markers */}
-        {!isReportMode && (
+        {!isReportMode && !isPOIReportMode && (
           <ShapeSource
             id="pois"
             shape={poiGeoJSON}
@@ -257,7 +259,7 @@ import {
         )}
   
         {/* Ramp markers */}
-        {!isReportMode && (
+        {!isReportMode && !isPOIReportMode && (
           <ShapeSource
             id="ramps"
             shape={rampsGeoJSON}

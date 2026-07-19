@@ -97,6 +97,7 @@ type AvoidanceAreaRaw = typeof avoidance_areas.$inferSelect;
 | `name` | `string` | |
 | `description` | `string \| null` | |
 | `boundary_geojson` | `string` | **JSON string** — GeoJSON `Polygon`. |
+| `images` | `string \| null` | **JSON string** — List of Base64-encoded images. |
 | `created_at` / `updated_at` | `Date` | |
 
 Raw row for a user-reported "avoid this area" zone (construction, broken elevator, etc.).

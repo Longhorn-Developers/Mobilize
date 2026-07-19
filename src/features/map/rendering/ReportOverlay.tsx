@@ -36,6 +36,8 @@ export function ReportOverlay({
           setCurrentStep={(index) => report.action.setReportStep(index)}
           onSubmit={async (data) => {
             const aaPoints = [...data.aaPoints, data.aaPoints[0]];
+            // console.log("AAAAAA" + atob(data.images[0]).length);
+
             await insertAvoidanceArea({
               name: data.name,
               description: data.description,
@@ -48,6 +50,7 @@ export function ReportOverlay({
                   ]),
                 ],
               },
+              images: data.images,
             });
           }}
           onExit={() => report.action.resetReport()}

@@ -323,6 +323,17 @@ class ApiClient {
     });
   }
 
+  /** Create a new poi report. Requires student session token. */
+  async insertPOIReport(data: {
+    description: string;
+    poi_id: number;
+  }) {
+    return this.authRequest<any>("/poi_reports", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   /** Post a report/comment on an avoidance area. Requires student session token. */
   async insertAvoidanceAreaReport(data: {
     avoidance_area_id: string;

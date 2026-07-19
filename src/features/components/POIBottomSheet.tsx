@@ -2,7 +2,7 @@ import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
 import React, { ForwardedRef, useEffect, useMemo, useState } from "react";
-import { Text, View, Pressable, Image, ScrollView } from "react-native";
+import { Text, View, Pressable, Image, ScrollView, TouchableHighlight } from "react-native";
 import Toast from "react-native-toast-message";
 
 import buildingsData from '~/assets/geojson/buildings_simple.json';
@@ -27,6 +27,13 @@ export interface POIReviewData {
   entrance: string;
   entrances: any[];
 }
+
+
+export interface POIReportData {
+  id: number;
+  buildingName: string;
+}
+
 
 const normalizeText = (value?: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -59,6 +66,7 @@ interface POIBottomSheetProps {
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
   onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
+  handleReports: (reportData: POIReportData) => void;
 }
 
 interface POIContentProps {
@@ -66,9 +74,10 @@ interface POIContentProps {
   allPOIs: any[];
   handleReviews: (reviewData: POIReviewData) => void;
   onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
+  handleReports: (reportData: POIReportData) => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleReports }: POIContentProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
@@ -327,8 +336,13 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview }: POIConten
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-            <Favorite />
-            <Warning />
+            <TouchableHighlight onPress={() => console.log("DEBUG: Favorite pressed")} underlayColor="#BF5700">
+              <Favorite />
+            </TouchableHighlight>
+
+            <TouchableHighlight onPress={() => handleReports({ id: poi?.id, buildingName: buildingName})} underlayColor="#BF5700">
+              <Warning />
+            </TouchableHighlight>
           </View>
         </View>
 
@@ -452,7 +466,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview }: POIConten
   );
 };
 
-const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPreview }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPreview, handleReports }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -475,6 +489,7 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPrevi
             allPOIs={allPOIs}
             handleReviews={handleReviews}
             onRequestPreview={onRequestPreview}
+            handleReports={handleReports}
           />
         );
       }}

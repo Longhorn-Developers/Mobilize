@@ -23,6 +23,10 @@ import { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSh
 import * as MapConstants from "~/src/features/map/constants";
 import { type getBuildingStyles } from "~/src/features/map/buildingStyles";
 
+import * as GeoLocation from 'expo-location';
+import { DeviceMotion } from 'expo-sensors';
+
+
 type MapLayersProps = {
   // GeoJSON
   buildingsGeoJSON: GeoJSON.FeatureCollection;
@@ -44,6 +48,10 @@ type MapLayersProps = {
   buildingStyles: ReturnType<typeof getBuildingStyles>;
   mapIcons: { point: any; crosshair: any };
   cameraState: any;
+
+  // external data
+  geoLocation: GeoLocation.LocationObject | null;
+  deviceMotion: DeviceMotion.DeviceMotionMeasurement | null;
 
   // handlers
   onBuildingPress: (feature: GeoJSON.Feature) => void;
@@ -74,6 +82,8 @@ export function MapLayers({
   buildingStyles,
   mapIcons,
   cameraState,
+  geoLocation,
+  deviceMotion,
   onBuildingPress,
   onSidewalkPress,
   onAvoidanceAreaPress,
@@ -235,7 +245,10 @@ export function MapLayers({
 
       {/* User location and direction */}
       <UserNavigation
+
         cameraState={cameraState}
+        geoLocation={geoLocation}
+        deviceMotion={deviceMotion}
       />
 
       {/* POI markers */}

@@ -28,6 +28,7 @@ import * as MapConstants from "~/src/features/map/constants";
 import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
 import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
 import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
+import { useLocationService } from "~/src/features/map/hooks/useLocationService";
 import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
 import { MapLayers } from "~/src/features/map/rendering/MapLayers";
 import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
@@ -81,6 +82,8 @@ export default function Home() {
   const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
   const constructionGeoJSON = useConstructionGeoJSON(constructionAreas);
   const { poiGeoJSON, clusteredEntrancePOIs, entrances } = usePOIFeatures(POIs);
+
+  const locationService = useLocationService();
 
   const map = useMapScreenController({
     isTabFocused,
@@ -262,6 +265,8 @@ export default function Home() {
           buildingStyles={getBuildingStyles(isDark)}
           mapIcons={mapIcons}
           cameraState={cameraState}
+          geoLocation={locationService.state.geoLocation}
+          deviceMotion={locationService.state.deviceMotion}
           onBuildingPress={map.mapPress.action.handleBuildingTap}
           onSidewalkPress={map.mapPress.action.handleSidewalkPress}
           onAvoidanceAreaPress={map.mapPress.action.handleAvoidanceAreaPress}
@@ -283,6 +288,8 @@ export default function Home() {
 
       {!map.report.state.isReportMode ? (
         <UserOverlay
+          geoLocation={locationService.state.geoLocation}
+          deviceMotion={locationService.state.deviceMotion}
           cameraRef={map.cameraRef}
         />
       ) : null}

@@ -11,55 +11,16 @@ import { DeviceMotion } from 'expo-sensors';
 
 type UserNavigationProps = {
   cameraState: any;
+  geoLocation: GeoLocation.LocationObject | null;
+  deviceMotion: DeviceMotion.DeviceMotionMeasurement | null;
 };
 
-export default function UserNavigation({ cameraState }: UserNavigationProps) {
-
-  const [geoLocation, setGeoLocation] = useState<GeoLocation.LocationObject | null>(null);
-  const [deviceMotion, setDeviceMotion] = useState<DeviceMotion.DeviceMotionMeasurement | null>(null);
-
-  // request location permissions
-  useEffect(() => {
-    async function getCurrentLocation() {
-      let { status } = await GeoLocation.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permission for location access needed.');
-        return;
-      }
-
-      let location = await GeoLocation.getCurrentPositionAsync({});
-      setGeoLocation(location);
-    }
-    getCurrentLocation();
-  }, []);
-
-  // request device motion permissions
-  useEffect(() => {
-    async function getDeviceMotion() {
-      const isAvailable = await DeviceMotion.isAvailableAsync();
-      if (!isAvailable) {
-        alert('Device motion sensors not available.');
-        return;
-      }
-
-      let { status } = await DeviceMotion.requestPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permission for device motion sensors needed.');
-        return;
-      }
-      DeviceMotion.addListener(setDeviceMotion);
-    }
-    getDeviceMotion();
-  }, []);
-
-  // console.log("Device Motion: ", deviceMotion.rotation);
-  // console.log(cameraState);
+export default function UserNavigation({ cameraState, geoLocation, deviceMotion }: UserNavigationProps) {
 
   const getUserBearing = () => {
     if (!deviceMotion.rotation) return 0;
     return deviceMotion.rotation.alpha * -180 / Math.PI - cameraState.heading;
   }
-
 
   if (!geoLocation) {
     return null;

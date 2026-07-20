@@ -1,4 +1,4 @@
-/* Rendering Layer for User Navigation Overlay */
+/* Rendering Layer for Recenter Button */
 
 import { useState, useEffect } from "react";
 import { ShapeSource, FillLayer, LineLayer, SymbolLayer } from "@rnmapbox/maps";
@@ -7,13 +7,14 @@ import { Button } from "~/src/features/components/Button";
 import * as GeoLocation from 'expo-location';
 import { DeviceMotion } from 'expo-sensors';
 
+import { Camera } from "@rnmapbox/maps";
 
 
-type UserNavigationProps = {
-  cameraState: any;
+type UserOverlayProps = {
+  cameraRef: React.RefObject<Camera | null>;
 };
 
-export default function UserNavigation({ cameraState }: UserNavigationProps) {
+export default function UserOverlay({ cameraRef }: UserOverlayProps) {
 
   const [geoLocation, setGeoLocation] = useState<GeoLocation.LocationObject | null>(null);
   const [deviceMotion, setDeviceMotion] = useState<DeviceMotion.DeviceMotionMeasurement | null>(null);
@@ -52,65 +53,35 @@ export default function UserNavigation({ cameraState }: UserNavigationProps) {
     getDeviceMotion();
   }, []);
 
-  // console.log("Device Motion: ", deviceMotion.rotation);
-  // console.log(cameraState);
+  const recenterMap = () => {
+    if (!geoLocation) {
+      alert('Current location not available.');
+      return;
+    }
 
-  const getUserBearing = () => {
-    if (!deviceMotion.rotation) return 0;
-    return deviceMotion.rotation.alpha * -180 / Math.PI - cameraState.heading;
+    cameraRef.current?.setCamera({
+      centerCoordinate: [
+        geoLocation.coords.longitude,
+        geoLocation.coords.latitude
+      ],
+      heading: deviceMotion?.rotation?.alpha ? deviceMotion.rotation.alpha * -180 / Math.PI : 0,
+      zoomLevel: 17,
+      animationDuration: 800,
+    });
+    // console.log(geoLocation);
+    // console.log(deviceMotion);
   }
-
 
   if (!geoLocation) {
     return null;
   }
   return (
-    <>
-      {deviceMotion && (
-        <ShapeSource
-          id="user-direction"
-          shape={{
-            'type': 'Point',
-            'coordinates': [
-              geoLocation.coords.longitude,
-              geoLocation.coords.latitude
-            ]
-          }}>
-          <SymbolLayer
-            id="user-director"
-
-            style={{
-              iconImage: "userDirector",
-              iconSize: 0.85,
-              iconAllowOverlap: true,
-              iconAnchor: "bottom",
-              iconRotate: getUserBearing(),
-            }}
-          />
-        </ShapeSource>
-      )}
-
-      <ShapeSource
-        id="user-location"
-        shape={{
-          'type': 'Point',
-          'coordinates': [
-            geoLocation.coords.longitude,
-            geoLocation.coords.latitude
-          ]
-        }}>
-        <SymbolLayer
-          id="user-icon"
-
-          style={{
-            iconImage: "userIcon",
-            iconSize: 0.5,
-            iconAllowOverlap: true,
-            iconAnchor: "center",
-          }}
-        />
-      </ShapeSource>
-    </>
-
+    <Button
+      className="absolute bottom-4 right-4"
+      title="Center"
+      variant="gray"
+      onPress={recenterMap}
+      style={{ position: "absolute", bottom: 70, right: 16 }}
+    />
   );
 }

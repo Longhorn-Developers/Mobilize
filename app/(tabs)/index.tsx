@@ -6,6 +6,7 @@ import Mapbox, {
   Images,
   MapView,
 } from "@rnmapbox/maps";
+
 import { Stack } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,7 +29,7 @@ import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoida
 import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
 import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
 import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
-import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
+import { MapLayers } from "~/src/features/map/rendering/MapLayers";
 import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
 import { POIReportOverlay } from "~/src/features/map/rendering/POIReportOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
@@ -42,6 +43,7 @@ import {
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 import { mapIcons } from "~/utils/useMapIcons";
+import UserOverlay from "~/src/features/map/rendering/userOverlay";
 
 
 // Initialise Mapbox
@@ -66,6 +68,7 @@ export default function Home() {
   // Encompasses all report related states/functions (src/features/map/hooks/useReportMode.ts)
   const [Route] = useState<[number, number][] | null>(null);
   const [zoomLevel, setZoomLevel] = useState(15);
+  const [cameraState, setCameraState] = useState<any>(null)
 
   // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
@@ -85,7 +88,6 @@ export default function Home() {
     avoidanceAreas,
     entrances,
   });
-
 
   // Route as GeoJSON for Mapbox LineLayer
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
@@ -197,7 +199,10 @@ export default function Home() {
         compassViewMargins={{ x: 16, y: insets.top + 70 }}
         attributionEnabled
         logoEnabled
-        onCameraChanged={(state) => setZoomLevel(state.properties.zoom)}
+        onCameraChanged={(state) => {
+          setCameraState(state.properties);
+          setZoomLevel(state.properties.zoom)
+        }}
         compassEnabled={false}
         onPress={(feature: any) => {
           if (map.featureTappedRef.current) {
@@ -227,12 +232,15 @@ export default function Home() {
           }}
         />
 
-        {/* ── Icon images for POI SymbolLayer ──────────────────────────────── */}
+
+        {/* ── Icon images for POI SymbolLayer & User Navigation ──────────────────────────────── */}
         <Images
           images={{
             autoDoor: require("../../assets/map_icons/auto_door.png"),
             manualDoor: require("../../assets/map_icons/manual_door.png"),
             rampIcon: require("../../assets/map_icons/ramp.png"),
+            userIcon: require("../../assets/map_icons/user_point.png"),
+            userDirector: require("../../assets/map_icons/user_facing.png"),
           }}
         />
 
@@ -253,6 +261,7 @@ export default function Home() {
           clusteredEntrancePOIs={clusteredEntrancePOIs}
           buildingStyles={getBuildingStyles(isDark)}
           mapIcons={mapIcons}
+          cameraState={cameraState}
           onBuildingPress={map.mapPress.action.handleBuildingTap}
           onSidewalkPress={map.mapPress.action.handleSidewalkPress}
           onAvoidanceAreaPress={map.mapPress.action.handleAvoidanceAreaPress}
@@ -270,7 +279,13 @@ export default function Home() {
           insets={insets}
           insertPOIReport={insertPOIReport}
         />
-      ): null}
+      ) : null}
+
+      {!map.report.state.isReportMode ? (
+        <UserOverlay
+          cameraRef={map.cameraRef}
+        />
+      ) : null}
 
       {!map.poiReport.state.isPOIReportMode ? (
         <ReportOverlay
@@ -284,8 +299,8 @@ export default function Home() {
             map.report.action.setIsReportMode(true);
           }}
         />
-      ): null}
-      
+      ) : null}
+
     </>
   );
 }

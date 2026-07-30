@@ -31,11 +31,13 @@ import { getBuildingStyles } from "~/src/features/map/buildingStyles";
 import * as MapConstants from "~/src/features/map/constants";
 import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
 import { useConstructionGeoJSON } from "~/src/features/map/geojsonSources/useConstructionGeoJSON";
+import { useLocationService } from "~/src/features/map/hooks/useLocationService";
 import { useMapGeoJSON } from "~/src/features/map/hooks/useMapGeoJSON";
 import { usePOIFeatures } from "~/src/features/map/POIs/usePOIFeatures";
-import { MapLayers }  from "~/src/features/map/rendering/MapLayers";
+import { MapLayers } from "~/src/features/map/rendering/MapLayers";
 import { POIReportOverlay } from "~/src/features/map/rendering/POIReportOverlay";
 import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
+import UserOverlay from "~/src/features/map/rendering/userOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
   usePOIs,
@@ -67,7 +69,9 @@ export default function Home() {
   const { sidewalksGeoJSON, buildingsGeoJSON, barriersGeoJSON, rampsGeoJSON } = useMapGeoJSON();
 
   const [zoomLevel, setZoomLevel] = useState(15);
+  const [cameraState, setCameraState] = useState<any>(null)
 
+  // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
   const { data: POIs } = usePOIs();
@@ -77,6 +81,8 @@ export default function Home() {
   const avoidanceGeoJSON = useAvoidanceGeoJSON(avoidanceAreas);
   const constructionGeoJSON = useConstructionGeoJSON(constructionAreas);
   const { poiGeoJSON, clusteredEntrancePOIs, entrances } = usePOIFeatures(POIs);
+
+  const locationService = useLocationService();
 
   const map = useMapScreenController({
     isTabFocused,
@@ -299,7 +305,10 @@ export default function Home() {
         compassViewMargins={{ x: 16, y: insets.top + 70 }}
         attributionEnabled
         logoEnabled
-        onCameraChanged={(state) => setZoomLevel(state.properties.zoom)}
+        onCameraChanged={(state) => {
+          setCameraState(state.properties);
+          setZoomLevel(state.properties.zoom)
+        }}
         compassEnabled={false}
         onPress={(feature: any) => {
           if (map.featureTappedRef.current) {
@@ -341,11 +350,14 @@ export default function Home() {
           </PointAnnotation>
         )}
 
+        {/* ── Icon images for POI SymbolLayer & User Navigation ──────────────────────────────── */}
         <Images
           images={{
             autoDoor: require("../../assets/map_icons/auto_door.png"),
             manualDoor: require("../../assets/map_icons/manual_door.png"),
             rampIcon: require("../../assets/map_icons/ramp.png"),
+            userIcon: require("../../assets/map_icons/user_point.png"),
+            userDirector: require("../../assets/map_icons/user_facing.png"),
           }}
         />
 
@@ -367,6 +379,9 @@ export default function Home() {
           clusteredEntrancePOIs={clusteredEntrancePOIs}
           buildingStyles={getBuildingStyles(isDark)}
           mapIcons={mapIcons}
+          cameraState={cameraState}
+          geoLocation={locationService.state.geoLocation}
+          deviceMotion={locationService.state.deviceMotion}
           onBuildingPress={map.mapPress.action.handleBuildingTap}
           onSidewalkPress={map.mapPress.action.handleSidewalkPress}
           onAvoidanceAreaPress={map.mapPress.action.handleAvoidanceAreaPress}
@@ -377,6 +392,22 @@ export default function Home() {
           onFeatureTapped={() => { map.featureTappedRef.current = true; }}
         />
       </MapView>
+
+      {!map.report.state.isReportMode && (
+        <POIReportOverlay
+          report={map.poiReport}
+          insets={insets}
+          insertPOIReport={insertPOIReport}
+        />
+      )}
+
+      {!map.report.state.isReportMode && (
+        <UserOverlay
+          geoLocation={locationService.state.geoLocation}
+          deviceMotion={locationService.state.deviceMotion}
+          cameraRef={map.cameraRef}
+        />
+      )}
 
       {!map.poiReport.state.isPOIReportMode && (
         <ReportOverlay
@@ -389,14 +420,6 @@ export default function Home() {
             map.search.action.clear();
             map.report.action.setIsReportMode(true);
           }}
-        />
-      )}
-
-      {!map.report.state.isReportMode && (
-        <POIReportOverlay
-          report={map.poiReport}
-          insets={insets}
-          insertPOIReport={insertPOIReport}
         />
       )}
 

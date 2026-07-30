@@ -4,6 +4,7 @@
     "strict": true,
     "strictNullChecks": true,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "~/*": ["*"]
@@ -15,5 +16,8 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "server"
   ]
 }

@@ -2,7 +2,7 @@
 
 An Expo React Native mobile application that helps disabled students have more accessibility around UT Campus on an interactive map, powered by Expo and Cloudflare Workers.
 
-## 🛠️ Setup
+## Setup
 
 1. **Clone the repository**
 
@@ -17,6 +17,22 @@ An Expo React Native mobile application that helps disabled students have more a
    pnpm install
    ```
 
+   2.1 **Setup subdependency for gradle (android)**
+      ```javascript
+      // in ./android/build.gradle
+      ...
+      allprojects {
+         repositories {
+            /* Add these 3 lines below \/\/\/ */
+            maven {
+               url "$rootDir/../node_modules/expo-camera/android/maven"
+            }
+            
+         }
+      }
+      ...
+      ```
+
 3. **Install server dependencies**
 
    ```bash
@@ -26,20 +42,40 @@ An Expo React Native mobile application that helps disabled students have more a
 
 4. **Setup environment variables**
 
-   .env.local
+   Create a `.env` file at the repo root:
 
    ```bash
    EXPO_PUBLIC_API_URL=http://localhost:54321
+   EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=...   # Mapbox public token (starts with pk.)
+   EXPO_PUBLIC_OPENROUTE_KEY=...         # OpenRouteService key (wheelchair routing)
    ```
 
-   server/.env (you can find these in cloudflare dashboard)
+   > **Note:** Google Places API requests are proxied through the backend Worker — no client-side key is needed. Configure `GOOGLE_PLACES_API_KEY` as a Cloudflare Worker secret instead (see Cloudflare dashboard > Workers > your worker > Settings > Variables).
+
+   server/.env (you can find these in the Cloudflare dashboard)
 
    ```bash
    CLOUDFLARE_ACCOUNT_ID=
    CLOUDFLARE_DATABASE_ID=
    ```
 
-5. **Google OAuth Configuration**
+6. **Mapbox native setup (first time or after adding @rnmapbox/maps)**
+
+   Mapbox requires a **secret download token** (starts with `sk.`) during the native build step. This is different from the public access token above.
+
+   Add it to `app.config.js` in the `@rnmapbox/maps` plugin config:
+   ```js
+   ["@rnmapbox/maps", { RNMAPBOX_MAPS_DOWNLOAD_TOKEN: "sk..." }]
+   ```
+   Or add it to `~/.netrc` as described in the [Mapbox installation docs](https://docs.mapbox.com/android/maps/guides/install/).
+
+   Then run a full native build (required after adding a native module):
+   ```bash
+   pnpm install --no-frozen-lockfile
+   npx expo run:android   # or run:ios
+   ```
+
+7. **Google OAuth Configuration**
 
    Google OAuth requires configuration in **two places**: the mobile app (`.env`) and the backend server (`server/.env`).
 
@@ -156,12 +192,21 @@ cd server
 pnpm gen
 ```
 
-**Apply database migrations:**
+**Apply database migrations (remote D1):**
 
 ```bash
 cd server
 pnpm migrate
 ```
+
+**Apply database migrations (local D1 used by `wrangler dev`):**
+
+```bash
+cd server
+pnpm migrate:local
+```
+
+> Shortcut from the repo root (no `cd` needed): `pnpm migrate:server:local` / `pnpm migrate:server:remote`
 
 **Regenerate types:**
 
@@ -207,21 +252,42 @@ This generates native iOS and Android projects from your Expo configuration.
 
 ```text
 .
-├── app/                    # Expo Router pages
-│   ├── (tabs)/            # Tab navigation screens
-│   ├── _layout.tsx        # Root layout
-│   └── +not-found.tsx     # 404 page
-├── components/            # Reusable React components
-├── assets/                # Images, fonts, and other static assets
-├── types/                 # TypeScript type definitions
-├── utils/                 # Utility functions and custom hooks
-├── server/                # Cloudflare Workers backend
-│   ├── src/              # Server source code
-│   ├── migrations/       # Database migrations
-│   └── test/             # Server tests
-├── android/               # Native Android project
-├── ios/                   # Native iOS project
-└── package.json          # Project dependencies
+├── app/                         # Expo Router screens (file = route)
+│   ├── (tabs)/                 # Bottom-tab screens: map, profile
+│   │   └── index.tsx           # Main map screen (~1 400 lines)
+│   ├── auth/                   # Auth flow: signup, OAuth callback, profile setup, mobility prefs
+│   ├── profile/                # Public profile screen (/profile/[username])
+│   ├── _layout.tsx             # Root layout with AuthProvider + QueryProvider
+│   └── +not-found.tsx          # 404 fallback
+├── components/                  # Reusable React Native components
+│   └── *BottomSheet.tsx        # Map detail sheets (POI, building, avoidance area, etc.)
+├── assets/
+│   └── geojson/                # Campus GeoJSON layers (buildings, curb ramps, crosswalks)
+├── types/
+│   ├── database.ts             # Drizzle-inferred + UI-ready types for all DB models
+│   └── geo.ts                  # Shared GeoJSON / coordinate interfaces
+├── utils/
+│   ├── api-client.ts           # ApiClient class — all HTTP calls to the backend
+│   ├── api-hooks.ts            # TanStack Query hooks wrapping ApiClient
+│   ├── api-base.ts             # Shared API base URL resolution + active URL promotion
+│   ├── useAuth.ts              # AuthProvider context + Google OAuth flow
+│   ├── buildingDatabase.ts     # In-memory building lookup from buildings_simple.json
+│   ├── googlePlaces.ts         # Google Places autocomplete/details proxy client
+│   ├── request-utils.ts        # fetchWithTimeout, parseJsonResponse, ClientRequestError
+│   ├── routes.ts               # APP_ROUTES constants + auth redirect logic
+│   ├── ThemeContext.tsx         # Dark/light mode context
+│   └── useMapIcons.ts          # Map icon asset registry (not a hook)
+├── server/
+│   ├── src/
+│   │   ├── index.ts            # All 26 Hono route handlers
+│   │   ├── auth.ts             # Better Auth configuration
+│   │   ├── db/schema.ts        # Drizzle ORM table definitions
+│   │   └── scheduled/poi-sync.ts  # Cron job: KML → POI upsert
+│   ├── migrations/             # SQL migration files (apply with pnpm migrate)
+│   └── test/                   # Vitest integration tests
+├── android/                     # Native Android project (generated by Expo prebuild)
+├── ios/                         # Native iOS project (generated by Expo prebuild)
+└── package.json
 ```
 
 ## 🚢 Deployment
@@ -251,7 +317,7 @@ pnpm deploy
 
 ## 🔑 Configuration
 
-- **App Configuration**: `app.json`
+- **App Configuration**: `app.config.js`
 - **TypeScript**: `tsconfig.json`
 - **Tailwind**: `tailwind.config.js`
 - **ESLint**: `eslint.config.js`
@@ -263,33 +329,41 @@ pnpm deploy
 
 ### Mobile App
 
-- **Framework**: React Native with Expo SDK 54
-- **Navigation**: Expo Router v6
-- **Styling**: NativeWind (TailwindCSS for React Native)
-- **Maps**: Expo Maps (Apple Maps for iOS, Google Maps for Android)
-- **State Management**: TanStack Query (React Query)
+- **Framework**: React Native with Expo SDK 54 — managed workflow, EAS Build for CI
+- **Navigation**: Expo Router v6 — file-based routing, deep linking, tab groups
+- **Styling**: NativeWind (TailwindCSS for React Native), dark mode via `ThemeContext`
+- **Maps**: Mapbox (`@rnmapbox/maps`) — 3D terrain, dark/light styles, campus GeoJSON accessibility overlays (POIs, avoidance areas, construction zones)
+- **Server state**: TanStack Query v5 — query keys in `utils/api-hooks.ts`, client in `utils/api-client.ts`
+- **Local state**: Zustand for lightweight ephemeral UI state
+- **Auth**: Google OAuth via `expo-web-browser`; session tokens stored in AsyncStorage; provider in `utils/useAuth.ts`; backend token validation via Better Auth
+- **Forms**: React Hook Form + Zod validation
 - **UI Components**:
-  - React Native Gesture Handler
-  - React Native Reanimated
-  - Gorhom Bottom Sheet
-  - Phosphor React Native (Icons)
-- **Geospatial**: Turf.js
-- **Forms**: React Hook Form with Zod validation
+  - Gorhom Bottom Sheet — all map detail sheets
+  - React Native Gesture Handler + Reanimated — animation infrastructure
+  - Phosphor React Native — icon library
+- **Geospatial**: Turf.js for point-in-polygon and distance calculations
+- **Local building data**: `utils/buildingDatabase.ts` — in-memory index from `assets/geojson/buildings_simple.json`, zero runtime cost
 
 ### Backend
 
-- **Runtime**: Cloudflare Workers
-- **Framework**: Hono
-- **Database**: Cloudflare D1 (SQLite)
-- **ORM**: Drizzle ORM
-- **Testing**: Vitest with Cloudflare Workers pool
+- **Runtime**: Cloudflare Workers (edge, V8 isolates)
+- **Framework**: Hono — lightweight, typed router; all routes in `server/src/index.ts`
+- **Database**: Cloudflare D1 (SQLite at the edge)
+- **ORM**: Drizzle ORM — schema in `server/src/db/schema.ts`, migrations in `server/migrations/`
+- **Auth**: Better Auth (`server/src/auth.ts`) — Google OAuth only; session tokens validated per-request via Bearer header
+- **Scheduled jobs**: Cloudflare Cron Triggers — `syncPOIs()` in `server/src/scheduled/poi-sync.ts` upserts accessible entrance POIs from a KML source on a schedule
+- **Proxies**: Google Places autocomplete + details proxied through the worker (keeps API key server-side); ArcGIS construction zones fetched and cached 1 min
+- **Testing**: Vitest with Cloudflare Workers pool (`server/test/`)
 
 ## 📋 Prerequisites
 
-- Node.js (v18 or higher recommended)
-- pnpm (package manager)
-- Expo CLI
-- iOS Simulator (for iOS development) or Android Studio (for Android development)
+- Node.js v20+ (required by Expo SDK 54)
+- pnpm 10+ (`npm install -g pnpm`)
+- Expo CLI (`npm install -g expo-cli`)
+- Android Studio (for Android) or Xcode (for iOS)
+- A **Mapbox account** with a public token (`pk.`) and a secret download token (`sk.`)
+- A **Google Places API (New)** key with Places API enabled
+- An **OpenRouteService** key for wheelchair routing
 - Cloudflare account (for backend deployment)
 
 ## 🤝 Contributing
@@ -305,4 +379,4 @@ Longhorn Developers
 
 ---
 
-Built with ❤️ using Expo and Cloudflare Workers
+Built with ❤️ using Expo and Cloudflare Workers!

@@ -1,14 +1,12 @@
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
-const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
+import { getApiBaseCandidates, promoteApiBaseUrl } from "~/utils/api-base";
+import {
+  ClientRequestError,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  fetchWithTimeout,
+  isRetriableCandidateError,
+  parseJsonResponse,
+} from "~/utils/request-utils";
 
-// UT Austin coordinates for biasing search results
-const UT_AUSTIN_LOCATION = {
-  latitude: 30.2849,
-  longitude: -97.7341,
-};
-const SEARCH_RADIUS = 2000; // 2km radius around UT campus
-
-// Types for Google Places API (New) responses
 export interface PlaceAutocompletePrediction {
   place_id: string;
   description: string;
@@ -16,6 +14,13 @@ export interface PlaceAutocompletePrediction {
     main_text: string;
     secondary_text: string;
   };
+}
+
+export type PlacesAutocompleteScope = "campus" | "global";
+
+export interface PlaceOpeningHours {
+  open_now?: boolean;
+  weekday_text?: string[];
 }
 
 export interface PlaceDetails {
@@ -28,197 +33,154 @@ export interface PlaceDetails {
       lng: number;
     };
   };
+  opening_hours?: PlaceOpeningHours;
   rating?: number;
   user_ratings_total?: number;
-  opening_hours?: {
-    weekday_text: string[];
-    open_now: boolean;
-  };
-  photos?: Array<{
-    photo_reference: string;
-    height: number;
-    width: number;
-  }>;
   types?: string[];
 }
 
-/**
- * Search for places using Google Places Autocomplete (New API)
- * Biased towards UT Austin campus area
- */
+
+const requestPlacesProxy = async <T>(
+  path: "/places/autocomplete" | "/places/details",
+  payload: Record<string, unknown>,
+): Promise<T> => {
+  let lastError: unknown = null;
+
+  for (const apiBase of getApiBaseCandidates()) {
+    const requestUrl = `${apiBase}${path}`;
+    try {
+      const response = await fetchWithTimeout(
+        requestUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        DEFAULT_REQUEST_TIMEOUT_MS,
+      );
+      const data = await parseJsonResponse<any>(response, requestUrl);
+
+      // Candidate proved API reachability by returning JSON.
+      promoteApiBaseUrl(apiBase);
+
+      if (!response.ok) {
+        const message = data?.error?.message ?? `Request failed (${response.status})`;
+        throw new ClientRequestError("API_ERROR", message, {
+          status: response.status,
+          url: requestUrl,
+          details: data,
+        });
+      }
+
+      return data as T;
+    } catch (error) {
+      lastError = error;
+      if (!isRetriableCandidateError(error)) {
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Places proxy request failed");
+};
+
+const buildSessionToken = () => {
+  // Google caps session_token at 36 chars, so emit a UUID v4 via crypto.getRandomValues
+  // (crypto.randomUUID isn't polyfilled by react-native-get-random-values). Math.random() is not suitable.
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+  return [
+    hex.slice(0, 4).join(""),
+    hex.slice(4, 6).join(""),
+    hex.slice(6, 8).join(""),
+    hex.slice(8, 10).join(""),
+    hex.slice(10, 16).join(""),
+  ].join("-");
+};
+
+let activeSessionToken: string | null = null;
+let lastSessionTouch = 0;
+const SESSION_TTL_MS = 3 * 60 * 1000;
+
+const getSessionToken = () => {
+  const now = Date.now();
+  if (!activeSessionToken || now - lastSessionTouch > SESSION_TTL_MS) {
+    activeSessionToken = buildSessionToken();
+  }
+  lastSessionTouch = now;
+  return activeSessionToken;
+};
+
+export const resetPlacesSession = () => {
+  activeSessionToken = null;
+  lastSessionTouch = 0;
+};
+
+export const formatOpeningHours = (_hours?: PlaceOpeningHours): string => {
+  return "Hours not available";
+};
+
 export const searchPlaces = async (
-  query: string
+  query: string,
+  options?: { scope?: PlacesAutocompleteScope },
 ): Promise<PlaceAutocompletePrediction[]> => {
-  if (!query || query.trim().length < 2) {
-    return [];
-  }
-
-  if (!GOOGLE_PLACES_API_KEY) {
-    console.error("Google Places API key is not configured");
-    return [];
-  }
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+  const scope: PlacesAutocompleteScope = options?.scope ?? "campus";
 
   try {
-    const response = await fetch(
-      `${PLACES_API_BASE_URL}/places:autocomplete`,
+    const data = await requestPlacesProxy<any[]>(
+      "/places/autocomplete",
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-        },
-        body: JSON.stringify({
-          input: query,
-          locationBias: {
-            circle: {
-              center: {
-                latitude: UT_AUSTIN_LOCATION.latitude,
-                longitude: UT_AUSTIN_LOCATION.longitude,
-              },
-              radius: SEARCH_RADIUS,
-            },
-          },
-        }),
-      }
+        input: trimmed,
+        scope,
+        sessionToken: getSessionToken(),
+      },
     );
 
-    const data = await response.json();
-
-    if (response.ok && data.suggestions) {
-      return data.suggestions.map((suggestion: any) => ({
-        place_id: suggestion.placePrediction?.placeId || "",
-        description: suggestion.placePrediction?.text?.text || "",
-        structured_formatting: {
-          main_text: suggestion.placePrediction?.text?.text || "",
-          secondary_text:
-            suggestion.placePrediction?.structuredFormat?.secondaryText?.text ||
-            "",
-        },
-      }));
-    } else {
-      console.error("Places Autocomplete error:", data);
-      return [];
-    }
+    if (!Array.isArray(data)) return [];
+    return data.filter((item) => typeof item?.place_id === "string");
   } catch (error) {
-    console.error("Error fetching place autocomplete:", error);
+    console.warn("Google Places autocomplete unavailable:", error);
     return [];
   }
 };
 
-/**
- * Get detailed information about a specific place using the new API
- */
 export const getPlaceDetails = async (
-  placeId: string
+  placeId: string,
+  displayName?: string,
 ): Promise<PlaceDetails | null> => {
-  if (!placeId) {
-    return null;
-  }
-
-  if (!GOOGLE_PLACES_API_KEY) {
-    console.error("Google Places API key is not configured");
-    return null;
-  }
+  const normalized = placeId.trim();
+  if (!normalized) return null;
 
   try {
-    // fieldMask is required for the new Places API v1
-    const fieldMask = [
-      "id",
-      "displayName",
-      "formattedAddress",
-      "location",
-      "rating",
-      "userRatingCount",
-      "currentOpeningHours",
-      "photos",
-      "types",
-    ].join(",");
-
-    const response = await fetch(
-      `${PLACES_API_BASE_URL}/places/${placeId}?fields=${encodeURIComponent(fieldMask)}`,
+    const data = await requestPlacesProxy<any>(
+      "/places/details",
       {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-        },
-      }
+        placeId: normalized,
+        displayName: displayName?.trim() || undefined,
+        sessionToken: getSessionToken(),
+      },
     );
 
-    const data = await response.json();
-
-    if (response.ok && data) {
-      return {
-        place_id: data.id || placeId,
-        name: data.displayName?.text || "",
-        formatted_address: data.formattedAddress || "",
-        geometry: {
-          location: {
-            lat: data.location?.latitude || 0,
-            lng: data.location?.longitude || 0,
-          },
-        },
-        rating: data.rating,
-        user_ratings_total: data.userRatingCount,
-        opening_hours: data.currentOpeningHours
-          ? {
-              weekday_text: data.currentOpeningHours.weekdayDescriptions || [],
-              open_now: data.currentOpeningHours.openNow || false,
-            }
-          : undefined,
-        photos: data.photos?.map((photo: any) => ({
-          photo_reference: photo.name,
-          height: photo.heightPx,
-          width: photo.widthPx,
-        })),
-        types: data.types,
-      };
-    } else {
-      console.error("Place Details error:", data);
-      return null;
-    }
+    if (!data?.geometry?.location) return null;
+    return data as PlaceDetails;
   } catch (error) {
-    console.error("Error fetching place details:", error);
+    console.warn("Google Places details unavailable:", error);
     return null;
   }
 };
 
-/**
- * Format opening hours into a readable string
- * Returns something like "7 AM to 10 PM" or "Closed"
- */
-export const formatOpeningHours = (
-  openingHours?: PlaceDetails["opening_hours"]
-): string => {
-  if (!openingHours || !openingHours.weekday_text) {
-    return "Hours not available";
-  }
-
-  // Get today's hours (0 = Sunday, 1 = Monday, etc.)
-  const today = new Date().getDay();
-  const todayHours = openingHours.weekday_text[today === 0 ? 6 : today - 1];
-
-  if (!todayHours) {
-    return "Hours not available";
-  }
-
-  // Extract just the time part (remove day name)
-  // e.g., "Monday: 7:00 AM – 10:00 PM" -> "7:00 AM – 10:00 PM"
-  const timePart = todayHours.split(": ")[1];
-  return timePart || "Hours not available";
-};
-
-/**
- * Calculate distance between two coordinates using Haversine formula
- * Returns distance in miles
- */
 export const calculateDistance = (
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number => {
-  const R = 3959; // Earth's radius in miles
+  const R = 3959;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
@@ -231,6 +193,5 @@ export const calculateDistance = (
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
-
-  return Math.round(distance * 10) / 10; // Round to 1 decimal place
+  return Math.round(distance * 10) / 10;
 };

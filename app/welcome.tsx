@@ -1,56 +1,35 @@
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-} from "react-native";
+/** Landing screen for unauthenticated users — entry point to sign up or sign in. Requires no auth. */
 import { router } from "expo-router";
+import { Image, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { Button } from "~/components/Button";
-
+import { Button } from "~/src/features/components/Button";
+import { APP_ROUTES } from "~/utils/routes";
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-
   const handleUTEIDContinue = () => {
-    router.push("./auth/login" as any);
+    router.push(APP_ROUTES.AUTH_UT_EID_COMING_SOON as any);
   };
-
   const handleGoogleContinue = () => {
-    // TODO: Implement Google OAuth
-    console.log("Google OAuth");
-    router.push("./auth/profile-setup" as any);
+    router.push(APP_ROUTES.AUTH_GOOGLE_OAUTH as any);
   };
 
   return (
-    <View 
-      className="flex-1 bg-white px-6"
+    <View
+      className="flex-1 bg-white px-6 dark:bg-neutral-900"
       style={{ paddingTop: insets.top }}
     >
       {/* Header */}
       <View className="mb-8 mt-8 items-center">
-        {/* Status Bar */}
-        <View className="mb-6 w-full flex-row items-center justify-between">
-          <Text className="text-base font-medium">9:41</Text>
-          <View className="flex-row items-center gap-1">
-            <View className="h-1 w-4 bg-black" />
-            <View className="h-1 w-4 bg-black" />
-            <View className="h-1 w-4 bg-black" />
-            <View className="h-1 w-4 bg-gray-300" />
-            <Text className="ml-2 text-sm">📶 📶 🔋</Text>
-          </View>
-        </View>
+        <Image
+          source={require("../assets/image.png")}
+          resizeMode="contain"
+          className="mb-6 h-40 w-full rounded-lg"
+        />
 
-        {/* Main Image Placeholder */}
-        <View className="mb-6 h-40 w-full items-center justify-center rounded-lg bg-gray-200">
-          <Text className="text-gray-500">MobilizeUT Logo</Text>
-        </View>
-        
-        <Text className="text-2xl font-bold text-ut-black">
+        <Text className="text-2xl font-bold text-ut-black dark:text-white">
           Welcome to Mobilize UT
         </Text>
-        <Text className="mt-2 text-center text-gray-600">
+        <Text className="mt-2 text-center text-gray-600 dark:text-gray-400">
           Mobility companion for everyone
         </Text>
       </View>
@@ -62,7 +41,7 @@ export default function WelcomeScreen() {
           onPress={handleUTEIDContinue}
           className="mb-4"
         />
-        
+
         <Button
           title="Continue with Google"
           variant="gray"

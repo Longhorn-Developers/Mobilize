@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { bearer } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
@@ -66,22 +67,33 @@ export function createAuth(env: {
       user: {
         create: {
           after: async (user) => {
-            // Determine role based on email domain
             const role = user.email?.endsWith("@utexas.edu") ? "student" : "public";
-            const username = user.email?.split("@")[0] || user.id;
+            const base = user.email?.split("@")[0] || user.id;
 
-            // Update user with custom fields
-            await db.update(schema.users)
-              .set({
-                role,
-                username,
-                updatedAt: new Date()
-              })
-              .where(eq(schema.users.id, user.id));
+            // Retry with suffix on unique constraint collision (e.g. "john" → "john_2").
+            for (let attempt = 0; attempt <= 4; attempt++) {
+              const username = attempt === 0 ? base : `${base}_${attempt + 1}`;
+              try {
+                await db.update(schema.users)
+                  .set({ role, username, updatedAt: new Date() })
+                  .where(eq(schema.users.id, user.id));
+                return; // success
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                const isUnique = /UNIQUE constraint failed/i.test(msg);
+                if (!isUnique || attempt === 4) {
+                  console.error(`[auth] Failed to set username for user ${user.id} after ${attempt + 1} attempts:`, err);
+                  throw err;
+                }
+              }
+            }
           },
         },
       },
     },
+    plugins: [
+      bearer(),
+    ],
   });
 }
 

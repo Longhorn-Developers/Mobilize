@@ -1,15 +1,26 @@
+/** Tab bar layout for the main app — defines the Map and Profile tabs. Requires authenticated + onboarded user. */
 import "~/global.css";
 
 import { Tabs } from "expo-router";
-import { UserIcon, MapPinIcon } from "phosphor-react-native";
+import { MapPinIcon, UserIcon } from "phosphor-react-native";
+
 import colors from "~/types/colors";
+import { useTheme } from "~/utils/ThemeContext";
 
 export default function Layout() {
+  const { colorScheme } = useTheme();
+
+  const isDark = colorScheme === "dark";
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.ut.burntorange,
-        tabBarInactiveTintColor: colors.ut.gray,
+        tabBarInactiveTintColor: isDark ? "#6B7280" : colors.ut.gray,
+        tabBarStyle: {
+          backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+          borderTopColor: isDark ? "#3A3A3C" : "#E5E7EB",
+        },
         headerShown: false,
       }}
     >
@@ -17,8 +28,10 @@ export default function Layout() {
         name="index"
         options={{
           title: "Map",
-          tabBarIcon: ({ color, size }) => <MapPinIcon size={size} color={color} />,
-        }}
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <MapPinIcon size={size} color={color} />
+          ),
+        } as any}
       />
       <Tabs.Screen
         name="profile"

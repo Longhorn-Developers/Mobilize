@@ -1,3 +1,5 @@
+/** Typed HTTP client for all MobilizeUT API calls. Automatically retries across multiple base URL candidates (local dev, devtunnel, configured env var). */
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Polygon } from "geojson";
 
 import {
@@ -6,225 +8,473 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
+  ReviewEntryRaw,
+  ReviewEntry,
 } from "~/types/database";
+import { promoteApiBaseUrl } from "~/utils/api-base";
+import {
+  ClientRequestError,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  fetchWithTimeout,
+  isRetriableCandidateError,
+} from "~/utils/request-utils";
+import { SESSION_TOKEN_KEY } from "~/utils/useAuth";
+const IS_DEV = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
 
+const safeJsonParse = <T>(value: string | null | undefined): T | null => {
+  if (!value || typeof value !== "string") return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * HTTP client for all MobilizeUT API calls.
+ *
+ * @param baseUrl - The primary API base URL (EXPO_PUBLIC_API_URL). Falls back to
+ *   localhost:54321 for local dev if the configured URL is unreachable.
+ *
+ * Retry logic: requests are attempted across `getBaseCandidates()` in order:
+ *   1. Last successful URL (promoted via promoteApiBaseUrl)
+ *   2. Hardcoded localhost fallback
+ *   3. Configured env-var URL
+ * Only network-level failures (ECONNREFUSED, HTML responses, timeouts) trigger
+ * a fallback; HTTP 4xx/5xx errors from a responding server are thrown immediately.
+ */
 class ApiClient {
   private baseUrl: string;
+  private readonly configuredBaseUrl: string;
+  private readonly fallbackBaseUrl: string;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+    this.configuredBaseUrl = (baseUrl || "http://localhost:54321").replace(/\/+$/, "");
+    this.fallbackBaseUrl = "http://localhost:54321";
+    // Local-first by default for emulator/dev stability.
+    this.baseUrl = this.fallbackBaseUrl;
+  }
+
+  private getBaseCandidates() {
+    const candidates = [this.baseUrl, this.fallbackBaseUrl, this.configuredBaseUrl]
+      .map((url) => (url || "").replace(/\/+$/, ""))
+      .filter(Boolean);
+    return Array.from(new Set(candidates));
+  }
+
+  /**
+   * Parses the response body as JSON. Throws ClientRequestError with a specific code:
+   * - HTML_RESPONSE: server returned an HTML page (wrong URL / proxy error)
+   * - NON_JSON: non-JSON content-type (e.g. plain text)
+   * - MALFORMED_JSON: content-type is JSON but the body failed to parse
+   */
+  private parseJsonBody<T>(
+    response: Response,
+    text: string,
+    url: string,
+    responsePreview: string,
+  ): T {
+    const contentType = response.headers.get("content-type") || "";
+    const isJson = contentType.toLowerCase().includes("application/json");
+
+    if (!isJson) {
+      const isHtml = /<!doctype html|<html/i.test(text);
+      throw new ClientRequestError(
+        isHtml ? "HTML_RESPONSE" : "NON_JSON",
+        isHtml
+          ? `API returned HTML at ${url}. Check EXPO_PUBLIC_API_URL and tunnel/local forwarding.`
+          : `Non-JSON response (${response.status} ${response.statusText}): ${responsePreview}`,
+        {
+          status: response.status,
+          url,
+          responsePreview,
+        },
+      );
+    }
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return {} as T;
+    }
+
+    const parsed = safeJsonParse<T>(trimmed);
+    if (parsed == null) {
+      throw new ClientRequestError(
+        "MALFORMED_JSON",
+        `Malformed JSON response (${response.status} ${response.statusText})`,
+        {
+          status: response.status,
+          url,
+          responsePreview,
+        },
+      );
+    }
+
+    return parsed;
   }
 
   private async request<T>(
     endpoint: string,
     options?: RequestInit,
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+    let lastError: unknown = null;
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options?.headers,
-        },
-      });
+    for (const baseUrlCandidate of this.getBaseCandidates()) {
+      const url = `${baseUrlCandidate}${endpoint}`;
+      try {
+        const response = await fetchWithTimeout(
+          url,
+          {
+            ...options,
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...options?.headers,
+            },
+          },
+          DEFAULT_REQUEST_TIMEOUT_MS,
+        );
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        const text = await response.text();
+        const responsePreview =
+          text.slice(0, 120) || response.statusText || "Empty response body";
+
+        if (IS_DEV) {
+          console.log("API URL:", url);
+          console.log("STATUS:", response.status);
+          console.log("RESPONSE PREVIEW:", responsePreview);
+        }
+
+        const parsedBody = this.parseJsonBody<any>(
+          response,
+          text,
+          url,
+          responsePreview,
+        );
+
+        // If this candidate responded with JSON, it is a valid API endpoint.
+        this.baseUrl = baseUrlCandidate;
+        promoteApiBaseUrl(baseUrlCandidate);
+
+        if (!response.ok) {
+          const hint =
+            parsedBody?.error?.details?.hint ||
+            parsedBody?.details?.hint ||
+            null;
+          const apiMessage =
+            parsedBody?.error?.message ||
+            parsedBody?.error ||
+            parsedBody?.message ||
+            responsePreview;
+          throw new ClientRequestError(
+            "API_ERROR",
+            `API Error ${response.status}: ${apiMessage}${hint ? ` (${hint})` : ""}`,
+            {
+              status: response.status,
+              url,
+              responsePreview,
+              details: parsedBody,
+            },
+          );
+        }
+
+        return (parsedBody as T) ?? ({} as T);
+      } catch (error) {
+        lastError = error;
+        if (IS_DEV) {
+          console.error(`API request failed for ${url}:`, error);
+        }
+
+        if (!isRetriableCandidateError(error)) {
+          throw error instanceof Error ? error : new Error(String(error));
+        }
       }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`API request failed for ${url}:`, error);
-      throw error;
     }
+
+    throw lastError instanceof Error ? lastError : new Error("API request failed");
   }
 
-  // Health check
+  /** Like request() but attaches the stored Bearer token automatically. */
+  private async authRequest<T>(
+    endpoint: string,
+    options?: RequestInit,
+  ): Promise<T> {
+    const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+    return this.request<T>(endpoint, {
+      ...options,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+  }
+
+  /** Returns the raw health check JSON string. Useful for devtools / debugging. */
   async healthCheck(): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    return await response.text();
+    const response = await this.request<{ status: string; missingTables?: string[] }>("/health");
+    return JSON.stringify(response);
   }
 
-  // Get profile by ID
+  async getRoute(waypoints: any[], avoiding: any[]) {
+    const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
+    const TOKEN = process.env.EXPO_PUBLIC_OPENROUTE_KEY || "";
+
+    const res = await fetch(FEATURE_URL, {
+      method: "post",
+      headers: {
+        Accept: "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
+        Authorization: TOKEN,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        coordinates: waypoints,
+        options: {
+          avoid_polygons: {
+            type: "MultiPolygon",
+            coordinates: avoiding.map((poly) => [poly]),
+          },
+        },
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    return await res.json();
+  }
+
+  /** @deprecated Use getMe() instead — kept for the legacy useProfile hook. */
   async getProfile(id: number) {
     return this.request<Profile>(`/profiles?id=${id}`);
   }
 
-  // Get all POIs
-  async getPOIs() {
-    const pois = await this.request<POIRaw[]>("/pois");
-    // Parse the location_geojson string to JSON
-    return pois.map((poi) => ({
-      ...poi,
-      location_geojson: JSON.parse(poi.location_geojson),
-      metadata: poi.metadata ? JSON.parse(poi.metadata) : null,
-    }));
-  }
-
-  // Get all avoidance areas
-  async getAvoidanceAreas() {
-    const areas = await this.request<AvoidanceAreaRaw[]>(
-      "/avoidance_areas", 
-      { headers: { "Accept": "application/json" } }
-    );
-
-    // Parse the boundary_geojson string to JSON
-    return areas.map((area) => ({
-      ...area,
-      boundary_geojson: JSON.parse(area.boundary_geojson),
-    }));
-  }
-
-
-  // fetch construction areas
-  async getConstructionAreas() {
-    const FEATURE_URL = "https://services9.arcgis.com/w9x0fkENXvuWZY26/arcgis/rest/services/Closed_Areas_view_new/FeatureServer/0/query";
-    const TOKEN = process.env.ARCGIS_TOKEN || null;
-    const PAGE_SIZE = 8000;
-
-    function buildUrl(offset = 0) {
-      const u = new URL(FEATURE_URL);
-      const p = u.searchParams;
-      p.set("f", "json"); 
-      p.set("where", "1=1");
-      p.set("returnGeometry", "true");
-      p.set("outFields", "OBJECTID");
-      p.set("orderByFields", "OBJECTID ASC");
-      p.set("outSR", "4326"); 
-      p.set("resultOffset", String(offset));
-      p.set("resultRecordCount", String(PAGE_SIZE));
-      p.set("cacheHint", "true");
-      if (TOKEN) p.set("token", TOKEN);
-      return u.toString();
-    }
-
-    async function fetchPage(offset: number) {
-      const url = buildUrl(offset);
-      const res = await fetch(url, { headers: { "Accept": "application/json" } });
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      const json = await res.json();
-      if (json.error) throw new Error(`UH OHH ARCGIS ERROR: ${JSON.stringify(json.error)}`);
-      return json;
-    }
-
-    async function fetchAll() {
-      let offset = 0;
-      const all = [];
-      for (;;) {
-        const page = await fetchPage(offset);
-        const feats = page.features ?? [];
-        all.push(...feats);
-        const more = page.exceededTransferLimit === true || feats.length === PAGE_SIZE;
-        if (!more || feats.length === 0) break;
-        offset += feats.length;
-      }
-      return all;
-    }
-
-    function convertFeature(f: any, idx: number) {
-      const attrs = f.attributes ?? {};
-      const id = attrs.OBJECTID ?? f.objectId ?? idx;
-
-      const g = f.geometry ?? {};
-      if (Array.isArray(g.rings) && g.rings.length) {
-        const ring = g.rings[0]; 
-        const pts = ring
-          .map(([x, y]: [number, number]) => [Number(y), Number(x)]) 
-          .filter(([lat, lon]: [number, number]) =>
-            Number.isFinite(lat) && Number.isFinite(lon) &&
-            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
-          );
-        if (pts.length >= 2) return { id, points: pts };
-        return null;
-      }
-
-      if (Array.isArray(g.paths) && g.paths.length) {
-        const path = g.paths[0];
-        const pts = path
-          .map(([x, y]: [number, number]) => [Number(y), Number(x)])
-          .filter(([lat, lon]: [number, number]) =>
-            Number.isFinite(lat) && Number.isFinite(lon) &&
-            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
-          );
-        if (pts.length >= 2) return { id, points: pts };
-        return null;
-      }
-
-      if (Number.isFinite(g.x) && Number.isFinite(g.y)) {
-        const lat = Number(g.y), lon = Number(g.x);
-        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-        }
-      }
+  /** Convenience wrapper: returns the profile portion of /api/me, or null on any error. */
+  async getMyProfile() {
+    try {
+      const me = await this.getMe();
+      return (me?.profile as Profile | null) ?? null;
+    } catch {
       return null;
     }
-
-
-    try {
-      const feats = await fetchAll();
-      const rows = [];
-      for (let i = 0; i < feats.length; i++) {
-        const rec = convertFeature(feats[i], i);
-        if (rec) rows.push(rec);
-      }
-      return rows;
-    } catch (err: any) {
-      console.error("UH OHHH UNHANDLED PARSING ERROR", err.message);
-    }
-
-    
   }
 
-  // Get single avoidance area by ID with profile info
+  /** Returns the authenticated user, their profile row, and whether onboarding is complete. */
+  async getMe(): Promise<{ user: any; profile: any; onboardingComplete?: boolean }> {
+    return this.authRequest<{ user: any; profile: any; onboardingComplete?: boolean }>("/api/me");
+  }
+
+  /** Returns all POIs with location_geojson and metadata parsed from JSON strings. */
+  async getPOIs() {
+    const pois = await this.request<POIRaw[]>("/pois");
+    return pois.map((poi) => ({
+      ...poi,
+      location_geojson:
+        safeJsonParse<any>(poi.location_geojson as any) ??
+        ({ type: "Point", coordinates: [0, 0] } as any),
+      metadata: safeJsonParse<Record<string, any>>(poi.metadata as any),
+    }));
+  }
+
+  /** Returns all avoidance areas with boundary_geojson parsed. Areas with unparseable geometry are filtered out. */
+  async getAvoidanceAreas() {
+    const areas = await this.request<AvoidanceAreaRaw[]>("/avoidance_areas");
+    return areas
+      .map((area) => {
+        const boundary = safeJsonParse<any>(area.boundary_geojson as any);
+        if (!boundary) return null;
+        return {
+          ...area,
+          boundary_geojson: boundary,
+        };
+      })
+      .filter(Boolean) as any;
+  }
+
+  /** Returns active construction/closed areas from the UT ArcGIS proxy as [{id, points, description?}]. */
+  async getConstructionAreas() {
+    return this.request<{ id: number; points: [number, number][]; description?: string }[]>("/construction_areas");
+  }
+
+  /** Returns a single avoidance area with parsed boundary_geojson. Throws if geometry is unparseable. */
   async getAvoidanceArea(id: string) {
-    const area = await this.request<AvoidanceAreaDetailRaw>(
-      `/avoidance_areas/${id}`,
-    );
+    const area = await this.request<AvoidanceAreaDetailRaw>(`/avoidance_areas/${id}`);
+    const boundary = safeJsonParse<any>(area.boundary_geojson as any);
+    if (!boundary) {
+      throw new Error("Avoidance area geometry could not be parsed");
+    }
     return {
       ...area,
-      boundary_geojson: JSON.parse(area.boundary_geojson),
+      boundary_geojson: boundary,
     };
   }
 
-  
-
-  // Get reports for a specific avoidance area
+  /** Returns all reports/comments for an avoidance area. No auth required. */
   async getAvoidanceAreaReports(id: string) {
-    return this.request<AvoidanceAreaReport[]>(
-      `/avoidance_areas/${id}/reports`,
-    );
+    return this.request<AvoidanceAreaReport[]>(`/avoidance_areas/${id}/reports`);
   }
 
+  /** Create a new avoidance area. Requires student session token. */
   async insertAvoidanceArea(data: {
-    user_id: number;
     name: string;
     description?: string;
     boundary_geojson: Polygon;
   }) {
-    return this.request<any>("/avoidance_areas", {
+    return this.authRequest<any>("/avoidance_areas", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
+  /** Create a new poi report. Requires student session token. */
+  async insertPOIReport(data: {
+    description: string;
+    poi_id: number;
+  }) {
+    return this.authRequest<any>("/poi_reports", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Post a report/comment on an avoidance area. Requires student session token. */
   async insertAvoidanceAreaReport(data: {
-    user_id: number;
     avoidance_area_id: string;
     title: string;
     description?: string;
   }) {
-    return this.request<any>(
+    return this.authRequest<any>(
       `/avoidance_areas/${data.avoidance_area_id}/reports`,
       {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ title: data.title, description: data.description }),
       },
     );
+  }
+
+  /** Returns non-deleted reviews for a POI with features parsed from JSON string to string[]. */
+  async getReviews(poi_id: number) {
+    const reviews = await this.request<ReviewEntryRaw[]>(
+      `/reviews?poi_id=${poi_id}`,
+    );
+
+    return reviews.map((review) => ({
+      ...review,
+      features: safeJsonParse<string[]>(review.features) ?? [],
+    })) as ReviewEntry[];
+  }
+
+  /** Creates or updates a review for the given POI. Requires authenticated session. */
+  async insertReview(data: {
+    user_id: number;
+    poi_id: number;
+    rating: number;
+    features?: string;
+    content?: string;
+  }) {
+    return this.request<any>("/reviews", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Updates an existing review's rating, features, and/or content. Caller must be the review author. */
+  async updateReview(
+    id: number,
+    data: {
+      rating: number;
+      poi_id?: number;
+      features?: string;
+      content?: string;
+    },
+  ) {
+    return this.request<any>(`/reviews/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Soft-deletes a review (sets deleted_at). Caller must be the review author. */
+  async deleteReview(id: number) {
+    return this.request<any>(`/reviews/${id}/delete`, {
+      method: "PUT",
+    });
+  }
+
+  /** Creates or updates the caller's vote (+1 or -1) on a review. Requires completed profile. */
+  async upsertVote(
+    data: {
+      review_id: number;
+      vote: 1 | -1;
+    },
+  ) {
+    return this.request<any>("/votes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Removes the caller's vote on a review. Requires completed profile. */
+  async deleteVote(review_id: number) {
+    return this.request<any>(`/votes/${review_id}`, {
+      method: "DELETE",
+    });
+  }
+
+  /** First-time profile setup (called from profile-setup.tsx). */
+  async createProfile(data: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    classYear?: string;
+    major?: string;
+    bio?: string;
+  }) {
+    return this.authRequest<{ success: boolean; profile: any }>("/api/profile", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Update an existing profile (called from profile.tsx or mobility-preferences.tsx). */
+  async updateProfile(data: {
+    displayName?: string;
+    classYear?: string;
+    major?: string;
+    bio?: string;
+    mobilityPreference?: string;
+    onboardingComplete?: boolean;
+  }) {
+    return this.authRequest<{ success: boolean; profile: any }>("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Public profile by username - no auth needed. */
+  async getPublicProfile(username: string) {
+    return this.request<{ user: any; profile: any }>(`/api/users/${username}`);
+  }
+
+  async resolveRampPOI(data: {
+    externalKey: string;
+    latitude: number;
+    longitude: number;
+    buildingAbbr?: string;
+    buildingName?: string;
+  }) {
+    return this.request<any>("/pois/ramp/resolve", {
+      method: "POST",
+      body: JSON.stringify({
+        external_key: data.externalKey,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        building_abbr: data.buildingAbbr,
+        building_name: data.buildingName,
+      }),
+    });
   }
 }
 
 // Export singleton instance
 export const apiClient = new ApiClient(
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:54321",
+  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:54321",
 );
+

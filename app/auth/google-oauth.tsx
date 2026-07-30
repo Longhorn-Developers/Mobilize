@@ -63,13 +63,8 @@ export default function GoogleOAuthScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           className="mb-4 mt-4"
-          style={{
-            width: 24,
-            height: 24,
-            paddingTop: 4,
-            paddingBottom: 4,
-            paddingLeft: 7,
-            paddingRight: 7,
+          style={{width: 24, height: 24, paddingTop: 4,
+            paddingBottom: 4, paddingLeft: 7, paddingRight: 7,
           }}
         >
           <CaretLeft size={24} color="#BF5700" />
@@ -99,12 +94,8 @@ export default function GoogleOAuthScreen() {
         onPress={() => router.back()}
         className="mb-4 mt-4"
         style={{
-          width: 24,
-          height: 24,
-          paddingTop: 4,
-          paddingBottom: 4,
-          paddingLeft: 7,
-          paddingRight: 7,
+          width: 24, height: 24, paddingTop: 4,
+          paddingBottom: 4, paddingLeft: 7, paddingRight: 7,
         }}
       >
         <CaretLeft size={24} color="#BF5700" />

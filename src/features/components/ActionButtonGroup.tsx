@@ -1,5 +1,4 @@
 import { View, Text, TouchableOpacity } from "react-native";
-
 import { cn } from "~/utils/utils";
 
 interface ActionButtonItem {
@@ -14,10 +13,7 @@ interface ActionButtonGroupProps {
   className?: string;
 }
 
-export function ActionButtonGroup({
-  actions,
-  className,
-}: ActionButtonGroupProps) {
+export function ActionButtonGroup({actions, className }: ActionButtonGroupProps) {
   return (
     <View
       className={cn(["flex-row items-center justify-center gap-1", className])}
@@ -26,8 +22,7 @@ export function ActionButtonGroup({
         <TouchableOpacity
           key={index}
           onPress={action.onPress}
-          className={cn(["rounded-full bg-white px-4 py-2", action.className])}
-        >
+          className={cn(["rounded-full bg-white px-4 py-2", action.className])}>
           <Text className={action.textClassName}>{action.label}</Text>
         </TouchableOpacity>
       ))}

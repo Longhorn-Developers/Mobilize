@@ -1,37 +1,22 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as turf from "@turf/turf";
-import {
-  WarningIcon,
-  MapPinIcon,
-  XIcon,
-  CaretUpIcon,
-  CaretDownIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
-  PaperPlaneRightIcon,
-} from "phosphor-react-native";
+import { WarningIcon, MapPinIcon, XIcon, CaretUpIcon,
+  CaretDownIcon, ArrowDownIcon, ArrowUpIcon, PaperPlaneRightIcon } 
+  from "phosphor-react-native";
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { View, Text, TouchableOpacity, TextInput, Image } from "react-native";
 import { z } from "zod";
-
 import colors from "~/types/colors";
 import type { AvoidanceArea } from "~/types/database";
-import {
-  useAvoidanceAreaReports,
-  useInsertAvoidanceAreaReport,
-} from "~/utils/api-hooks";
+import { useAvoidanceAreaReports, 
+  useInsertAvoidanceAreaReport } from "~/utils/api-hooks";
 import { useAuth } from "~/utils/useAuth";
-
 import { ActionButtonGroup } from "./ActionButtonGroup";
 
 type Polygon = 
-{
-  type: "Polygon";
-  coordinates: number[][][];
-};
-
+{ type: "Polygon"; coordinates: number[][][]; };
 const sqftInMeters = 10.764; // 1 square meter = 10.764 square feet
 
 // Comment form schema
@@ -126,7 +111,7 @@ const AvoidanceAreaDetails = ({ area }: { area: AvoidanceArea }) =>
 
   const handleStatusUpdate = (stillPresent: boolean) => {
     setSelectedStatus(stillPresent);
-    // In real app, this would update the database
+    // TODO: In real app, this would update the database
     console.log(`Status updated: ${stillPresent}`);
   };
 

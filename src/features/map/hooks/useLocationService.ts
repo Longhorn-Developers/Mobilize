@@ -18,9 +18,12 @@ export function useLocationService() {
         alert('Permission for location access needed.');
         return;
       }
-
-      let location = await GeoLocation.getCurrentPositionAsync({});
-      setGeoLocation(location);
+      try {
+        let location = await GeoLocation.getCurrentPositionAsync({});
+        setGeoLocation(location);
+      } catch (error) {
+        console.error('Error getting location:', error);
+      }
     }
     getCurrentLocation();
   }, []);

@@ -37,7 +37,9 @@ export const users = sqliteTable("user", {
         .default(sql`(unixepoch())`),
 });
 
-/** Bearer-token sessions. The `token` column is what the mobile client stores in AsyncStorage and sends as "Authorization: Bearer <token>". */
+/** Bearer-token sessions. The `token` column is what 
+ * the mobile client stores in AsyncStorage and sends 
+ * as "Authorization: Bearer <token>". */
 export const session = sqliteTable("session", {
     id: text("id").primaryKey(),
     userId: text("user_id")
@@ -55,7 +57,8 @@ export const session = sqliteTable("session", {
         .default(sql`(unixepoch())`),
 });
 
-/** OAuth provider link table required by Better Auth. Stores Google access/refresh tokens per user. */
+/** OAuth provider link table required by Better Auth. 
+ * Stores Google access/refresh tokens per user. */
 export const account = sqliteTable("account", {
     id: text("id").primaryKey(),
     userId: text("user_id")
@@ -78,7 +81,9 @@ export const account = sqliteTable("account", {
         .default(sql`(unixepoch())`),
 });
 
-/** Email verification tokens required by Better Auth (not actively used — Google OAuth is the only auth path). */
+/** Email verification tokens required by Better Auth 
+ * (not actively used — Google OAuth is the only auth 
+ * path). */
 export const verification = sqliteTable("verification", {
     id: text("id").primaryKey(),
     identifier: text("identifier").notNull(),
@@ -92,8 +97,10 @@ export const verification = sqliteTable("verification", {
 
 /**
  * Campus-facing profile for each user (created during onboarding).
- * Uses a separate auto-increment integer PK (`id`) so that reviews and votes can
- * reference it without embedding the auth user's UUID in every row.
+ * Uses a separate auto-increment integer PK (`id`) 
+ * so that reviews and votes can
+ * reference it without embedding the auth user's 
+ * UUID in every row.
  * `user_id` is a unique FK back to users.id.
  */
 export const profiles = sqliteTable("profiles", {
@@ -127,9 +134,12 @@ export const profiles = sqliteTable("profiles", {
 
 /**
  * Accessibility reviews submitted by campus profiles.
- * `features` is stored as a JSON string (string[] of feature tag IDs).
- * Soft-deleted via `deleted_at`; hard deletes are not used.
- * `poi_id` cascades on POI delete so orphaned reviews are never left behind.
+ * `features` is stored as a JSON string (string[] 
+ * of feature tag IDs).
+ * Soft-deleted via `deleted_at`; hard deletes are 
+ * not used.
+ * `poi_id` cascades on POI delete so orphaned reviews 
+ * are never left behind.
  */
 export const reviews = sqliteTable('reviews', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -156,7 +166,9 @@ export const reviews = sqliteTable('reviews', {
     index('reviews_user_poi_deleted_idx').on(table.user_id, table.poi_id, table.deleted_at),
 ]);
 
-/** Upvotes/downvotes (+1/-1) on reviews. One vote per (user, review) pair enforced by unique constraint. */
+/** Upvotes/downvotes (+1/-1) on reviews. 
+ * One vote per (user, review) pair enforced by 
+ * unique constraint. */
 export const votes = sqliteTable('votes', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     user_id: integer('user_id').notNull().references(() => profiles.id),
@@ -168,10 +180,15 @@ export const votes = sqliteTable('votes', {
 ]);
 
 /**
- * Points of Interest — accessibility features on campus (ramps, auto doors, etc.).
- * `poi_type`: "ramp" | "auto_door" | "manual_door" — drives the map icon and filter logic.
- * `metadata`: JSON blob with source-specific fields (external_key, bld_name, floor, etc.).
- * `location_geojson`: GeoJSON Point stored as a JSON string; unique constraint used as upsert key by poi-sync.
+ * Points of Interest — accessibility features 
+ * on campus (ramps, auto doors, etc.).
+ * `poi_type`: "ramp" | "auto_door" | "manual_door" —
+ *  drives the map icon and filter logic.
+ * `metadata`: JSON blob with source-specific 
+ * fields (external_key, bld_name, floor, etc.).
+ * `location_geojson`: GeoJSON Point stored as a 
+ * JSON string; unique constraint used as upsert 
+ * key by poi-sync.
  */
 export const pois = sqliteTable('pois', {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -188,7 +205,8 @@ export const pois = sqliteTable('pois', {
 
 /**
  * User-reports for inaccuracies in a POI.
- * References users.id (not profiles.id) because area ownership is tied to the auth identity,
+ * References users.id (not profiles.id) 
+ * because area ownership is tied to the auth identity,
  * not the campus profile.
  * References pois.id
  */
@@ -211,10 +229,12 @@ export const poi_reports = sqliteTable('poi_reports', {
 
 
 /**
- * User-reported zones to avoid (construction, broken elevators, etc.).
+ * User-reported zones to avoid 
+ * (construction, broken elevators, etc.).
  * `boundary_geojson`: GeoJSON Polygon stored as JSON string.
  * `images`: List of base64 encoded images as JSON string.
- * References users.id (not profiles.id) because area ownership is tied to the auth identity,
+ * References users.id (not profiles.id) because
+ *  area ownership is tied to the auth identity,
  * not the campus profile.
  */
 export const avoidance_areas = sqliteTable('avoidance_areas', {
@@ -235,8 +255,10 @@ export const avoidance_areas = sqliteTable('avoidance_areas', {
 });
 
 /**
- * Follow-up reports/comments on an avoidance area (e.g. "still blocked as of today").
- * Also references users.id for the same reason as avoidance_areas.
+ * Follow-up reports/comments on an avoidance area 
+ * (e.g. "still blocked as of today").
+ * Also references users.id for the same reason as 
+ * avoidance_areas.
  */
 export const avoidance_area_reports = sqliteTable('avoidance_area_reports', {
     id: integer('id').primaryKey({ autoIncrement: true }),

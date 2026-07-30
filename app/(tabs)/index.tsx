@@ -1,12 +1,7 @@
-import { BottomSheetModal } from "@gorhom/bottom-sheet";
+﻿import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
-import Mapbox, {
-  Camera,
-  Images,
-  MapView,
-  PointAnnotation,
-} from "@rnmapbox/maps";
+import Mapbox, { Camera, Images, MapView, PointAnnotation, } from "@rnmapbox/maps";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Platform, View } from "react-native";
@@ -16,10 +11,7 @@ import AvoidanceAreaBottomSheet from "~/src/features/components/AvoidanceAreaBot
 import BarrierBottomSheet from "~/src/features/components/BarrierBottomSheet";
 import ConstructionBottomSheet from "~/src/features/components/ConstructionBottomSheet";
 import { DirectionsBanner } from "~/src/features/components/DirectionsBanner";
-import {
-  LocationDetailsBottomSheet,
-  type LocationDetailsBottomSheetRef,
-} from "~/src/features/components/LocationDetailsBottomSheet";
+import { LocationDetailsBottomSheet, type LocationDetailsBottomSheetRef, } from "~/src/features/components/LocationDetailsBottomSheet";
 import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
 import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
 import ReviewModal from "~/src/features/components/ReviewModal";
@@ -40,11 +32,8 @@ import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
 import UserOverlay from "~/src/features/map/rendering/userOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
-  usePOIs,
-  useAvoidanceAreas,
-  useConstructionAreas,
-  useInsertAvoidanceArea,
-  useInsertPOIReport,
+  usePOIs, useAvoidanceAreas, useConstructionAreas,
+  useInsertAvoidanceArea, useInsertPOIReport,
 } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
@@ -61,6 +50,7 @@ export default function Home() {
   const isTabFocused = useIsFocused();
   const { user } = useAuth();
   const { colorScheme } = useTheme();
+  // Students can report
   const canReport =
     user?.role === "student" ||
     user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
@@ -122,7 +112,7 @@ export default function Home() {
     const lats = route.coordinates.map(([, lat]) => lat);
     const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
     const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-    // Bottom padding accounts for the route preview sheet (~42% screen height)
+    // Bottom padding accounts for the route preview sheet
     map.cameraRef.current?.fitBounds(ne, sw, [80, 40, 220, 40], 800);
   }, [map.routePreview.state.route]);
 
@@ -297,7 +287,7 @@ export default function Home() {
         styleURL={
           isDark
             ? "mapbox://styles/mapbox/dark-v11"
-            : "mapbox://styles/mapbox/outdoors-v12"
+            : "mapbox://styles/mapbox/streets-v12"
         }
         pitchEnabled
         rotateEnabled

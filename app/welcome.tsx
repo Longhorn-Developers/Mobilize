@@ -2,17 +2,13 @@
 import { router } from "expo-router";
 import { Image, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { Button } from "~/src/features/components/Button";
 import { APP_ROUTES } from "~/utils/routes";
-
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-
   const handleUTEIDContinue = () => {
     router.push(APP_ROUTES.AUTH_UT_EID_COMING_SOON as any);
   };
-
   const handleGoogleContinue = () => {
     router.push(APP_ROUTES.AUTH_GOOGLE_OAUTH as any);
   };

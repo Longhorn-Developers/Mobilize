@@ -2,7 +2,6 @@ import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
 import { Text, View } from "react-native";
-
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
 
@@ -46,10 +45,10 @@ const ConstructionBottomSheet = ({ ref }: ConstructionBottomSheetProps) => {
         return (
           <BottomSheetView style={{ padding: 24, paddingBottom: 36 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: warnBg, alignItems: "center", justifyContent: "center" }}>
+              {/*<View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: warnBg, alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontSize: 24 }}>🚧</Text>
-              </View>
-              <View style={{ flex: 1 }}>
+              </View> */}
+              <View style={{ paddingLeft: 80, flex: 1 }}>
                 <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 20, color: textPrimary }}>
                   Construction Zone
                 </Text>
@@ -68,9 +67,9 @@ const ConstructionBottomSheet = ({ ref }: ConstructionBottomSheetProps) => {
             </View>
 
             <View style={{ backgroundColor: tipBg, borderRadius: 14, padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Text style={{ fontSize: 20 }}>♿</Text>
+              {/*<Text style={{ fontSize: 20 }}>♿</Text>*/}
               <Text style={{ flex: 1, fontSize: 13, color: tipText, fontFamily: "Inter", lineHeight: 18 }}>
-                Check nearby sidewalk layers for compliant alternate paths.
+                Check nearby sidewalks for alternate paths.
               </Text>
             </View>
 

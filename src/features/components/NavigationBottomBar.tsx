@@ -1,6 +1,5 @@
 import { CaretLeftIcon, CaretRightIcon, SpeakerHighIcon, SpeakerSlashIcon, WarningIcon, XIcon } from "phosphor-react-native";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-
 import { formatDistance, formatDuration, formatETA } from "~/src/features/navigation/navigationUtils";
 
 interface NavigationBottomBarProps {

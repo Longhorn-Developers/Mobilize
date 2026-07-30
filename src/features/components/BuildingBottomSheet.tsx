@@ -2,7 +2,6 @@ import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
 import { Linking, Text, Pressable, View } from "react-native";
-
 import { LocationPin } from "~/assets/map_icons/svg_icons";
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
@@ -59,7 +58,9 @@ const BuildingBottomSheet = ({ ref }: BuildingBottomSheetProps) => {
             <View style={{ padding: 24 }}>
 
               {/* Title */}
-              <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 30.25, color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
+              <Text style={{ fontFamily: "Roboto Flex", 
+                fontWeight: "700", fontSize: 30.25, 
+                color: isDark ? "#F3F4F6" : "#1A2024", marginBottom: 2 }}>
                 {Description || "Campus Building"}
               </Text>
 

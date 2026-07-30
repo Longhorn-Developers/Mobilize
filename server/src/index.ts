@@ -131,10 +131,21 @@ const REQUIRED_TABLES = [
 ] as const;
 
 const PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
+const PLACES_TIMEOUT_MS = 8000;
 const UT_CAMPUS_BOUNDS = {
   low: { latitude: 30.269, longitude: -97.747 },
   high: { latitude: 30.295, longitude: -97.721 },
 };
+
+async function fetchGooglePlaces(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 let hasLoggedTableDiagnostics = false;
 
@@ -1265,16 +1276,29 @@ app.post("/places/autocomplete", async (c) => {
   }
   if (sessionToken) payload.sessionToken = sessionToken;
 
-  const response = await fetch(`${PLACES_API_BASE_URL}/places:autocomplete`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask":
-        "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
-    },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetchGooglePlaces(
+      `${PLACES_API_BASE_URL}/places:autocomplete`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask":
+            "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
+        },
+        body: JSON.stringify(payload),
+      },
+      PLACES_TIMEOUT_MS,
+    );
+  } catch (err: any) {
+    console.error("[places/autocomplete] proxy error:", err?.message);
+    if (err?.name === "AbortError") {
+      return jsonError(c, 504, "INTERNAL_ERROR", "Google autocomplete request timed out");
+    }
+    return jsonError(c, 502, "INTERNAL_ERROR", err?.message ?? "Google autocomplete request failed");
+  }
 
   const rawText = await response.text();
   const parsed = safeParseJsonObject(rawText);
@@ -1346,13 +1370,26 @@ app.post("/places/details", async (c) => {
     detailsUrl.searchParams.set("sessionToken", sessionToken);
   }
 
-  const response = await fetch(detailsUrl.toString(), {
-    method: "GET",
-    headers: {
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "id,formattedAddress,location",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetchGooglePlaces(
+      detailsUrl.toString(),
+      {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "id,formattedAddress,location",
+        },
+      },
+      PLACES_TIMEOUT_MS,
+    );
+  } catch (err: any) {
+    console.error("[places/details] proxy error:", err?.message);
+    if (err?.name === "AbortError") {
+      return jsonError(c, 504, "INTERNAL_ERROR", "Google place details request timed out");
+    }
+    return jsonError(c, 502, "INTERNAL_ERROR", err?.message ?? "Google place details request failed");
+  }
 
   const rawText = await response.text();
   const parsed = safeParseJsonObject(rawText);

@@ -1,35 +1,17 @@
 /** Profile editing screen — displays and allows editing of name, username, bio, mobility preference, and theme. 
  * Requires authenticated + onboarded user. */
 import { router, useFocusEffect } from "expo-router";
-import {
-  MonitorIcon,
-  MoonIcon,
-  PencilSimpleLineIcon,
-  SignInIcon,
-  SignOutIcon,
-  SunIcon,
-} from "phosphor-react-native";
+import { MonitorIcon, MoonIcon, PencilSimpleLineIcon, SignInIcon,
+  SignOutIcon, SunIcon} from "phosphor-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView,
+  Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { Button } from "~/src/features/components/Button";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";
-import {
-  getStoredMapDetailMode,
-  setStoredMapDetailMode,
-  type MapDetailMode,
-} from "~/utils/mapPreferences";
+import { getStoredMapDetailMode, setStoredMapDetailMode,
+  type MapDetailMode } from "~/utils/mapPreferences";
 import { isLikelyNetworkError } from "~/utils/request-utils";
 import { APP_ROUTES } from "~/utils/routes";
 import { useTheme, type ThemeMode } from "~/utils/ThemeContext";
@@ -46,8 +28,7 @@ type ProfileData = {
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const { colorScheme, themeMode, setThemeMode } = useTheme();
-  const {
-    user,
+  const { user,
     profile: authProfile,
     isAuthenticated,
     isLoading: isAuthLoading,
@@ -73,7 +54,7 @@ export default function ProfileTab() {
     major: "",
     bio: "",
   });
-
+// Editing the profile
   useEffect(() => {
     if (isEditing) return;
 
@@ -118,7 +99,7 @@ export default function ProfileTab() {
       };
     }, []),
   );
-
+  // Handle saving profile changes
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -159,7 +140,7 @@ export default function ProfileTab() {
       setIsSaving(false);
     }
   };
-
+  // Handle canceling edits
   const handleCancelEdit = () => {
     setDisplayName(saved.displayName);
     setClassYear(saved.classYear);
@@ -167,7 +148,7 @@ export default function ProfileTab() {
     setBio(saved.bio);
     setIsEditing(false);
   };
-
+  // Handle signing out
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
@@ -181,7 +162,7 @@ export default function ProfileTab() {
       },
     ]);
   };
-
+  // Handle changing the details of the map
   const handleMapDetailModeChange = async (mode: MapDetailMode) => {
     try {
       setMapDetailMode(mode);
@@ -194,7 +175,7 @@ export default function ProfileTab() {
 
   const isSignedIn = isAuthenticated && Boolean(user);
   const shouldShowLoading = isAuthLoading && !user && !profile;
-
+   
   const mobilityLabel = useMemo(() => {
     if (!profile?.mobility_preference) return "Not set";
     return (

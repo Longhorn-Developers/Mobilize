@@ -2,16 +2,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import {ActivityIndicator, Alert, ScrollView, Text, 
+  TouchableOpacity, View} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { Button } from "~/src/features/components/Button";
 import { apiClient } from "~/utils/api-client";
 import { isLikelyNetworkError } from "~/utils/request-utils";

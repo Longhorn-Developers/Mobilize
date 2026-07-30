@@ -294,18 +294,16 @@ This generates native iOS and Android projects from your Expo configuration.
 
 ### Deployment - Mobile App
 
-Expo Classic Build (`expo build:*`) is deprecated. Use [EAS Build](https://docs.expo.dev/build/introduction/) instead:
-
 **Build for iOS:**
 
 ```bash
-eas build --platform ios
+expo build:ios
 ```
 
 **Build for Android:**
 
 ```bash
-eas build --platform android
+expo build:android
 ```
 
 ### Deployment - Backend
@@ -381,4 +379,4 @@ Longhorn Developers
 
 ---
 
-Built with ❤️ using Expo and Cloudflare Workers
+Built with ❤️ using Expo and Cloudflare Workers!

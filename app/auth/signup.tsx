@@ -1,10 +1,6 @@
 /** Entry point for new users — shows Google sign-in option. Requires no auth. */
 import { router } from "expo-router";
-import {
-  Image,
-  Text,
-  View,
-} from "react-native";
+import { Image, Text, View} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "~/src/features/components/Button";

@@ -2,7 +2,6 @@ import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ForwardedRef } from "react";
 import { Text, View } from "react-native";
-
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
 
@@ -37,7 +36,6 @@ const BarrierBottomSheet = ({ ref }: BarrierBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
-
   const sheetBg = isDark ? "#1C1C1E" : "#FFFFFF";
   const textPrimary = isDark ? "#F3F4F6" : colors.theme.black;
   const divider = isDark ? "#3A3A3C" : colors.theme.majorgridline;
@@ -69,12 +67,18 @@ const BarrierBottomSheet = ({ ref }: BarrierBottomSheetProps) => {
 
         return (
           <BottomSheetView style={{ padding: 24, paddingBottom: 36 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: descBg, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ flexDirection: "row", 
+              alignItems: "center", gap: 12, 
+              marginBottom: 16 }}>
+              <View style={{ width: 48, height: 48, 
+                borderRadius: 14, backgroundColor: descBg, 
+                alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontSize: 24 }}>{icon}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Roboto Flex", fontWeight: "700", fontSize: 20, color: textPrimary }}>
+                <Text style={{ fontFamily: "Roboto Flex",
+                   fontWeight: "700", fontSize: 20, 
+                   color: textPrimary }}>
                   Accessibility Barrier
                 </Text>
                 <Text style={{ fontSize: 13, color: colors.theme.red, fontWeight: "600", marginTop: 2 }}>
@@ -86,8 +90,13 @@ const BarrierBottomSheet = ({ ref }: BarrierBottomSheetProps) => {
             <View style={{ height: 1, backgroundColor: divider, marginBottom: 16 }} />
 
             {desc ? (
-              <View style={{ backgroundColor: descBg, borderRadius: 14, borderLeftWidth: 4, borderLeftColor: colors.theme.red, padding: 14, marginBottom: 12 }}>
-                <Text style={{ fontSize: 14, color: descText, fontFamily: "Inter", lineHeight: 20 }}>{desc}</Text>
+              <View style={{ backgroundColor: descBg, 
+              borderRadius: 14, borderLeftWidth: 4, 
+              borderLeftColor: colors.theme.red, 
+              padding: 14, marginBottom: 12 }}>
+                <Text style={{ fontSize: 14, 
+                  color: descText, fontFamily: "Inter", 
+                  lineHeight: 20 }}>{desc}</Text>
               </View>
             ) : null}
 

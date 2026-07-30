@@ -70,7 +70,7 @@ export function createAuth(env: {
             const role = user.email?.endsWith("@utexas.edu") ? "student" : "public";
             const base = user.email?.split("@")[0] || user.id;
 
-            // Retry with numeric suffix on unique constraint collision (e.g. "john" → "john_2").
+            // Retry with suffix on unique constraint collision (e.g. "john" → "john_2").
             for (let attempt = 0; attempt <= 4; attempt++) {
               const username = attempt === 0 ? base : `${base}_${attempt + 1}`;
               try {

@@ -1,6 +1,5 @@
 import { ArrowUpIcon } from "phosphor-react-native";
 import { View, Text, StyleSheet } from "react-native";
-
 import { getDirectionIcon, formatBannerDistance } from "~/src/features/navigation/navigationUtils";
 import { type ORSStep } from "~/utils/openRouteService";
 
@@ -20,7 +19,6 @@ export function DirectionsBanner({ step, leadDistance, isDark, insetTop }: Direc
   const bg = isDark ? "#1A2024" : "#FFFFFF";
   const instructionColor = isDark ? "#FFFFFF" : "#1A2024";
   const distanceColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(26,32,36,0.55)";
-
   const rawInstruction = step?.instruction ?? "Starting navigation…";
   const distPrefix = step && leadDistance !== undefined ? formatBannerDistance(leadDistance) : "";
   // "in 200 feet, turn left on Dean Keeton St"

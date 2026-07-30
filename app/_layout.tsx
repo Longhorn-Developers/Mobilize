@@ -2,12 +2,8 @@
 import "react-native-get-random-values"; // Polyfills crypto.getRandomValues — must load before any code that needs it (Mapbox, Places autocomplete session tokens)
 import "~/global.css";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import {
-  QueryClient,
-  QueryClientProvider,
-  focusManager,
-  onlineManager,
-} from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager,
+  onlineManager } from "@tanstack/react-query";
 import * as Network from "expo-network";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -15,13 +11,8 @@ import { CheckIcon, XIcon } from "phosphor-react-native";
 import { useEffect, useRef } from "react";
 import { AppStateStatus, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Toast, {
-  ErrorToast,
-  SuccessToast,
-  ToastConfig,
-} from "react-native-toast-message";
+import Toast, { ErrorToast, SuccessToast, ToastConfig } from "react-native-toast-message";
 import { useSyncQueriesExternal } from "react-query-external-sync";
-
 import colors from "~/types/colors";
 import { getAuthRedirectTarget } from "~/utils/routes";
 import { ThemeProvider, useTheme } from "~/utils/ThemeContext";
@@ -42,7 +33,6 @@ onlineManager.setEventListener((setOnline) => {
 });
 
 const queryClient = new QueryClient();
-
 function DevQuerySync() {
   useSyncQueriesExternal({
     queryClient,
@@ -75,7 +65,6 @@ function App() {
 
   useEffect(() => {
     if (isLoading) return;
-
     const target = getAuthRedirectTarget({
       isAuthenticated,
       onboardingComplete,
@@ -101,11 +90,8 @@ function App() {
     lastRedirectRef.current = { target, timestamp: now };
     if (__DEV__) {
       console.log("[auth-guard] redirect", {
-        isAuthenticated,
-        onboardingComplete,
-        segments,
-        target,
-      });
+        isAuthenticated, onboardingComplete,
+        segments, target });
     }
     router.replace(target as any);
   }, [isAuthenticated, isLoading, onboardingComplete, router, segments]);
@@ -135,7 +121,8 @@ function App() {
     ),
     error: (props: { props: ToastConfig }) => (
       <>
-        <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2/3 rounded-lg bg-red-200 p-2">
+        <View className="absolute left-1/2 top-0 z-10 -translate-x-1/2 
+        -translate-y-2/3 rounded-lg bg-red-200 p-2">
           <XIcon color={colors.theme.red} />
         </View>
         <ErrorToast

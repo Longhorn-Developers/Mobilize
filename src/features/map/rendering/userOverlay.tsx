@@ -1,6 +1,6 @@
 /* Rendering Layer for Recenter Button */
 
-import { ShapeSource, FillLayer, LineLayer, SymbolLayer , Camera } from "@rnmapbox/maps";
+import { ShapeSource, FillLayer, LineLayer, SymbolLayer, Camera } from "@rnmapbox/maps";
 import * as GeoLocation from 'expo-location';
 import { DeviceMotionMeasurement } from 'expo-sensors';
 import { useState, useEffect } from "react";
@@ -37,6 +37,10 @@ export default function UserOverlay({ cameraRef, geoLocation, deviceMotion }: Us
     // console.log(geoLocation);
     // console.log(deviceMotion);
   }
+
+  useEffect(() => {
+    recenterMap();
+  }, [])
 
   if (!geoLocation) {
     return null;

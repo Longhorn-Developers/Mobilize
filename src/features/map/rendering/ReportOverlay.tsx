@@ -1,6 +1,6 @@
 // Rendering layer for reports
 
-import { View } from "react-native";
+import { View, Image } from "react-native";
 import { EdgeInsets } from "react-native-safe-area-context";
 import ReportModal from "~/src/features/components/ReportModal";
 import { Button } from "~/src/features/components/Button";
@@ -64,9 +64,13 @@ export function ReportOverlay({
   return (
     <Button
       className="absolute bottom-4 right-4"
-      title="Report"
       onPress={onEnterReport}
       style={{ position: "absolute", bottom: 16, right: 16 }}
-    />
+    >
+      <Image
+        source={require('~/assets/ui_icons/warning.png')}
+        style={{ width: 30, height: 30 }}
+      />
+    </Button>
   );
 }

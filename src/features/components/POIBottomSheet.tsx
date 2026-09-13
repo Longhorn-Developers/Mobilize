@@ -177,24 +177,33 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
     return nearestDistanceSq <= MAX_SNAP_DISTANCE_SQ ? nearest : null;
   };
 
-  const metadataAbbr =
-    getBuildingAbbr(metadata.bld_name) ||
-    getBuildingAbbr(metadata.name) ||
-    getBuildingAbbr(metadata.building_abbr) ||
-    getBuildingAbbr(metadata.Area_Description) ||
-    getBuildingAbbr(metadata.building_name);
   const rampSelected = isRampPoi(poi);
-  const buildingFeature =
-    findBuildingFeature(metadataAbbr) ||
-    findBuildingContainingPoi(poi) ||
-    findNearestBuildingContainingPoi(poi);
+
+  // Memoized: findNearestBuildingContainingPoi does an O(n) scan + centroid
+  // computation over every building feature, which is too expensive to redo
+  // on every render (e.g. each camera frame while this sheet is open).
+  const { buildingFeature, buildingName } = useMemo(() => {
+    const metadataAbbr =
+      getBuildingAbbr(metadata.bld_name) ||
+      getBuildingAbbr(metadata.name) ||
+      getBuildingAbbr(metadata.building_abbr) ||
+      getBuildingAbbr(metadata.Area_Description) ||
+      getBuildingAbbr(metadata.building_name);
+    const feature =
+      findBuildingFeature(metadataAbbr) ||
+      findBuildingContainingPoi(poi) ||
+      findNearestBuildingContainingPoi(poi);
+    const buildingProps = feature?.properties ?? null;
+    const name =
+      formatBuildingName(metadata.bld_name) ??
+      formatBuildingName(metadata.building_name) ??
+      formatBuildingName(buildingProps?.Description) ??
+      formatBuildingName(metadata.name) ??
+      "Unknown Building";
+    return { buildingFeature: feature, buildingName: name };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poi]);
   const building = buildingFeature?.properties ?? null;
-  const buildingName =
-    formatBuildingName(metadata.bld_name) ??
-    formatBuildingName(metadata.building_name) ??
-    formatBuildingName(building?.Description) ??
-    formatBuildingName(metadata.name) ??
-    "Unknown Building";
 
   useEffect(() => {
     const currentAbbr =
@@ -485,6 +494,7 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPrevi
         if (!data?.poi) return null;
         return (
           <POIContent
+            key={data.poi?.id}
             poi={data.poi}
             allPOIs={allPOIs}
             handleReviews={handleReviews}

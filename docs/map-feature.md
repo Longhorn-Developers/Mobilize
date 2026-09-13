@@ -69,8 +69,9 @@ Composes, in order:
 1. `cameraRef` — a `Camera` ref shared with `useMapSearch` (for fly-to-result animations).
 2. `bottomSheet = useMapBottomSheets()` — refs + `closeAllSheets` for all bottom sheets.
 3. `report = useReportMode(bottomTabBarHeight)` — avoidance-area drawing flow.
-4. `poi` / `setPoi` / `reviewKey` — the POI currently open in the review modal, and a key that
-   increments each time review mode is entered (forces `ReviewModal` to remount/reset).
+4. `poi` / `setPoi` / `reviewKey` — the POI currently open in the review modal, and a counter that
+   increments each time review mode is entered. Passed to `ReviewModal` as `openToken`, which it
+   watches via effect to reset its transient UI state (not a remount — keeps its query cache observer).
 5. **Stable-callback indirection**: `onDismissSheetsRef` / `onResetUiStateRef` are refs holding
    the *real* callbacks (`bottomSheet.action.closeAllSheets`, and a closure that clears search/
    report/poi state). `useMapOverlay` is constructed with stable wrapper functions
@@ -87,8 +88,8 @@ Composes, in order:
 9. `mapDetailMode` — loaded via `getStoredMapDetailMode()` (from `utils/mapPreferences`) inside
    a `useFocusEffect`, exposed as `showDetailedLayers: mapDetailMode === "detailed"` (controls
    whether sidewalks/barriers render — see [utils.md](./utils.md)).
-10. `handleEnterReviewMode(reviewData)` — overlay-guarded: sets `poi`, bumps `reviewKey`, and
-    presents the review `BottomSheetModal`.
+10. `handleEnterReviewMode(reviewData)` — overlay-guarded: sets `poi`, bumps `reviewKey` (consumed by
+    `ReviewModal` as `openToken` to reset its UI state), and presents the review `BottomSheetModal`.
 11. `handleExitReviewMode()` — closes all sheets and clears `poi`.
 
 Returns a flat object: `{ cameraRef, featureTappedRef, bottomSheet, report, search, poi,

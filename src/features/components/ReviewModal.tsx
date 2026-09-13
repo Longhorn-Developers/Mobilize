@@ -167,10 +167,12 @@ const ReviewCard = ({
   review,
   activeUserId,
   actionFn,
+  poi_id,
 }: {
   review: ReviewEntry;
   activeUserId: number | null;
   actionFn: () => void;
+  poi_id: number;
 }) => {
   const { mutateAsync: upsertVote } = useUpsertVote();
   const { mutateAsync: deleteVote } = useDeleteVote();
@@ -187,11 +189,12 @@ const ReviewCard = ({
     try {
       const currentVote = review.user_vote ?? 0;
       if (currentVote === vote) {
-        await deleteVote(review.id);
+        await deleteVote({ review_id: review.id, poi_id });
       } else {
         await upsertVote({
           review_id: review.id,
           vote,
+          poi_id,
         });
       }
     } catch (error) {
@@ -310,12 +313,14 @@ const ReviewsList = ({
   activeUserId,
   userHasReview,
   ListHeaderComponent,
+  poi_id,
 }: {
   className: string;
   reviews: ReviewEntry[];
   activeUserId: number | null;
   userHasReview: boolean;
   ListHeaderComponent: React.ComponentType<any> | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | null | undefined;
+  poi_id: number;
 }) => {
   return (
     <View className={className}>
@@ -335,6 +340,7 @@ const ReviewsList = ({
                 actionFn={() => {
                   // Update review's vote
                 }}
+                poi_id={poi_id}
               />
             )}
           />
@@ -485,6 +491,10 @@ interface ReviewModalProps {
   onExit: () => void;
   /** Called whenever the user starts/stops actively writing a review (formState). */
   onActiveChange?: (isActive: boolean) => void;
+  /** Bumped each time review mode is entered, so the modal can reset its
+   * transient UI state without being unmounted/remounted (which would
+   * discard its review-query cache observer). */
+  openToken?: number;
 }
 
 const ReviewModal = ({
@@ -496,6 +506,7 @@ const ReviewModal = ({
   buildingName,
   onExit,
   onActiveChange,
+  openToken,
 }: ReviewModalProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
@@ -513,6 +524,17 @@ const ReviewModal = ({
     setSelectedPoiId(poi_id);
     setSelectedEntranceName(entranceName);
   }, [poi_id, entranceName, formState]);
+
+  useEffect(() => {
+    // Fresh UI state each time review mode is entered — replaces a prior
+    // full remount-on-open (via a `key` prop) that discarded the review
+    // query's cache observer and caused a spurious refetch every open.
+    setFormState(0);
+    setIsMenuActive(false);
+    setEditingReview(null);
+    setIsSubmitting(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openToken]);
 
   useEffect(() => {
     onActiveChange?.(formState === 1);
@@ -752,6 +774,7 @@ const ReviewModal = ({
               ) : (
                 <ReviewsList
                   className="max-h-80"
+                  poi_id={selectedPoiId}
                   reviews={reviews.filter(
                     (review) => review.user_id !== activeUserId,
                   )}
@@ -765,6 +788,7 @@ const ReviewModal = ({
                           review={existingReview}
                           activeUserId={activeUserId}
                           actionFn={() => setIsMenuActive((prev) => !prev)}
+                          poi_id={selectedPoiId}
                         />
 
                         {/* Edit/Delete Menu */}

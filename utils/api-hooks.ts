@@ -340,12 +340,14 @@ export function useUpsertVote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { review_id: number, vote: 1 | -1 }) =>
-      apiClient.upsertVote(data),
+    mutationFn: (data: { review_id: number; vote: 1 | -1; poi_id: number }) => {
+      const { poi_id, ...payload } = data;
+      return apiClient.upsertVote(payload);
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["review"],
-      }); // refetch review lists with vote counts
+        queryKey: queryKeys.review(variables.poi_id),
+      }); // refetch this POI's review list with updated vote counts
 
       console.log(`[useUpsertVote] Vote upserted for review with id ${variables.review_id}!`);
     },
@@ -360,14 +362,14 @@ export function useDeleteVote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (review_id: number) =>
-      apiClient.deleteVote(review_id),
+    mutationFn: (data: { review_id: number; poi_id: number }) =>
+      apiClient.deleteVote(data.review_id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["review"],
-      }); // refetch review lists with vote counts
+        queryKey: queryKeys.review(variables.poi_id),
+      }); // refetch this POI's review list with updated vote counts
 
-      console.log(`[useUpsertVote] Vote deleted for review with id ${variables}!`);
+      console.log(`[useUpsertVote] Vote deleted for review with id ${variables.review_id}!`);
     },
     onError: (error) => {
       console.log(`[useUpsertVote] Error deleting vote: ${error.message}`);

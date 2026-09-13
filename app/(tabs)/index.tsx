@@ -13,7 +13,7 @@ import ConstructionBottomSheet from "~/src/features/components/ConstructionBotto
 import { DirectionsBanner } from "~/src/features/components/DirectionsBanner";
 import { LocationDetailsBottomSheet, type LocationDetailsBottomSheetRef, } from "~/src/features/components/LocationDetailsBottomSheet";
 import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
-import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import POIBottomSheet, { type POIReportData, POIReviewData } from "~/src/features/components/POIBottomSheet";
 import ReviewModal from "~/src/features/components/ReviewModal";
 import RoutePreviewSheet from "~/src/features/components/RoutePreviewSheet";
 import { SearchBar } from "~/src/features/components/SearchBar";
@@ -143,6 +143,13 @@ export default function Home() {
     prevIsNavigating.current = isNavigating;
   }, [isNavigating]);
 
+  const handleReports = useCallback((reportData: POIReportData) => {
+    map.bottomSheet.action.closeAllSheets();
+    map.search.action.clear();
+    map.poiReport.action.setReportData(reportData);
+    map.poiReport.action.setIsPOIReportMode(true);
+  }, [map.bottomSheet.action, map.search.action, map.poiReport.action]);
+
   const handleGoFromPreview = useCallback(async () => {
     const { destinationCoords, destinationName, profile, route } = map.routePreview.state;
     if (!destinationCoords) return;
@@ -229,12 +236,7 @@ export default function Home() {
             allPOIs={POIs ?? emptyPOIs}
             handleReviews={map.handleEnterReviewMode}
             onRequestPreview={map.handleRequestPreview}
-            handleReports={(reportData) => {
-              map.bottomSheet.action.closeAllSheets();
-              map.search.action.clear();
-              map.poiReport.action.setReportData(reportData);
-              map.poiReport.action.setIsPOIReportMode(true);
-            }}
+            handleReports={handleReports}
           />
           <RoutePreviewSheet
             ref={map.bottomSheet.ref.routePreviewSheet}
@@ -267,7 +269,6 @@ export default function Home() {
             animateOnMount={false}
           >
             <ReviewModal
-              key={map.reviewKey}
               className=""
               poi_id={map.poi ? map.poi.id : 0}
               entrances={map.poi ? map.poi.entrances : []}
@@ -276,6 +277,7 @@ export default function Home() {
               buildingName={map.poi ? map.poi.buildingName : "No Building Name Found"}
               onExit={map.handleExitReviewMode}
               onActiveChange={map.setReviewActive}
+              openToken={map.reviewKey}
             />
           </BottomSheetModal>
         </>

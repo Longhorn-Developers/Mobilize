@@ -143,8 +143,10 @@ navigate... Click to mark the area.") is shown instead of the Undo/Clear button 
 ### `ReviewModal`
 The full review flow for a POI/entrance, rendered in a `BottomSheetModal` with
 `backgroundStyle: transparent` from `index.tsx`. Props: `poi_id`, `entrances`, `entranceName`,
-`building`, `buildingName`, `onExit()`. Remounted (via the controller's `reviewKey`) every time
-`handleEnterReviewMode` is called, so its internal state always starts fresh for the new POI.
+`building`, `buildingName`, `onExit()`, `openToken`. Stays mounted across opens (so its review-query
+cache observer survives); the controller's `reviewKey` is passed as `openToken` and bumped each time
+`handleEnterReviewMode` is called, which the modal watches via effect to reset its transient UI state
+(form step, editing review, menu) fresh for the new POI without a remount.
 
 Two `formState`s:
 - **`0` (browse)** — shows a `MiniMap` (a small, interaction-limited `MapView` centered on the

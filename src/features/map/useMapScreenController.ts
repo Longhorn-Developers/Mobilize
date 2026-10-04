@@ -3,18 +3,24 @@
 import { Camera } from "@rnmapbox/maps";
 import { useFocusEffect } from "expo-router";
 import type { Polygon } from "geojson";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
 import { useMapBottomSheets } from "~/src/features/map/hooks/useMapBottomSheets";
-import { OVERLAY_CLOSE_ANIMATION_MS , useMapOverlay } from "~/src/features/map/hooks/useMapOverlay";
+import {
+  OVERLAY_CLOSE_ANIMATION_MS,
+  useMapOverlay,
+} from "~/src/features/map/hooks/useMapOverlay";
 import { useMapPressHandlers } from "~/src/features/map/hooks/useMapPressHandlers";
 import { useMapSearch } from "~/src/features/map/hooks/useMapSearch";
 import { usePOIReportMode } from "~/src/features/map/hooks/usePOIReportMode";
 import { useReportMode } from "~/src/features/map/hooks/useReportMode";
 import { useNavigationMode } from "~/src/features/navigation/useNavigationMode";
 import { useRoutePreview } from "~/src/features/navigation/useRoutePreview";
-import { getStoredMapDetailMode, type MapDetailMode } from "~/utils/mapPreferences";
+import {
+  getStoredMapDetailMode,
+  type MapDetailMode,
+} from "~/utils/mapPreferences";
 
 export function useMapScreenController({
   isTabFocused,
@@ -40,7 +46,9 @@ export function useMapScreenController({
         coords[0][1] === coords[coords.length - 1][1]
           ? coords
           : [...coords, coords[0]];
-      return [{ type: "Polygon" as const, coordinates: [ring] } satisfies Polygon];
+      return [
+        { type: "Polygon" as const, coordinates: [ring] } satisfies Polygon,
+      ];
     });
     return [...aa, ...ca];
   }, [avoidanceAreas, constructionAreas]);
@@ -66,7 +74,10 @@ export function useMapScreenController({
   // search/report state setters exist, avoiding a circular dependency.
   const onDismissSheetsRef = useRef<() => void>(() => {});
   const onResetUiStateRef = useRef<() => void>(() => {});
-  const stableDismissSheets = useCallback(() => onDismissSheetsRef.current(), []);
+  const stableDismissSheets = useCallback(
+    () => onDismissSheetsRef.current(),
+    [],
+  );
   const stableResetUiState = useCallback(() => onResetUiStateRef.current(), []);
 
   const {
@@ -139,7 +150,9 @@ export function useMapScreenController({
       void getStoredMapDetailMode().then((mode) => {
         if (active) setMapDetailMode(mode);
       });
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, []),
   );
 
@@ -156,19 +169,37 @@ export function useMapScreenController({
     [bottomSheet.ref, routePreview.action],
   );
 
-  const handleEnterReviewMode = useCallback((reviewData: POIReviewData) => {
-    const epoch = beginOverlayAction();
-    if (!canPresent(epoch)) return;
-    setPoi(reviewData);
-    setReviewKey((k) => k + 1);
-    guardedPresent(epoch, () => bottomSheet.ref.reviewSheet.current?.present(), "review_open");
-  }, [beginOverlayAction, canPresent, guardedPresent, bottomSheet.ref.reviewSheet]);
+  const pendingPresentEpochRef = useRef<number | null>(null);
+
+  const handleEnterReviewMode = useCallback(
+    (reviewData: POIReviewData) => {
+      const epoch = beginOverlayAction();
+      if (!canPresent(epoch)) return;
+      pendingPresentEpochRef.current = epoch;
+      setPoi(reviewData);
+      setReviewKey((k) => k + 1);
+    },
+    [beginOverlayAction, canPresent],
+  );
+
+  useEffect(() => {
+    if (!poi) return;
+    const epoch = pendingPresentEpochRef.current;
+    if (epoch == null) return;
+    pendingPresentEpochRef.current = null;
+    guardedPresent(
+      epoch,
+      () => bottomSheet.ref.reviewSheet.current?.present(),
+      "review_open",
+    );
+  }, [poi, guardedPresent, bottomSheet.ref.reviewSheet]);
 
   const handleExitReviewMode = useCallback(() => {
     isReviewActiveRef.current = false;
+    pendingPresentEpochRef.current = null;
     bottomSheet.action.closeAllSheets();
     setPoi(undefined);
-  }, [bottomSheet.action.closeAllSheets]);
+  }, [bottomSheet.action]);
 
   return {
     cameraRef,

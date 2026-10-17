@@ -168,19 +168,35 @@ export default function Home() {
     prevIsNavigating.current = isNavigating;
   }, [isNavigating]);
 
+  const {
+    destinationCoords,
+    destinationName,
+    profile,
+    route,
+  } = map.routePreview.state;
+  const closePreview = map.routePreview.action.closePreview;
+  const routePreviewSheetRef = map.bottomSheet.ref.routePreviewSheet;
+  const startNavigation = navigation.action.startNavigation;
+
   const handleGoFromPreview = useCallback(async () => {
-    const { destinationCoords, destinationName, profile, route } =
-      map.routePreview.state;
     if (!destinationCoords) return;
-    map.bottomSheet.ref.routePreviewSheet.current?.dismiss();
-    map.routePreview.action.closePreview();
-    await navigation.action.startNavigation(
+    routePreviewSheetRef.current?.dismiss();
+    closePreview();
+    await startNavigation(
       destinationCoords,
       destinationName,
       profile,
       route ?? undefined,
     );
-  }, [map.routePreview, map.bottomSheet.ref, navigation.action]);
+  }, [
+    destinationCoords,
+    destinationName,
+    profile,
+    route,
+    routePreviewSheetRef,
+    closePreview,
+    startNavigation,
+  ]);
 
   // Keep this callback stable while sensor updates re-render Home.  The
   // individual actions are stable even though their containing controller

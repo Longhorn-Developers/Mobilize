@@ -11,6 +11,7 @@ import AvoidanceAreaBottomSheet from "~/src/features/components/AvoidanceAreaBot
 import BarrierBottomSheet from "~/src/features/components/BarrierBottomSheet";
 import ConstructionBottomSheet from "~/src/features/components/ConstructionBottomSheet";
 import { DirectionsBanner } from "~/src/features/components/DirectionsBanner";
+import { EntranceFilterButton, EntranceFilterPanel } from "~/src/features/components/EntranceFilter";
 import { LocationDetailsBottomSheet, type LocationDetailsBottomSheetRef, } from "~/src/features/components/LocationDetailsBottomSheet";
 import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
 import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
@@ -61,6 +62,24 @@ export default function Home() {
   const [zoomLevel, setZoomLevel] = useState(15);
   const [cameraState, setCameraState] = useState<any>(null)
 
+  // Coordinates of the entrance currently selected in the POI sheet (drives the map highlight)
+  const [highlightedEntrance, setHighlightedEntrance] = useState<[number, number] | null>(null);
+
+  // Only update state when the position really changed. Returning the previous value makes
+  // React skip the re-render, so repeated reports of the same entrance can never cause a loop.
+  const handleEntranceSelect = useCallback((coords: [number, number] | null) => {
+    setHighlightedEntrance((prev) => {
+      if (prev === coords) return prev;
+      if (prev && coords && prev[0] === coords[0] && prev[1] === coords[1]) return prev;
+      return coords;
+    });
+  }, []);
+
+  // The sheets unmount (without being dismissed) when the tab loses focus, so clear here too
+  useEffect(() => {
+    if (!isTabFocused) setHighlightedEntrance(null);
+  }, [isTabFocused]);
+
   // Data hooks
   const { data: avoidanceAreas } = useAvoidanceAreas();
   const { data: constructionAreas } = useConstructionAreas();
@@ -82,8 +101,14 @@ export default function Home() {
     entrances,
   });
 
-  const { navigation } = map;
+  const { navigation, entranceFilters } = map;
   const isNavigating = navigation.state.isNavigating;
+
+  // Search bar, entrance filter and the dropdowns under them are hidden in report mode and during navigation
+  const showTopControls =
+    !map.report.state.isReportMode && !isNavigating && !map.poiReport.state.isPOIReportMode;
+  // Where the dropdowns (search results, entrance filter) start, just under the top row
+  const dropdownTopOffset = insets.top + 70;
 
   // Show navigation route while navigating, preview route while the sheet is open
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | null => {
@@ -190,33 +215,60 @@ export default function Home() {
         />
       )}
 
-      {/* Search bar — hidden in report mode and during navigation */}
-      {!map.report.state.isReportMode && !isNavigating && !map.poiReport.state.isPOIReportMode && (
-        <SearchBar
-          onPress={() => map.search.action.open()}
-          onChangeText={map.search.action.handleSearchChange}
-          onClear={() => map.search.action.clear()}
-          value={map.search.state.searchQuery}
-          editable={map.search.state.isSearchActive}
-          isActive={map.search.state.isSearchActive}
+      {/* Top row — search bar with the entrance-type filter button beside it */}
+      {showTopControls && (
+        <View
           style={{
             position: "absolute",
             top: insets.top + 10,
             left: 16,
             right: 16,
             zIndex: 20,
+            flexDirection: "row",
+            alignItems: "stretch",
+            gap: 8,
           }}
-        />
+        >
+          <SearchBar
+            onPress={() => {
+              entranceFilters.action.close();
+              map.search.action.open();
+            }}
+            onChangeText={map.search.action.handleSearchChange}
+            onClear={() => map.search.action.clear()}
+            value={map.search.state.searchQuery}
+            editable={map.search.state.isSearchActive}
+            isActive={map.search.state.isSearchActive}
+            style={{ flex: 1 }}
+          />
+          <EntranceFilterButton
+            isOpen={entranceFilters.state.isOpen}
+            activeCount={entranceFilters.state.selected.length}
+            onPress={map.toggleEntranceFilters}
+          />
+        </View>
       )}
 
       {/* Search results dropdown */}
-      {!map.report.state.isReportMode && !isNavigating && !map.poiReport.state.isPOIReportMode && (
+      {showTopControls && (
         <SearchDropdown
           visible={map.search.state.isSearchActive}
           searchQuery={map.search.state.searchQuery}
           onSelectLocation={map.search.action.handleSelectLocation}
           onDismiss={() => map.search.action.clear()}
-          topOffset={insets.top + 70}
+          topOffset={dropdownTopOffset}
+        />
+      )}
+
+      {/* Entrance-type filter legend — tap outside it to close */}
+      {showTopControls && (
+        <EntranceFilterPanel
+          visible={entranceFilters.state.isOpen}
+          selected={entranceFilters.state.selected}
+          onToggle={entranceFilters.action.toggleFilter}
+          onClear={entranceFilters.action.clearFilters}
+          onDismiss={entranceFilters.action.close}
+          topOffset={dropdownTopOffset}
         />
       )}
 
@@ -227,6 +279,7 @@ export default function Home() {
           <POIBottomSheet
             ref={map.bottomSheet.ref.poiBottomSheet}
             allPOIs={POIs ?? emptyPOIs}
+            onEntranceSelect={handleEntranceSelect}
             handleReviews={map.handleEnterReviewMode}
             onRequestPreview={map.handleRequestPreview}
             handleReports={(reportData) => {
@@ -370,6 +423,12 @@ export default function Home() {
           buildingStyles={getBuildingStyles(isDark)}
           mapIcons={mapIcons}
           cameraState={cameraState}
+          selectedEntranceFilters={entranceFilters.state.selected}
+          highlightedEntrance={
+            isNavigating || map.report.state.isReportMode || map.poiReport.state.isPOIReportMode
+              ? null
+              : highlightedEntrance
+          }
           geoLocation={locationService.state.geoLocation}
           deviceMotion={locationService.state.deviceMotion}
           onBuildingPress={map.mapPress.action.handleBuildingTap}

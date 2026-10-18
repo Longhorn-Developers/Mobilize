@@ -1,6 +1,6 @@
 # Shared components (`src/features/components/`)
 
-All 15 components in this folder. Bottom sheets use `@gorhom/bottom-sheet`'s
+All 16 components in this folder. Bottom sheets use `@gorhom/bottom-sheet`'s
 `BottomSheetModal`, take a `ref: ForwardedRef<BottomSheetModal>` prop (note: these components
 destructure `ref` from props rather than using `forwardRef`, since they're rendered under
 React 19 where `ref` is an ordinary prop), and read their `data` via the `present(data)` /
@@ -193,6 +193,22 @@ Renders the search results list below `SearchBar`. Props: `visible`, `searchQuer
   returns nothing. A `requestIdRef` counter discards results from superseded requests.
 - Tapping the dim background or the ✕ calls `onDismiss`. Tapping a result calls
   `onSelectLocation(location)` (handled by `useMapSearch.handleSelectLocation`).
+
+### `EntranceFilter`
+Two presentational components exported from `EntranceFilter.tsx` for the entrance-type filter (the
+logic is described in [map-feature.md](./map-feature.md#entrance-type-filter)):
+- **`EntranceFilterButton`** `{ isOpen, activeCount, onPress, style? }` — a pill with a funnel icon
+  that sits beside `SearchBar` (the parent row stretches it to the search bar's height). Filled
+  burnt-orange while `activeCount > 0`, so an applied filter is visible with the legend closed.
+- **`EntranceFilterPanel`** `{ visible, selected, onToggle, onClear, onDismiss, topOffset }` — the
+  dropdown legend: a title, a "Clear" action (only while something is selected), and one tag per
+  `ENTRANCE_FILTER_OPTIONS` entry showing the map symbol + phrase. A selected tag gets an orange
+  tint/border **and** a check mark (state never relies on color alone). Renders a transparent
+  full-screen backdrop behind the card; tapping it calls `onDismiss`. Uses the same `topOffset` as
+  `SearchDropdown` so both open at the same place. Tags are `checkbox`-role for screen readers.
+
+All sizes, colors, copy, z-indexes and the open/close animation are collected in the "Visual
+tokens" block at the top of the file, so restyling doesn't touch the component logic.
 
 ## Misc
 

@@ -7,6 +7,7 @@ import {
   PlusIcon,
   XIcon,
   ArrowRightIcon,
+  PencilSimpleLineIcon,
 } from "phosphor-react-native";
 import React, { ForwardedRef, useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -509,15 +510,22 @@ const RoutePreviewSheet = React.memo(
                 {/* Origin */}
                 <View style={styles.locationRow}>
                   <NavigationArrowIcon size={18} color="#BF5700" weight="fill" />
+                  <Text style={[styles.locationText, { color: textColor, flexShrink: 1 }]} numberOfLines={1}>
+                    {originName}
+                  </Text>
                   <TouchableOpacity
-                    style={styles.locationLabel}
+                    style={[styles.locationLabel, { minWidth: 36, minHeight: 44, justifyContent: "center" }]}
                     onPress={() => setEditingField("origin")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit my location"
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.locationText, { color: textColor }]} numberOfLines={1}>
-                      {originName}
-                    </Text>
+                    <PencilSimpleLineIcon
+                      size={18}
+                      color={textColor}
+                    />
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={onSwapOriginDest}
                     style={styles.swapBtn}
@@ -532,15 +540,22 @@ const RoutePreviewSheet = React.memo(
                 {/* Destination */}
                 <View style={styles.locationRow}>
                   <MapPinIcon size={18} color="#1A7CD4" weight="fill" />
+                  <Text style={[styles.locationText, { color: textColor, flexShrink: 1 }]} numberOfLines={1}>
+                    {destinationName || "Choose destination"}
+                  </Text>
                   <TouchableOpacity
-                    style={styles.locationLabel}
+                    style={[styles.locationLabel, { minWidth: 36, minHeight: 44, justifyContent: "center" }]}
                     onPress={() => setEditingField("destination")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit target location"
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.locationText, { color: textColor }]} numberOfLines={1}>
-                      {destinationName || "Choose destination"}
-                    </Text>
+                    <PencilSimpleLineIcon
+                      size={18}
+                      color={textColor}
+                    />
                   </TouchableOpacity>
+
                 </View>
 
                 {/* Additional stops */}

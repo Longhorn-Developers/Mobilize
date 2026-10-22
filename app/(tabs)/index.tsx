@@ -328,7 +328,7 @@ export default function Home() {
             ref={map.bottomSheet.ref.constructionBottomSheet}
           />
 
-          <BottomSheetModal
+          {map.poi && (<BottomSheetModal
             ref={map.bottomSheet.ref.reviewSheet}
             bottomInset={bottomTabBarHeight}
             backgroundStyle={{ backgroundColor: "transparent" }}
@@ -343,19 +343,15 @@ export default function Home() {
             <ReviewModal
               key={map.reviewKey}
               className=""
-              poi_id={map.poi ? map.poi.id : 0}
-              entrances={map.poi ? map.poi.entrances : []}
-              entranceName={
-                map.poi ? map.poi.entrance : "No Entrance Name Found"
-              }
-              building={map.poi && map.poi.building}
-              buildingName={
-                map.poi ? map.poi.buildingName : "No Building Name Found"
-              }
+              poi_id={map.poi.id}
+              entrances={map.poi.entrances}
+              entranceName={map.poi.entrance}
+              building={map.poi.building}
+              buildingName={map.poi.buildingName}
               onExit={map.handleExitReviewMode}
               onActiveChange={map.setReviewActive}
             />
-          </BottomSheetModal>
+          </BottomSheetModal>)}
         </>
       ) : null}
 

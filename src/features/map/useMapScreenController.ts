@@ -3,7 +3,7 @@
 import { Camera } from "@rnmapbox/maps";
 import { useFocusEffect } from "expo-router";
 import type { Polygon } from "geojson";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
 import { useMapBottomSheets } from "~/src/features/map/hooks/useMapBottomSheets";
@@ -177,31 +177,37 @@ export function useMapScreenController({
     ],
   );
 
+  const pendingPresentEpochRef = useRef<number | null>(null);
+
   const handleEnterReviewMode = useCallback(
     (reviewData: POIReviewData) => {
       const epoch = beginOverlayAction();
       if (!canPresent(epoch)) return;
+      pendingPresentEpochRef.current = epoch;
       setPoi(reviewData);
       setReviewKey((k) => k + 1);
-      guardedPresent(
-        epoch,
-        () => bottomSheet.ref.reviewSheet.current?.present(),
-        "review_open",
-      );
     },
-    [
-      beginOverlayAction,
-      canPresent,
-      guardedPresent,
-      bottomSheet.ref.reviewSheet,
-    ],
+    [beginOverlayAction, canPresent],
   );
+
+  useEffect(() => {
+    if (!poi) return;
+    const epoch = pendingPresentEpochRef.current;
+    if (epoch == null) return;
+    pendingPresentEpochRef.current = null;
+    guardedPresent(
+      epoch,
+      () => bottomSheet.ref.reviewSheet.current?.present(),
+      "review_open",
+    );
+  }, [poi, guardedPresent, bottomSheet.ref.reviewSheet]);
 
   const handleExitReviewMode = useCallback(() => {
     isReviewActiveRef.current = false;
+    pendingPresentEpochRef.current = null;
     bottomSheet.action.closeAllSheets();
     setPoi(undefined);
-  }, [bottomSheet.action.closeAllSheets]);
+  }, [bottomSheet.action]);
 
   return {
     cameraRef,

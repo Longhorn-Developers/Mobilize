@@ -166,7 +166,15 @@ export function useMapScreenController({
         bottomSheet.ref.routePreviewSheet.current?.present();
       }, OVERLAY_CLOSE_ANIMATION_MS + 30);
     },
-    [bottomSheet.ref, routePreview.action],
+    // These individual refs/callbacks stay stable across unrelated controller
+    // renders (for example, DeviceMotion updates in Home). Depending on the
+    // wrapper objects recreated by their hooks made this callback change on
+    // every render and defeated POIBottomSheet's React.memo.
+    [
+      bottomSheet.ref.poiBottomSheet,
+      bottomSheet.ref.routePreviewSheet,
+      routePreview.action.openPreview,
+    ],
   );
 
   const pendingPresentEpochRef = useRef<number | null>(null);

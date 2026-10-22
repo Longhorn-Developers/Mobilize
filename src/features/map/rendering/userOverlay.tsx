@@ -1,9 +1,10 @@
 /* Rendering Layer for Recenter Button */
 
-import { ShapeSource, FillLayer, LineLayer, SymbolLayer , Camera } from "@rnmapbox/maps";
+import { ShapeSource, FillLayer, LineLayer, SymbolLayer, Camera } from "@rnmapbox/maps";
 import * as GeoLocation from 'expo-location';
 import { DeviceMotionMeasurement } from 'expo-sensors';
 import { useState, useEffect } from "react";
+import { Image, View } from "react-native";
 
 import { Button } from "~/src/features/components/Button";
 
@@ -38,16 +39,24 @@ export default function UserOverlay({ cameraRef, geoLocation, deviceMotion }: Us
     // console.log(deviceMotion);
   }
 
+  useEffect(() => {
+    recenterMap();
+  }, [])
+
   if (!geoLocation) {
     return null;
   }
   return (
     <Button
       className="absolute bottom-4 right-4"
-      title="Center"
       variant="gray"
       onPress={recenterMap}
       style={{ position: "absolute", bottom: 70, right: 16 }}
-    />
+    >
+      <Image
+        source={require('~/assets/ui_icons/center.png')}
+        style={{ width: 30, height: 30 }}
+      />
+    </Button>
   );
 }

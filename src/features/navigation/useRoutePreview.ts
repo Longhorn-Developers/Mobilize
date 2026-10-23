@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Polygon } from "geojson";
 
 import * as MapConstants from "~/src/features/map/constants";
@@ -179,8 +179,8 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
     setShowDirectionsList((prev) => !prev);
   }, []);
 
-  return {
-    state: {
+  const state = useMemo(
+    () => ({
       isOpen,
       isLoading,
       route,
@@ -193,7 +193,25 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
       profile,
       stops,
       showDirectionsList,
-    } satisfies RoutePreviewState,
+    }) satisfies RoutePreviewState,
+    [
+      isOpen,
+      isLoading,
+      route,
+      error,
+      destinationName,
+      destinationCoords,
+      entranceLabel,
+      originName,
+      originCoords,
+      profile,
+      stops,
+      showDirectionsList,
+    ],
+  );
+
+  return {
+    state,
     action: {
       openPreview,
       closePreview,

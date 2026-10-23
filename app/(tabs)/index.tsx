@@ -1,7 +1,12 @@
 ﻿import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
-import Mapbox, { Camera, Images, MapView, PointAnnotation, } from "@rnmapbox/maps";
+import Mapbox, {
+  Camera,
+  Images,
+  MapView,
+  PointAnnotation,
+} from "@rnmapbox/maps";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Platform, View } from "react-native";
@@ -14,12 +19,16 @@ import { DirectionsBanner } from "~/src/features/components/DirectionsBanner";
 import { EntranceFilterButton, EntranceFilterPanel } from "~/src/features/components/EntranceFilter";
 import { LocationDetailsBottomSheet, type LocationDetailsBottomSheetRef, } from "~/src/features/components/LocationDetailsBottomSheet";
 import { NavigationBottomBar } from "~/src/features/components/NavigationBottomBar";
-import POIBottomSheet, { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import POIBottomSheet, {
+  POIReviewData,
+} from "~/src/features/components/POIBottomSheet";
 import ReviewModal from "~/src/features/components/ReviewModal";
 import RoutePreviewSheet from "~/src/features/components/RoutePreviewSheet";
 import { SearchBar } from "~/src/features/components/SearchBar";
 import { SearchDropdown } from "~/src/features/components/SearchDropdown";
-import SidewalkBottomSheet, { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
+import SidewalkBottomSheet, {
+  type SidewalkSegment,
+} from "~/src/features/components/SidewalkBottomSheet";
 import { getBuildingStyles } from "~/src/features/map/buildingStyles";
 import * as MapConstants from "~/src/features/map/constants";
 import { useAvoidanceGeoJSON } from "~/src/features/map/geojsonSources/useAvoidanceGeoJSON";
@@ -33,8 +42,11 @@ import { ReportOverlay } from "~/src/features/map/rendering/ReportOverlay";
 import UserOverlay from "~/src/features/map/rendering/userOverlay";
 import { useMapScreenController } from "~/src/features/map/useMapScreenController";
 import {
-  usePOIs, useAvoidanceAreas, useConstructionAreas,
-  useInsertAvoidanceArea, useInsertPOIReport,
+  usePOIs,
+  useAvoidanceAreas,
+  useConstructionAreas,
+  useInsertAvoidanceArea,
+  useInsertPOIReport,
 } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
@@ -42,7 +54,8 @@ import { mapIcons } from "~/utils/useMapIcons";
 
 // Initialise Mapbox
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
-if (!mapboxToken) throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
+if (!mapboxToken)
+  throw new Error("Missing EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN in .env");
 Mapbox.setAccessToken(mapboxToken);
 
 export default function Home() {
@@ -57,10 +70,11 @@ export default function Home() {
     user?.email?.toLowerCase().endsWith("@utexas.edu") === true;
   const isDark = colorScheme === "dark";
 
-  const { sidewalksGeoJSON, buildingsGeoJSON, barriersGeoJSON, rampsGeoJSON } = useMapGeoJSON();
+  const { sidewalksGeoJSON, buildingsGeoJSON, barriersGeoJSON, rampsGeoJSON } =
+    useMapGeoJSON();
 
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [cameraState, setCameraState] = useState<any>(null)
+  const [cameraState, setCameraState] = useState<any>(null);
 
   // Coordinates of the entrance currently selected in the POI sheet (drives the map highlight)
   const [highlightedEntrance, setHighlightedEntrance] = useState<[number, number] | null>(null);
@@ -120,13 +134,20 @@ export default function Home() {
     if (!coords || coords.length < 2) return null;
     return {
       type: "FeatureCollection",
-      features: [{
-        type: "Feature",
-        properties: {},
-        geometry: { type: "LineString", coordinates: coords },
-      }],
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: coords },
+        },
+      ],
     };
-  }, [isNavigating, navigation.state.route, map.routePreview.state.isOpen, map.routePreview.state.route]);
+  }, [
+    isNavigating,
+    navigation.state.route,
+    map.routePreview.state.isOpen,
+    map.routePreview.state.route,
+  ]);
 
   // Fit camera to show the full route whenever the preview route loads
   useEffect(() => {
@@ -144,7 +165,8 @@ export default function Home() {
   // Fly to the start coordinate of the active navigation step when it changes
   useEffect(() => {
     if (!isNavigating || !navigation.state.route) return;
-    const step = navigation.state.route.steps[navigation.state.currentStepIndex];
+    const step =
+      navigation.state.route.steps[navigation.state.currentStepIndex];
     if (step?.coordinate) {
       map.cameraRef.current?.flyTo(step.coordinate, 500);
     }
@@ -168,46 +190,88 @@ export default function Home() {
     prevIsNavigating.current = isNavigating;
   }, [isNavigating]);
 
+  const {
+    destinationCoords,
+    destinationName,
+    profile,
+    route,
+  } = map.routePreview.state;
+  const closePreview = map.routePreview.action.closePreview;
+  const routePreviewSheetRef = map.bottomSheet.ref.routePreviewSheet;
+  const startNavigation = navigation.action.startNavigation;
+
   const handleGoFromPreview = useCallback(async () => {
-    const { destinationCoords, destinationName, profile, route } = map.routePreview.state;
     if (!destinationCoords) return;
-    map.bottomSheet.ref.routePreviewSheet.current?.dismiss();
-    map.routePreview.action.closePreview();
-    await navigation.action.startNavigation(
+    routePreviewSheetRef.current?.dismiss();
+    closePreview();
+    await startNavigation(
       destinationCoords,
       destinationName,
       profile,
       route ?? undefined,
     );
-  }, [map.routePreview, map.bottomSheet.ref, navigation.action]);
+  }, [
+    destinationCoords,
+    destinationName,
+    profile,
+    route,
+    routePreviewSheetRef,
+    closePreview,
+    startNavigation,
+  ]);
+
+  // Keep this callback stable while sensor updates re-render Home.  The
+  // individual actions are stable even though their containing controller
+  // objects are reconstructed by their hooks.
+  const handlePOIReports = useCallback(
+    (reportData: Parameters<typeof map.poiReport.action.setReportData>[0]) => {
+      map.bottomSheet.action.closeAllSheets();
+      map.search.action.clear();
+      map.poiReport.action.setReportData(reportData);
+      map.poiReport.action.setIsPOIReportMode(true);
+    },
+    [
+      map.bottomSheet.action.closeAllSheets,
+      map.search.action.clear,
+      map.poiReport.action.setReportData,
+      map.poiReport.action.setIsPOIReportMode,
+    ],
+  );
 
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
 
       {/* iOS status bar background — adapts to theme when not in navigation */}
-      {Platform.OS === "ios" && !isNavigating && !map.report.state.isReportMode && !map.poiReport.state.isPOIReportMode && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: insets.top,
-            backgroundColor: isDark ? "#1A2024" : "#FFFFFF",
-            zIndex: 19,
-          }}
-          pointerEvents="none"
-        />
-      )}
+      {Platform.OS === "ios" &&
+        !isNavigating &&
+        !map.report.state.isReportMode &&
+        !map.poiReport.state.isPOIReportMode && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: insets.top,
+              backgroundColor: isDark ? "#1A2024" : "#FFFFFF",
+              zIndex: 19,
+            }}
+            pointerEvents="none"
+          />
+        )}
 
       {/* Directions banner — shown at top during navigation */}
       {isNavigating && (
         <DirectionsBanner
-          step={navigation.state.route?.steps[navigation.state.currentStepIndex]}
+          step={
+            navigation.state.route?.steps[navigation.state.currentStepIndex]
+          }
           leadDistance={
             navigation.state.currentStepIndex > 0
-              ? navigation.state.route?.steps[navigation.state.currentStepIndex - 1]?.distance
+              ? navigation.state.route?.steps[
+                  navigation.state.currentStepIndex - 1
+                ]?.distance
               : undefined
           }
           isDark={isDark}
@@ -275,19 +339,16 @@ export default function Home() {
       {/* Bottom sheets */}
       {isTabFocused ? (
         <>
-          <AvoidanceAreaBottomSheet ref={map.bottomSheet.ref.avoidanceAreaBottomSheet} />
+          <AvoidanceAreaBottomSheet
+            ref={map.bottomSheet.ref.avoidanceAreaBottomSheet}
+          />
           <POIBottomSheet
             ref={map.bottomSheet.ref.poiBottomSheet}
             allPOIs={POIs ?? emptyPOIs}
             onEntranceSelect={handleEntranceSelect}
             handleReviews={map.handleEnterReviewMode}
             onRequestPreview={map.handleRequestPreview}
-            handleReports={(reportData) => {
-              map.bottomSheet.action.closeAllSheets();
-              map.search.action.clear();
-              map.poiReport.action.setReportData(reportData);
-              map.poiReport.action.setIsPOIReportMode(true);
-            }}
+            handleReports={handlePOIReports}
           />
           <RoutePreviewSheet
             ref={map.bottomSheet.ref.routePreviewSheet}
@@ -299,15 +360,21 @@ export default function Home() {
             onSetDestination={map.routePreview.action.setDestination}
             onAddStop={map.routePreview.action.addStop}
             onRemoveStop={map.routePreview.action.removeStop}
-            onToggleDirectionsList={map.routePreview.action.toggleDirectionsList}
+            onToggleDirectionsList={
+              map.routePreview.action.toggleDirectionsList
+            }
             onDismiss={map.routePreview.action.closePreview}
           />
           <SidewalkBottomSheet ref={map.bottomSheet.ref.sidewalkBottomSheet} />
-          <LocationDetailsBottomSheet ref={map.bottomSheet.ref.locationBottomSheet} />
+          <LocationDetailsBottomSheet
+            ref={map.bottomSheet.ref.locationBottomSheet}
+          />
           <BarrierBottomSheet ref={map.bottomSheet.ref.barrierBottomSheet} />
-          <ConstructionBottomSheet ref={map.bottomSheet.ref.constructionBottomSheet} />
+          <ConstructionBottomSheet
+            ref={map.bottomSheet.ref.constructionBottomSheet}
+          />
 
-          <BottomSheetModal
+          {map.poi && (<BottomSheetModal
             ref={map.bottomSheet.ref.reviewSheet}
             bottomInset={bottomTabBarHeight}
             backgroundStyle={{ backgroundColor: "transparent" }}
@@ -322,15 +389,15 @@ export default function Home() {
             <ReviewModal
               key={map.reviewKey}
               className=""
-              poi_id={map.poi ? map.poi.id : 0}
-              entrances={map.poi ? map.poi.entrances : []}
-              entranceName={map.poi ? map.poi.entrance : "No Entrance Name Found"}
-              building={map.poi && map.poi.building}
-              buildingName={map.poi ? map.poi.buildingName : "No Building Name Found"}
+              poi_id={map.poi.id}
+              entrances={map.poi.entrances}
+              entranceName={map.poi.entrance}
+              building={map.poi.building}
+              buildingName={map.poi.buildingName}
               onExit={map.handleExitReviewMode}
               onActiveChange={map.setReviewActive}
             />
-          </BottomSheetModal>
+          </BottomSheetModal>)}
         </>
       ) : null}
 
@@ -350,7 +417,7 @@ export default function Home() {
         logoEnabled
         onCameraChanged={(state) => {
           setCameraState(state.properties);
-          setZoomLevel(state.properties.zoom)
+          setZoomLevel(state.properties.zoom);
         }}
         compassEnabled={false}
         onPress={(feature: any) => {
@@ -359,7 +426,8 @@ export default function Home() {
             return;
           }
           if (map.report.state.isReportMode) {
-            const coords = (feature as GeoJSON.Feature<GeoJSON.Point>).geometry?.coordinates;
+            const coords = (feature as GeoJSON.Feature<GeoJSON.Point>).geometry
+              ?.coordinates;
             if (coords) {
               map.report.action.handleMapTap({
                 longitude: coords[0] as number,
@@ -438,7 +506,9 @@ export default function Home() {
           onBarrierPress={map.mapPress.action.handleBarrierPress}
           onPOIPress={map.mapPress.action.handlePOIPress}
           onRampPress={map.mapPress.action.handleRampPress}
-          onFeatureTapped={() => { map.featureTappedRef.current = true; }}
+          onFeatureTapped={() => {
+            map.featureTappedRef.current = true;
+          }}
         />
       </MapView>
 

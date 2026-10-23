@@ -3,10 +3,6 @@
 import { ShapeSource, FillLayer, LineLayer, SymbolLayer } from "@rnmapbox/maps";
 import * as GeoLocation from 'expo-location';
 import { DeviceMotionMeasurement } from 'expo-sensors';
-import { useState, useEffect } from "react";
-
-import { Button } from "~/src/features/components/Button";
-
 
 
 type UserNavigationProps = {
@@ -42,7 +38,7 @@ export default function UserNavigation({ cameraState, geoLocation, deviceMotion 
 
             style={{
               iconImage: "userDirector",
-              iconSize: 0.85,
+              iconSize: 0.5,
               iconAllowOverlap: true,
               iconAnchor: "bottom",
               iconRotate: getUserBearing(),
@@ -65,7 +61,7 @@ export default function UserNavigation({ cameraState, geoLocation, deviceMotion 
 
           style={{
             iconImage: "userIcon",
-            iconSize: 0.5,
+            iconSize: 0.4,
             iconAllowOverlap: true,
             iconAnchor: "center",
           }}

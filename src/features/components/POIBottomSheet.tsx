@@ -86,6 +86,8 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
   const [entrances, setEntrances] = useState<any[]>([]);
   const [curEntranceLabel, setCurEntranceLabel] = useState<string>("");
 
+
+
   const buildingPoiIds = useMemo(() => {
     const ids = entrances
       .map((entrance) => Number(entrance.id))
@@ -96,6 +98,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
     }
     return ids;
   }, [entrances, poi?.id]);
+
 
   const { averageRating: rating, reviewCount } = useBuildingRating(buildingPoiIds);
 
@@ -284,8 +287,8 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
       (rampSelected ? "Ramp Access" : curEntranceLabel) ||
       (selectedEntranceData
         ? getCardinalLabel(selectedEntranceData, buildingFeature) ??
-          getCardinalLabelFromNeighbors(selectedEntranceData, entrances) ??
-          "Main Entrance"
+        getCardinalLabelFromNeighbors(selectedEntranceData, entrances) ??
+        "Main Entrance"
         : "Main Entrance");
 
     const resolvedPoiId = Number(selectedEntranceData?.id ?? poi.id);
@@ -360,7 +363,7 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
               <Favorite />
             </TouchableHighlight>
 
-            <TouchableHighlight onPress={() => handleReports({ id: poi?.id, buildingName: buildingName})} underlayColor="#BF5700">
+            <TouchableHighlight onPress={() => handleReports({ id: poi?.id, buildingName: buildingName })} underlayColor="#BF5700">
               <Warning />
             </TouchableHighlight>
           </View>

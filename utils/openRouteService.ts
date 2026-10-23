@@ -1,6 +1,6 @@
 const ORS_BASE = "https://api.openrouteservice.org/v2/directions";
 
-export type RoutingProfile = "wheelchair" | "foot-walking" | "cycling-electric";
+export type RoutingProfile = "wheelchair" | "foot-walking";
 
 export const ROUTING_PROFILES: { id: RoutingProfile; label: string }[] = [
   { id: "wheelchair", label: "Accessible" },

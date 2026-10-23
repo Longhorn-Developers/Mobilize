@@ -1,9 +1,10 @@
 // Rendering layer for reports
 
-import { View, Image } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { EdgeInsets } from "react-native-safe-area-context";
 import ReportModal from "~/src/features/components/ReportModal";
 import { Button } from "~/src/features/components/Button";
+import { WarningIcon } from "phosphor-react-native";
 
 type ReportOverlayProps = {
   report: ReturnType<typeof import("../hooks/useReportMode").useReportMode>;
@@ -62,15 +63,31 @@ export function ReportOverlay({
   if (!canReport) return null;
 
   return (
-    <Button
-      className="absolute bottom-4 right-4"
+    <TouchableOpacity
       onPress={onEnterReport}
-      style={{ position: "absolute", bottom: 16, right: 16 }}
+      activeOpacity={0.8}
+      accessibilityLabel="Report a blockage"
+      style={{
+        position: "absolute",
+        bottom: 12,
+        right: 12,
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#D10000",
+        shadowColor: "#000",
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 6,
+      }}
     >
-      <Image
-        source={require('~/assets/ui_icons/warning.png')}
-        style={{ width: 30, height: 30 }}
-      />
-    </Button>
+      {/* triangles always look funky inside of circles R.L. */}
+      <View style={{ transform: [{ translateY: -2 }] }}>
+        <WarningIcon size={56} color="#FFFFFF" weight="regular" />
+      </View>
+    </TouchableOpacity>
   );
 }

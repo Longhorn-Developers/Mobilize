@@ -15,11 +15,17 @@ import {
 } from "@rnmapbox/maps";
 import * as GeoLocation from 'expo-location';
 import { DeviceMotionMeasurement } from 'expo-sensors';
+import { useMemo } from "react";
 import { Image } from "react-native";
 
 import { type SidewalkSegment } from "~/src/features/components/SidewalkBottomSheet";
 import { type getBuildingStyles } from "~/src/features/map/buildingStyles";
 import * as MapConstants from "~/src/features/map/constants";
+import {
+  type EntranceFilterKey,
+  getDoorLayerFilter,
+  isRampLayerVisible,
+} from "~/src/features/map/filters/entranceFilters";
 import AvoidanceAreas from "~/src/features/map/layers/avoidanceAreas";
 import ConstructionZones from "~/src/features/map/layers/constructionZones";
 import SidewalkLayer from "~/src/features/map/layers/sidewalks";
@@ -47,8 +53,11 @@ type MapLayersProps = {
   clickedPoint: { latitude: number; longitude: number } | null;
   clusteredEntrancePOIs: any[];
   buildingStyles: ReturnType<typeof getBuildingStyles>;
-  mapIcons: { point: any; crosshair: any };
+  mapIcons: { point: any; crosshair: any; autoDoor?: any };
   cameraState: any;
+  highlightedEntrance?: [number, number] | null;
+  /** Entrance types to show. Empty = no filter (show every entrance symbol). */
+  selectedEntranceFilters: readonly EntranceFilterKey[];
 
   // external data
   geoLocation: GeoLocation.LocationObject | null;
@@ -64,6 +73,104 @@ type MapLayersProps = {
   onRampPress: (feature: GeoJSON.Feature) => void;
   onFeatureTapped: () => void;
 };
+
+// ── Entrance highlight ───────────────────────────────────────────────────────────
+// A soft, static halo drawn behind the icon of the entrance selected in the POI sheet.
+// Tweak these to taste.
+const HALO_COLOR = "#BF5700";
+const HALO_OPACITY = 0.4;       // brighter
+const HALO_BLUR = 0.4;          // slightly tighter
+const HALO_RADIUS_FACTOR = 0.45; // smaller
+
+const FALLBACK_ICON_PX = 96;
+
+const ICON_SIZE_STOPS: [number, number][] = [
+  [14, 0.15],
+  [16, 0.25],
+  [18, 0.4],
+  [20, 0.6],
+];
+const byIconScale = (fn: (scale: number) => any): any[] => [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  ...ICON_SIZE_STOPS.flatMap(([zoom, scale]) => [zoom, fn(scale)]),
+];
+
+function buildHaloStyle(iconSource: any) {
+  let width = FALLBACK_ICON_PX;
+  let height = FALLBACK_ICON_PX;
+  try {
+    const asset = iconSource ? Image.resolveAssetSource(iconSource) : null;
+    if (asset?.width && asset?.height) {
+      width = asset.width;
+      height = asset.height;
+    }
+  } catch {
+    // keep the fallback size
+  }
+  const side = Math.max(width, height);
+
+  return {
+    circleColor: HALO_COLOR,
+    circleOpacity: HALO_OPACITY,
+    circleBlur: 0.35,
+  
+    // Smaller halo
+    circleRadius: byIconScale(
+      (s) => side * s * 0.45
+    ),
+  
+    // Move halo upward to compensate for bottom-anchored icon
+    circleTranslate: byIconScale(
+      (s) => ["literal", [0, -(height * s * 0.5)-15]]
+    ),
+  
+    circleTranslateAnchor: "viewport",
+  };
+}
+
+const EMPTY_FEATURES: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+function EntranceHighlight({
+  coordinate,
+  iconSource,
+}: {
+  coordinate: [number, number] | null;
+  iconSource?: any;
+}) {
+  const lng = coordinate ? coordinate[0] : null;
+  const lat = coordinate ? coordinate[1] : null;
+
+  const shape = useMemo<GeoJSON.FeatureCollection>(
+    () =>
+      lng == null || lat == null
+        ? EMPTY_FEATURES
+        : {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: {},
+                geometry: { type: "Point", coordinates: [lng, lat] },
+              },
+            ],
+          },
+    [lng, lat],
+  );
+
+  const haloStyle = useMemo(() => buildHaloStyle(iconSource), [iconSource]);
+
+  return (
+    <ShapeSource id="entrance-highlight" shape={shape}>
+      <CircleLayer
+        id="entrance-highlight-halo"
+        minZoomLevel={MapConstants.MIN_ZOOM_FOR_POIS}
+        style={haloStyle as any}
+      />
+    </ShapeSource>
+  );
+}
 
 export function MapLayers({
   buildingsGeoJSON,
@@ -84,6 +191,8 @@ export function MapLayers({
   buildingStyles,
   mapIcons,
   cameraState,
+  highlightedEntrance,
+  selectedEntranceFilters,
   geoLocation,
   deviceMotion,
   onBuildingPress,
@@ -96,6 +205,14 @@ export function MapLayers({
   onFeatureTapped,
 }: MapLayersProps) {
   const { buildingExtrusionColor, labelTextColor, labelHaloColor } = buildingStyles;
+
+  // Entrance-type filter: filters the door symbols and shows/hides the ramp symbols. Filtered-out
+  // symbols aren't rendered, so they can't be tapped either.
+  const doorFilter = useMemo(
+    () => getDoorLayerFilter(selectedEntranceFilters),
+    [selectedEntranceFilters],
+  );
+  const showRamps = isRampLayerVisible(selectedEntranceFilters);
 
   return (
     <>
@@ -252,6 +369,14 @@ export function MapLayers({
         deviceMotion={deviceMotion}
       />
 
+      {/* Selected entrance highlight. Always mounted so its layer keeps its place underneath the
+          POI/ramp icons; it simply draws nothing while there is no coordinate. */}
+      <EntranceHighlight
+        coordinate={isReportMode || isPOIReportMode ? null : (highlightedEntrance ?? null)}
+        iconSource={mapIcons.autoDoor}
+      />
+
+
       {/* POI markers */}
       {!isReportMode && !isPOIReportMode && (
         <ShapeSource
@@ -267,6 +392,7 @@ export function MapLayers({
           <SymbolLayer
             id="poi-symbols"
             minZoomLevel={MapConstants.MIN_ZOOM_FOR_POIS}
+            filter={doorFilter}
             style={{
               iconImage: ["get", "icon"],
               iconSize: [
@@ -295,6 +421,8 @@ export function MapLayers({
             id="ramp-symbols"
             minZoomLevel={MapConstants.MIN_ZOOM_FOR_POIS}
             style={{
+              // Always set explicitly (never omitted) so toggling back to "visible" takes effect
+              visibility: showRamps ? "visible" : "none",
               iconImage: "rampIcon",
               iconSize: [
                 "interpolate", ["linear"], ["zoom"],

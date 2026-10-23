@@ -35,20 +35,38 @@ export const SESSION_TOKEN_KEY = "auth_session_token";
 export const USER_KEY = "auth_user";
 export const ONBOARDING_KEY = "auth_onboarding_complete";
 
+/**
+ * Development-only authentication bypass.
+ *
+ * This is only enabled when:
+ * 1. The app is running in development mode (__DEV__)
+ * 2. EXPO_PUBLIC_BYPASS_AUTH=true is set in .env
+ */
+const DEV_BYPASS_AUTH =
+  __DEV__ && process.env.EXPO_PUBLIC_BYPASS_AUTH === "true";
+
 function getOAuthBaseUrl() {
   if (!CONFIGURED_API_URL) {
     throw new Error("EXPO_PUBLIC_API_URL must be set to your devtunnels URL for Google sign-in.");
   }
+
   const normalizedConfigured = CONFIGURED_API_URL.toLowerCase();
-  if (normalizedConfigured.startsWith("http://localhost") || normalizedConfigured.startsWith("http://127.0.0.1")) {
-    throw new Error("EXPO_PUBLIC_API_URL must be a devtunnels HTTPS URL for Google sign-in, not localhost.");
+
+  if (
+    normalizedConfigured.startsWith("http://localhost") ||
+    normalizedConfigured.startsWith("http://127.0.0.1")
+  ) {
+    throw new Error(
+      "EXPO_PUBLIC_API_URL must be a devtunnels HTTPS URL for Google sign-in, not localhost.",
+    );
   }
+
   return CONFIGURED_API_URL;
 }
 
-
 function parseCachedUser(raw: string | null): User | null {
   if (!raw) return null;
+
   try {
     return JSON.parse(raw) as User;
   } catch {
@@ -77,19 +95,27 @@ function parseOAuthCallbackInput(input: OAuthCallbackInput): {
 } {
   if (typeof input === "string") {
     const raw = input.trim();
+
     try {
       const url = new URL(raw);
       const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+
       const token = normalizeCallbackValue(
         url.searchParams.get("session_token") ||
           url.searchParams.get("token") ||
           hashParams.get("session_token") ||
           hashParams.get("token"),
       );
+
       const error = normalizeCallbackValue(
         url.searchParams.get("error") || hashParams.get("error"),
       );
-      return { token, error, signature: url.toString() };
+
+      return {
+        token,
+        error,
+        signature: url.toString(),
+      };
     } catch {
       return {
         token: null,
@@ -101,6 +127,7 @@ function parseOAuthCallbackInput(input: OAuthCallbackInput): {
 
   const token = normalizeCallbackValue(input.session_token || input.token);
   const error = normalizeCallbackValue(input.error);
+
   return {
     token,
     error,
@@ -151,13 +178,32 @@ type OAuthCallbackResult = {
 
 type AuthContextType = AuthState & {
   signInWithGoogle: () => Promise<GoogleSignInResult>;
-  completeGoogleOAuthCallback: (input: OAuthCallbackInput) => Promise<OAuthCallbackResult>;
+  completeGoogleOAuthCallback: (
+    input: OAuthCallbackInput,
+  ) => Promise<OAuthCallbackResult>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+/**
+ * Development-only fake user.
+ *
+ * Used when EXPO_PUBLIC_BYPASS_AUTH=true.
+ */
+const DEV_USER: User = {
+  id: "dev-user",
+  email: "test@utexas.edu",
+  name: "Test User",
+  image: null,
+  username: "testuser",
+  role: "student",
+  emailVerified: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 /**
  * Fetches /api/me using the provided session token.
@@ -171,6 +217,7 @@ async function fetchMe(sessionToken: string) {
   for (let index = 0; index < candidates.length; index += 1) {
     const baseUrl = candidates[index];
     const requestUrl = `${baseUrl}/api/me`;
+
     try {
       const response = await fetchWithTimeout(
         requestUrl,
@@ -187,17 +234,27 @@ async function fetchMe(sessionToken: string) {
         if (hasNextCandidate) {
           continue;
         }
+
         return null;
       }
 
       // Reachable JSON endpoint: promote candidate.
       promoteApiBaseUrl(baseUrl);
+
       if (!response.ok) {
-        const message = data?.error?.message || data?.message || "Failed to refresh session";
+        const message =
+          data?.error?.message ||
+          data?.message ||
+          "Failed to refresh session";
+
         throw new ClientRequestError(
           "API_ERROR",
           `Failed to refresh session (${response.status}): ${message}`,
-          { status: response.status, url: requestUrl, details: data },
+          {
+            status: response.status,
+            url: requestUrl,
+            details: data,
+          },
         );
       }
 
@@ -212,6 +269,7 @@ async function fetchMe(sessionToken: string) {
       };
     } catch (error) {
       lastError = error;
+
       if (!isRetriableCandidateError(error)) {
         throw error instanceof Error ? error : new Error(String(error));
       }
@@ -225,11 +283,14 @@ async function fetchMe(sessionToken: string) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshSessionInFlightRef = useRef<Promise<void> | null>(null);
+
   const oauthCompletionInFlightRef = useRef<{
     signature: string;
     promise: Promise<OAuthCallbackResult>;
   } | null>(null);
+
   const lastCompletedOAuthSignatureRef = useRef<string | null>(null);
+
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     profile: null,
@@ -239,7 +300,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const clearSession = useCallback(async () => {
-    await AsyncStorage.multiRemove([SESSION_TOKEN_KEY, USER_KEY, ONBOARDING_KEY]);
+    await AsyncStorage.multiRemove([
+      SESSION_TOKEN_KEY,
+      USER_KEY,
+      ONBOARDING_KEY,
+    ]);
+
     setAuthState({
       user: null,
       profile: null,
@@ -249,74 +315,129 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const applyAuthState = useCallback((me: { user: User; profile: any | null; onboardingComplete: boolean }) => {
-    setAuthState({
-      user: me.user,
-      profile: me.profile,
-      onboardingComplete: me.onboardingComplete,
-      isLoading: false,
-      isAuthenticated: true,
-    });
-  }, []);
+  const applyAuthState = useCallback(
+    (me: {
+      user: User;
+      profile: any | null;
+      onboardingComplete: boolean;
+    }) => {
+      setAuthState({
+        user: me.user,
+        profile: me.profile,
+        onboardingComplete: me.onboardingComplete,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+    },
+    [],
+  );
 
-  const refreshSession = useCallback(async (opts?: { silent?: boolean }) => {
-    if (refreshSessionInFlightRef.current) {
-      return refreshSessionInFlightRef.current;
-    }
-
-    const run = (async () => {
-      if (!opts?.silent) {
-        setAuthState((prev) => ({ ...prev, isLoading: true }));
+  const refreshSession = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (refreshSessionInFlightRef.current) {
+        return refreshSessionInFlightRef.current;
       }
-      try {
-        const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
-        if (!sessionToken) {
-          await clearSession();
+
+      const run = (async () => {
+        // Never try to refresh a real session when using the dev auth bypass.
+        if (DEV_BYPASS_AUTH) {
+          setAuthState({
+            user: DEV_USER,
+            profile: null,
+            onboardingComplete: true,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+
           return;
         }
 
-        const me = await fetchMe(sessionToken);
-        if (!me) {
-          await clearSession();
-          return;
+        if (!opts?.silent) {
+          setAuthState((prev) => ({ ...prev, isLoading: true }));
         }
 
-        await Promise.all([
-          AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user)),
-          AsyncStorage.setItem(ONBOARDING_KEY, me.onboardingComplete ? "1" : "0"),
-        ]);
-        applyAuthState(me);
-      } catch (error) {
-        console.error("Error refreshing session:", error);
-        if (isLikelyNetworkError(error)) {
-          const cachedUser = parseCachedUser(await AsyncStorage.getItem(USER_KEY));
-          if (cachedUser) {
-            setAuthState((prev) => ({
-              ...prev,
-              user: cachedUser,
-              isAuthenticated: true,
-              isLoading: false,
-            }));
+        try {
+          const sessionToken = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+
+          if (!sessionToken) {
+            await clearSession();
             return;
           }
-        }
-        await clearSession();
-      } finally {
-        refreshSessionInFlightRef.current = null;
-      }
-    })();
 
-    refreshSessionInFlightRef.current = run;
-    return run;
-  }, [applyAuthState, clearSession]);
+          const me = await fetchMe(sessionToken);
+
+          if (!me) {
+            await clearSession();
+            return;
+          }
+
+          await Promise.all([
+            AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user)),
+            AsyncStorage.setItem(
+              ONBOARDING_KEY,
+              me.onboardingComplete ? "1" : "0",
+            ),
+          ]);
+
+          applyAuthState(me);
+        } catch (error) {
+          console.error("Error refreshing session:", error);
+
+          if (isLikelyNetworkError(error)) {
+            const cachedUser = parseCachedUser(
+              await AsyncStorage.getItem(USER_KEY),
+            );
+
+            if (cachedUser) {
+              setAuthState((prev) => ({
+                ...prev,
+                user: cachedUser,
+                isAuthenticated: true,
+                isLoading: false,
+              }));
+
+              return;
+            }
+          }
+
+          await clearSession();
+        } finally {
+          refreshSessionInFlightRef.current = null;
+        }
+      })();
+
+      refreshSessionInFlightRef.current = run;
+      return run;
+    },
+    [applyAuthState, clearSession],
+  );
 
   useEffect(() => {
     const bootstrap = async () => {
-      const [sessionToken, rawCachedUser, rawOnboarding] = await Promise.all([
-        AsyncStorage.getItem(SESSION_TOKEN_KEY),
-        AsyncStorage.getItem(USER_KEY),
-        AsyncStorage.getItem(ONBOARDING_KEY),
-      ]);
+      /**
+       * Development authentication bypass.
+       *
+       * This completely skips AsyncStorage, session validation,
+       * and Google authentication.
+       */
+      if (DEV_BYPASS_AUTH) {
+        setAuthState({
+          user: DEV_USER,
+          profile: null,
+          onboardingComplete: true,
+          isLoading: false,
+          isAuthenticated: true,
+        });
+
+        return;
+      }
+
+      const [sessionToken, rawCachedUser, rawOnboarding] =
+        await Promise.all([
+          AsyncStorage.getItem(SESSION_TOKEN_KEY),
+          AsyncStorage.getItem(USER_KEY),
+          AsyncStorage.getItem(ONBOARDING_KEY),
+        ]);
 
       if (!sessionToken) {
         setAuthState({
@@ -326,10 +447,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isLoading: false,
           isAuthenticated: false,
         });
+
         return;
       }
 
       const cachedUser = parseCachedUser(rawCachedUser);
+
       if (cachedUser) {
         setAuthState({
           user: cachedUser,
@@ -338,6 +461,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isLoading: false,
           isAuthenticated: true,
         });
+
         void refreshSession({ silent: true });
         return;
       }
@@ -363,7 +487,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const existingInFlight = oauthCompletionInFlightRef.current;
-      if (existingInFlight && existingInFlight.signature === parsed.signature) {
+
+      if (
+        existingInFlight &&
+        existingInFlight.signature === parsed.signature
+      ) {
         return existingInFlight.promise;
       }
 
@@ -372,12 +500,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (parsed.error) {
           setAuthState((prev) => ({ ...prev, isLoading: false }));
-          return { success: false, error: parsed.error };
+
+          return {
+            success: false,
+            error: parsed.error,
+          };
         }
 
         // Guard against the server returning a literal "null" string as the token value.
         if (!parsed.token || parsed.token === "null") {
           setAuthState((prev) => ({ ...prev, isLoading: false }));
+
           return {
             success: false,
             error: "No session token returned from OAuth callback.",
@@ -385,17 +518,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         await AsyncStorage.setItem(SESSION_TOKEN_KEY, parsed.token);
+
         const me = await fetchMe(parsed.token);
 
         if (!me) {
           await clearSession();
-          return { success: false, error: "Unable to load user after sign-in." };
+
+          return {
+            success: false,
+            error: "Unable to load user after sign-in.",
+          };
         }
 
         await Promise.all([
           AsyncStorage.setItem(USER_KEY, JSON.stringify(me.user)),
-          AsyncStorage.setItem(ONBOARDING_KEY, me.onboardingComplete ? "1" : "0"),
+          AsyncStorage.setItem(
+            ONBOARDING_KEY,
+            me.onboardingComplete ? "1" : "0",
+          ),
         ]);
+
         applyAuthState(me);
         lastCompletedOAuthSignatureRef.current = parsed.signature;
 
@@ -406,7 +548,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })()
         .catch((error) => {
           console.error("Error completing OAuth callback:", error);
-          setAuthState((prev) => ({ ...prev, isLoading: false }));
+
+          setAuthState((prev) => ({
+            ...prev,
+            isLoading: false,
+          }));
+
           return {
             success: false,
             error: error instanceof Error ? error.message : String(error),
@@ -414,7 +561,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .finally(() => {
           if (
-            oauthCompletionInFlightRef.current?.signature === parsed.signature
+            oauthCompletionInFlightRef.current?.signature ===
+            parsed.signature
           ) {
             oauthCompletionInFlightRef.current = null;
           }
@@ -427,51 +575,122 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return run;
     },
-    [applyAuthState, authState.isAuthenticated, authState.onboardingComplete, clearSession],
+    [
+      applyAuthState,
+      authState.isAuthenticated,
+      authState.onboardingComplete,
+      clearSession,
+    ],
   );
 
   const signInWithGoogle = useCallback(async () => {
+    // Development-only bypass.
+    if (DEV_BYPASS_AUTH) {
+      setAuthState({
+        user: DEV_USER,
+        profile: null,
+        onboardingComplete: true,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+
+      return {
+        success: true,
+      };
+    }
+
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true }));
+
       const apiBaseUrl = getOAuthBaseUrl();
       promoteApiBaseUrl(apiBaseUrl);
+
       const redirectUrl = Linking.createURL("auth/callback");
       const redirectUri = `${apiBaseUrl}/api/auth/callback/google`;
-      const authUrl = `${apiBaseUrl}/api/auth/signin/google?callbackURL=${encodeURIComponent(redirectUrl)}&redirectUri=${encodeURIComponent(redirectUri)}`;
+
+      const authUrl =
+        `${apiBaseUrl}/api/auth/signin/google` +
+        `?callbackURL=${encodeURIComponent(redirectUrl)}` +
+        `&redirectUri=${encodeURIComponent(redirectUri)}`;
+
       console.log(authUrl);
       console.log(redirectUrl);
       console.log(redirectUri);
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUrl,
+      );
 
       if (result.type !== "success" || !result.url) {
-        const cancelled = result.type === "cancel" || result.type === "dismiss";
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
+        const cancelled =
+          result.type === "cancel" || result.type === "dismiss";
+
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+        }));
+
         return {
           success: false,
           cancelled,
-          error: cancelled ? "Authentication cancelled" : "Authentication failed",
+          error: cancelled
+            ? "Authentication cancelled"
+            : "Authentication failed",
         };
       }
 
-      setAuthState((prev) => ({ ...prev, isLoading: false }));
-      return { success: true, callbackUrl: result.url };
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+
+      return {
+        success: true,
+        callbackUrl: result.url,
+      };
     } catch (error) {
       console.error("Google sign-in error:", error);
-      setAuthState((prev) => ({ ...prev, isLoading: false }));
-      return { success: false, error: String(error) };
+
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+
+      return {
+        success: false,
+        error: String(error),
+      };
     }
   }, []);
 
   const signOut = useCallback(async () => {
+    // In dev bypass mode, simply restore the fake authenticated user.
+    if (DEV_BYPASS_AUTH) {
+      setAuthState({
+        user: DEV_USER,
+        profile: null,
+        onboardingComplete: true,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+
       if (token) {
         const apiBaseUrl = await resolveApiBaseUrl();
+
         await fetchWithTimeout(
           `${apiBaseUrl}/api/auth/signout`,
           {
             method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
           DEFAULT_REQUEST_TIMEOUT_MS,
         ).catch(() => {});
@@ -482,6 +701,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const getAccessToken = useCallback(async () => {
+    // There is intentionally no fake token.
+    // API calls that require authentication will still need a real token.
+    if (DEV_BYPASS_AUTH) {
+      return null;
+    }
+
     return AsyncStorage.getItem(SESSION_TOKEN_KEY);
   }, []);
 
@@ -509,8 +734,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error("useAuth must be used within AuthProvider");
   }
+
   return context;
 }

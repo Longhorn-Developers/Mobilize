@@ -373,7 +373,7 @@ export default function Home() {
         logoEnabled
         attributionEnabled
         logoPosition={{ bottom: 8, left: 8 }}
-        attributionPosition={{ bottom: 6, right: 270 }}
+        attributionPosition={{ bottom: 7, right: 272 }}
         onCameraChanged={(state) => {
           setCameraState(state.properties);
           setZoomLevel(state.properties.zoom);

@@ -1,11 +1,9 @@
 // Rendering layer for reports
-
+import { WarningIcon } from "phosphor-react-native";
 import { View, TouchableOpacity } from "react-native";
 import { EdgeInsets } from "react-native-safe-area-context";
-import ReportModal from "~/src/features/components/ReportModal";
-import { Button } from "~/src/features/components/Button";
-import { WarningIcon } from "phosphor-react-native";
 
+import ReportModal from "~/src/features/components/ReportModal";
 type ReportOverlayProps = {
   report: ReturnType<typeof import("../hooks/useReportMode").useReportMode>;
   canReport: boolean;

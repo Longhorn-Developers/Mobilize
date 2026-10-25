@@ -114,6 +114,8 @@ export default function Home() {
     constructionAreas,
     entrances,
   });
+  // The report button is hidden for non-students and while the POI report form is open
+  const reportVisible = canReport && !map.poiReport.state.isPOIReportMode;
 
   const { navigation, entranceFilters } = map;
   const isNavigating = navigation.state.isNavigating;
@@ -238,6 +240,7 @@ export default function Home() {
     ],
   );
 
+
   return (
     <>
       <Stack.Screen options={{ title: "Home", headerShown: false }} />
@@ -270,8 +273,8 @@ export default function Home() {
           leadDistance={
             navigation.state.currentStepIndex > 0
               ? navigation.state.route?.steps[
-                  navigation.state.currentStepIndex - 1
-                ]?.distance
+                navigation.state.currentStepIndex - 1
+              ]?.distance
               : undefined
           }
           isDark={isDark}
@@ -413,8 +416,10 @@ export default function Home() {
         rotateEnabled
         compassViewPosition={1}
         compassViewMargins={{ x: 16, y: insets.top + 70 }}
-        attributionEnabled
         logoEnabled
+        attributionEnabled
+        logoPosition={{ bottom: 8, left: 8 }}
+        attributionPosition={{ bottom: 7, right: 272 }}
         onCameraChanged={(state) => {
           setCameraState(state.properties);
           setZoomLevel(state.properties.zoom);
@@ -522,6 +527,7 @@ export default function Home() {
 
       {!map.report.state.isReportMode && (
         <UserOverlay
+          right={reportVisible ? 124 : 16}
           geoLocation={locationService.state.geoLocation}
           deviceMotion={locationService.state.deviceMotion}
           cameraRef={map.cameraRef}

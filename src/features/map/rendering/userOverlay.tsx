@@ -1,62 +1,71 @@
 /* Rendering Layer for Recenter Button */
 
-import { ShapeSource, FillLayer, LineLayer, SymbolLayer, Camera } from "@rnmapbox/maps";
-import * as GeoLocation from 'expo-location';
-import { DeviceMotionMeasurement } from 'expo-sensors';
-import { useState, useEffect } from "react";
-import { Image, View } from "react-native";
+import { Camera } from "@rnmapbox/maps";
+import * as GeoLocation from "expo-location";
+import { DeviceMotionMeasurement } from "expo-sensors";
+import { useEffect } from "react";
+import { TouchableOpacity } from "react-native";
 
-import { Button } from "~/src/features/components/Button";
-
-
-
+import LocateIcon from "./LocateIcon";
 
 type UserOverlayProps = {
   cameraRef: React.RefObject<Camera | null>;
   geoLocation: GeoLocation.LocationObject | null;
   deviceMotion: DeviceMotionMeasurement | null;
+  right: number;
 };
 
-export default function UserOverlay({ cameraRef, geoLocation, deviceMotion }: UserOverlayProps) {
-
+export default function UserOverlay({ cameraRef, geoLocation, deviceMotion, right }: UserOverlayProps) {
   const recenterMap = () => {
-
     if (!geoLocation) {
-      alert('Current location not available.');
+      alert("Current location not available.");
       return;
     }
 
     cameraRef.current?.setCamera({
       centerCoordinate: [
         geoLocation.coords.longitude,
-        geoLocation.coords.latitude
+        geoLocation.coords.latitude,
       ],
-      heading: deviceMotion?.rotation?.alpha ? deviceMotion.rotation.alpha * -180 / Math.PI : 0,
+      heading: deviceMotion?.rotation?.alpha
+        ? (deviceMotion.rotation.alpha * -180) / Math.PI
+        : 0,
       zoomLevel: 17,
       animationDuration: 800,
     });
-    // console.log(geoLocation);
-    // console.log(deviceMotion);
-  }
+  };
 
   useEffect(() => {
     recenterMap();
-  }, [])
+  }, []);
 
   if (!geoLocation) {
     return null;
   }
+
   return (
-    <Button
-      className="absolute bottom-4 right-4"
-      variant="gray"
+    <TouchableOpacity
       onPress={recenterMap}
-      style={{ position: "absolute", bottom: 70, right: 16 }}
+      activeOpacity={0.8}
+      accessibilityLabel="Recenter map on my location"
+      style={{
+        position: "absolute",
+        bottom: 24,
+        right,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#BF5700",
+        shadowColor: "#000",
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 6,
+      }}
     >
-      <Image
-        source={require('~/assets/ui_icons/center.png')}
-        style={{ width: 30, height: 30 }}
-      />
-    </Button>
+      <LocateIcon size={36} />
+    </TouchableOpacity>
   );
 }

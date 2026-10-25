@@ -1,4 +1,4 @@
-const ORS_BASE = "https://api.openrouteservice.org/v2/directions";
+const ORS_BASE = "https://api.heigit.org/openrouteservice/v2/directions";
 
 export type RoutingProfile = "wheelchair" | "foot-walking" | "cycling-electric";
 

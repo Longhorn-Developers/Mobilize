@@ -134,7 +134,7 @@ input or parse failure. Used to parse the JSON-string columns (`location_geojson
 
 | Method | Endpoint | Notes |
 | --- | --- | --- |
-| `getRoute(waypoints, avoiding)` | `POST https://api.openrouteservice.org/v2/directions/wheelchair` (external, **not** the Worker) | The only `ApiClient` method that bypasses `request()`/base-URL fallback entirely — calls OpenRouteService directly using `process.env.EXPO_PUBLIC_OPENROUTE_KEY` as the `Authorization` header. `avoiding` (an array of polygon coordinate rings) is wrapped into a `MultiPolygon` and sent as `options.avoid_polygons`. Throws a plain `Error("HTTP <status> <statusText>")` on non-2xx — does **not** use `ClientRequestError`. Not currently wired to any UI (see `components.md` — `RouteOverlaySheet` is a stub). |
+| `getRoute(waypoints, avoiding)` | `POST https://api.heigit.org/openrouteservice/v2/directions/wheelchair` (external, **not** the Worker) | The only `ApiClient` method that bypasses `request()`/base-URL fallback entirely — calls OpenRouteService directly using `process.env.EXPO_PUBLIC_OPENROUTE_KEY` as the `Authorization` header. `avoiding` (an array of polygon coordinate rings) is wrapped into a `MultiPolygon` and sent as `options.avoid_polygons`. Throws a plain `Error("HTTP <status> <statusText>")` on non-2xx — does **not** use `ClientRequestError`. Not currently wired to any UI (see `components.md` — `RouteOverlaySheet` is a stub). |
 
 #### Misc
 

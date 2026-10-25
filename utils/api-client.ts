@@ -217,7 +217,7 @@ class ApiClient {
   }
 
   async getRoute(waypoints: any[], avoiding: any[]) {
-    const FEATURE_URL = "https://api.openrouteservice.org/v2/directions/wheelchair";
+    const FEATURE_URL = "https://api.heigit.org/openrouteservice/v2/directions/wheelchair";
     const TOKEN = process.env.EXPO_PUBLIC_OPENROUTE_KEY || "";
 
     const res = await fetch(FEATURE_URL, {

@@ -38,10 +38,12 @@ import { searchBuildings, type BuildingProperties } from "~/utils/buildingDataba
 import { getPlaceDetails, searchPlaces, type PlaceAutocompletePrediction } from "~/utils/googlePlaces";
 import { useTheme } from "~/utils/ThemeContext";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-
-const PROFILE_ICONS: Partial<Record<RoutingProfile, ReturnType<typeof require>>> = {
-  wheelchair: require("../../../assets/map_icons/wheelchair.png"),
-  "foot-walking": require("../../../assets/map_icons/walk.png"),
+import { PersonSimpleWalkIcon, WheelchairIcon } from "phosphor-react-native";
+const PROFILE_ICONS: Partial<
+  Record<RoutingProfile, React.ComponentType<{ size?: number; color?: string; weight?: "regular" | "bold" | "fill" }>>
+> = {
+  wheelchair: WheelchairIcon,
+  "foot-walking": PersonSimpleWalkIcon,
 };
 
 type EditingField = "origin" | "destination" | "stop";
@@ -482,13 +484,12 @@ const RoutePreviewSheet = React.memo(
                         },
                       ]}
                     >
-                      {!!PROFILE_ICONS[p.id] && (
-                        <Image
-                          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                          source={PROFILE_ICONS[p.id]!}
-                          style={[styles.profileIcon, { tintColor: active ? "#BF5700" : subColor }]}
-                        />
-                      )}
+                      {(() => {
+                        const Icon = PROFILE_ICONS[p.id];
+                        return Icon ? (
+                          <Icon size={18} color={active ? "#BF5700" : subColor} weight={active ? "fill" : "regular"} />
+                        ) : null;
+                      })()}
                       <Text
                         style={[
                           styles.profileLabel,

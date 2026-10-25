@@ -1,18 +1,17 @@
 const ORS_BASE = "https://api.heigit.org/openrouteservice/v2/directions";
 
-export type RoutingProfile = "wheelchair" | "foot-walking" | "cycling-electric";
+export type RoutingProfile = "wheelchair" | "foot-walking";
 
 export const ROUTING_PROFILES: { id: RoutingProfile; label: string }[] = [
-  { id: "wheelchair",       label: "Accessible" },
-  { id: "foot-walking",     label: "Walking" },
-  { id: "cycling-electric", label: "Scooter" },
+  { id: "wheelchair", label: "Accessible" },
+  { id: "foot-walking", label: "Walking" },
 ];
 
 export interface ORSStep {
   instruction: string;
   distance: number; // metres
   duration: number; // seconds
-  type: number;     // ORS maneuver type (0=left, 1=right, 6=straight, etc.)
+  type: number; // ORS maneuver type (0=left, 1=right, 6=straight, etc.)
   coordinate?: [number, number]; // [lng, lat] start position of this step
 }
 
@@ -28,7 +27,8 @@ export async function fetchRoute(
   profile: RoutingProfile = "wheelchair",
   avoidPolygons?: GeoJSON.Polygon[],
 ): Promise<ORSRoute> {
-  if (waypoints.length < 2) throw new Error("fetchRoute requires at least 2 waypoints");
+  if (waypoints.length < 2)
+    throw new Error("fetchRoute requires at least 2 waypoints");
   const apiKey = process.env.EXPO_PUBLIC_OPENROUTE_KEY;
   if (!apiKey) throw new Error("Missing EXPO_PUBLIC_OPENROUTE_KEY");
 
@@ -75,9 +75,13 @@ export async function fetchRoute(
   // Decode the encoded polyline geometry
   const decodePolyline = (encoded: string): [number, number][] => {
     const coords: [number, number][] = [];
-    let index = 0, lat = 0, lng = 0;
+    let index = 0,
+      lat = 0,
+      lng = 0;
     while (index < encoded.length) {
-      let shift = 0, result = 0, byte: number;
+      let shift = 0,
+        result = 0,
+        byte: number;
       do {
         byte = encoded.charCodeAt(index++) - 63;
         result |= (byte & 0x1f) << shift;
@@ -85,7 +89,8 @@ export async function fetchRoute(
       } while (byte >= 0x20);
       lat += result & 1 ? ~(result >> 1) : result >> 1;
 
-      shift = 0; result = 0;
+      shift = 0;
+      result = 0;
       do {
         byte = encoded.charCodeAt(index++) - 63;
         result |= (byte & 0x1f) << shift;
@@ -108,10 +113,11 @@ export async function fetchRoute(
       distance: s.distance ?? 0,
       duration: s.duration ?? 0,
       type: s.type ?? 6,
-      coordinate: Array.isArray(s.way_points) && s.way_points.length > 0
-        ? coordinates[s.way_points[0]]
-        : undefined,
-    }))
+      coordinate:
+        Array.isArray(s.way_points) && s.way_points.length > 0
+          ? coordinates[s.way_points[0]]
+          : undefined,
+    })),
   );
 
   return {

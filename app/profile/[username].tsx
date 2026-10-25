@@ -2,8 +2,10 @@
 import { useLocalSearchParams, router } from "expo-router";
 import { ArrowLeftIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
-import { View, Text, Image, ScrollView, 
-  ActivityIndicator, TouchableOpacity } from "react-native";
+import {
+  View, Text, Image, ScrollView,
+  ActivityIndicator, TouchableOpacity
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import colors from "~/types/colors";
 import { apiClient } from "~/utils/api-client";

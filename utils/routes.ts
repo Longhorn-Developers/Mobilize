@@ -48,6 +48,8 @@ export function getAuthRedirectTarget({
   const isTabsGroup = rootSegment === "(tabs)";
   const isWelcome = rootSegment === "welcome";
   const isCallback = isAuthGroup && childSegment === "callback";
+  const isMobilityPreferencesScreen =
+    isAuthGroup && childSegment === "mobility-preferences";
   const isOnboardingScreen =
     isAuthGroup && ONBOARDING_SCREENS.has(childSegment);
 
@@ -70,10 +72,13 @@ export function getAuthRedirectTarget({
     return null;
   }
 
-  if (isRootIndex || isWelcome || isAuthGroup) {
+  if (
+    isRootIndex ||
+    isWelcome ||
+    (isAuthGroup && !isMobilityPreferencesScreen)
+  ) {
     return APP_ROUTES.TABS;
   }
 
   return null;
 }
-

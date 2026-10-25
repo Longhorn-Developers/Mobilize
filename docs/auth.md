@@ -233,8 +233,9 @@ From `segments`, the function derives:
      onboarding screens -> redirect to `AUTH_PROFILE_SETUP`.
    - If already on `profile-setup` or `mobility-preferences` -> `null` (stay).
 4. **`isAuthenticated && onboardingComplete`**:
-   - If on the root index, welcome, or any `auth/*` screen (including `callback`, handled above,
-     and the onboarding screens) -> redirect to `TABS`.
+   - If on the root index, welcome, or any `auth/*` screen other than `mobility-preferences`
+     (including `callback`, handled above, and `profile-setup`) -> redirect to `TABS`.
+   - If already on `mobility-preferences`, stay so a signed-in user can edit this preference.
    - If already in `(tabs)` or a public profile route (`profile/[username]`) -> `null` (stay).
 
 ### Input -> output table
@@ -450,7 +451,7 @@ renders a usable (mostly empty) "not signed in" state if reached while signed ou
     in edit mode, plain text otherwise.
   - **Mobility Preferences** (signed-in only) -- shows `mobility_preference` (title-cased via
     `mobilityLabel`, defaulting to "Not set"), with an edit-pencil that
-    `router.push(APP_ROUTES.AUTH_MOBILITY_PREFERENCES)` to re-run that onboarding step.
+    `router.push(APP_ROUTES.AUTH_MOBILITY_PREFERENCES)` to edit the saved preference.
   - **Appearance** -- three buttons (System/Light/Dark) calling `useTheme().setThemeMode`.
   - **Map View** -- two buttons (Simple/Detailed) calling `handleMapDetailModeChange`.
   - Footer: "Save Changes"/"Cancel" while editing; "Sign Out" if signed in; "Sign In" (->

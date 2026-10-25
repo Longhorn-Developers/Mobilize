@@ -2,8 +2,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {ActivityIndicator, Alert, ScrollView, Text, 
-  TouchableOpacity, View} from "react-native";
+import {
+  ActivityIndicator, Alert, ScrollView, Text,
+  TouchableOpacity, View
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "~/src/features/components/Button";
 import { apiClient } from "~/utils/api-client";
@@ -120,30 +122,27 @@ export default function MobilityPreferencesScreen() {
             {mobilityOptions.map((option) => (
               <TouchableOpacity
                 key={option.id}
-                className={`flex-row items-center rounded-lg border p-4 ${
-                  selectedOption === option.id
+                className={`flex-row items-center rounded-lg border p-4 ${selectedOption === option.id
                     ? "border-ut-burntorange bg-orange-50 dark:bg-orange-950"
                     : "border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
-                }`}
+                  }`}
                 onPress={() => setSelectedOption(option.id)}
               >
                 <View
-                  className={`mr-4 h-5 w-5 items-center justify-center rounded-full border-2 ${
-                    selectedOption === option.id
+                  className={`mr-4 h-5 w-5 items-center justify-center rounded-full border-2 ${selectedOption === option.id
                       ? "border-ut-burntorange bg-ut-burntorange"
                       : "border-gray-300 bg-white dark:border-neutral-600 dark:bg-neutral-700"
-                  }`}
+                    }`}
                 >
                   {selectedOption === option.id && (
                     <View className="h-2 w-2 rounded-full bg-white" />
                   )}
                 </View>
                 <Text
-                  className={`flex-1 text-base ${
-                    selectedOption === option.id
+                  className={`flex-1 text-base ${selectedOption === option.id
                       ? "text-ut-burntorange"
                       : "text-gray-900 dark:text-white"
-                  }`}
+                    }`}
                 >
                   {option.title}
                 </Text>
@@ -161,7 +160,7 @@ export default function MobilityPreferencesScreen() {
           {isSaving ? (
             <ActivityIndicator size="large" color="#BF5700" />
           ) : (
-          <Button
+            <Button
               title={selectedOption ? "Save & Continue" : "Skip for now"}
               onPress={handleNext}
               variant="primary"

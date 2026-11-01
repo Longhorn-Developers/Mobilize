@@ -91,9 +91,14 @@ Composes, in order:
     presents the review `BottomSheetModal`.
 11. `handleExitReviewMode()` — closes all sheets and clears `poi`.
 
-Returns a flat object: `{ cameraRef, featureTappedRef, bottomSheet, report, search, poi,
-reviewKey, setReviewKey, handleEnterReviewMode, handleExitReviewMode, closeAllSheets, mapPress,
-showDetailedLayers }`.
+Returns a flat object: `{ cameraRef, featureTappedRef, bottomSheet, report, entranceFilters,
+toggleEntranceFilters, search, poi, reviewKey, setReviewKey, handleEnterReviewMode,
+handleExitReviewMode, closeAllSheets, mapPress, showDetailedLayers }`.
+
+`entranceFilters` is `useEntranceFilters()` (see [Entrance-type filter](#entrance-type-filter)).
+`toggleEntranceFilters` opens/closes its legend; opening it first calls `closeAllSheets()` (which
+also clears search) so the map is visible while filtering. `onResetUiState` closes the legend but
+keeps the selection.
 
 ## `hooks/useMapBottomSheets.ts`
 
@@ -181,6 +186,30 @@ One handler per tappable map layer, all overlay-guarded:
 
 All except `handleRampPress`/`handleBuildingTap` are simple (no async work) but still go
 through `guardedPresent` for consistency and to participate in the epoch system.
+
+## Entrance-type filter
+
+Lets a user declutter the map by showing only some entrance symbols. A funnel button beside the
+search bar opens a dropdown legend of tags (one per entrance type); tapping a tag toggles it and
+the map updates immediately; tapping outside the legend closes it. **Nothing selected = no filter**
+(everything shows); selecting several tags shows the union of those types.
+
+- **`filters/entranceFilters.ts`** — the single source of truth. `ENTRANCE_FILTER_OPTIONS` lists the
+  tags (`autoDoor` "Power-assisted doors", `manualDoor` "Manual doors", `ramp` "Ramps"; add an entry
+  to add a tag). `getDoorLayerFilter(selected)` builds the Mapbox filter for the door layer and
+  `isRampLayerVisible(selected)` says whether the ramp layer is drawn. The door keys are the same
+  values as the `icon` property `usePOIFeatures` puts on each door feature.
+- **`hooks/useEntranceFilters.ts`** — `{ state: { selected, isOpen }, action: { toggleFilter,
+  clearFilters, open, close } }`, composed into the controller.
+- **`rendering/MapLayers.tsx`** — takes `selectedEntranceFilters`; applies `getDoorLayerFilter` as the
+  `filter` of `poi-symbols`, and sets `ramp-symbols`' `visibility`. Filtered-out symbols aren't
+  rendered, so they can't be tapped. The GeoJSON itself is never rebuilt, so toggling is instant.
+- **UI** — `EntranceFilterButton` / `EntranceFilterPanel` in
+  [`components/EntranceFilter.tsx`](./components.md#entrancefilter), rendered by `app/(tabs)/index.tsx`.
+
+> **iOS gotcha:** `@rnmapbox/maps` does not clear a layer's `filter` on iOS when the prop becomes
+> empty/`undefined` (only Android resets it). Always pass an explicit expression — "no filter" is a
+> match-all expression, not `undefined` — and likewise always set `visibility` explicitly.
 
 ## POI/building helpers — `src/features/pois/`
 
@@ -276,10 +305,11 @@ The single component that declares every Mapbox source/layer inside `<MapView>`.
    `iconImage` is `["get", "icon"]` (`autoDoor`/`manualDoor`, registered via `<Images>` in
    `index.tsx`), `iconSize` interpolated `[14→0.15, 16→0.25, 18→0.40, 20→0.60]` by zoom, visible
    from `MIN_ZOOM_FOR_POIS`. Tap looks up the clicked feature's `id` in `clusteredEntrancePOIs`
-   and calls `onPOIPress(poi)`.
+   and calls `onPOIPress(poi)`. Has a `filter` driven by the entrance-type filter.
 9. **`ramps`** `ShapeSource` (from `rampsGeoJSON`, hidden in report mode) — a `SymbolLayer`
    using the `rampIcon` image, same size interpolation as POIs, visible from
-   `MIN_ZOOM_FOR_POIS`. Tap → `onRampPress(feature)`.
+   `MIN_ZOOM_FOR_POIS`. Tap → `onRampPress(feature)`. Hidden (via `visibility`) when the
+   entrance-type filter is active and "Ramps" isn't selected.
 
 ### `layers/sidewalks.tsx`
 

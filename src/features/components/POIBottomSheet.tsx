@@ -1,7 +1,7 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { booleanPointInPolygon } from "@turf/turf";
-import React, { ForwardedRef, useEffect, useMemo, useState } from "react";
+import React, { ForwardedRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View, Pressable, Image, ScrollView, TouchableHighlight } from "react-native";
 import Toast from "react-native-toast-message";
 
@@ -67,6 +67,7 @@ interface POIBottomSheetProps {
   handleReviews: (reviewData: POIReviewData) => void;
   onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
   handleReports: (reportData: POIReportData) => void;
+  onEntranceSelect?: (coords: [number, number] | null) => void;
 }
 
 interface POIContentProps {
@@ -75,9 +76,10 @@ interface POIContentProps {
   handleReviews: (reviewData: POIReviewData) => void;
   onRequestPreview: (coords: [number, number], name: string, entrance?: string) => void;
   handleReports: (reportData: POIReportData) => void;
+  onEntranceSelect?: (coords: [number, number] | null) => void;
 }
 
-const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleReports }: POIContentProps) => {
+const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleReports, onEntranceSelect }: POIContentProps) => {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const [selectedEntrance, setSelectedEntrance] = useState<string>("");
@@ -256,6 +258,24 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
     poi?.id,
     rampSelected,
   ]);
+
+  // Position of the selected entrance (or of the ramp, when a ramp was tapped). These are
+  // plain numbers on purpose: the effect below then only fires when the position actually
+  // changes, instead of on every render.
+  const activeEntrance =
+    entrances.find((e) => e.id.toString() === selectedEntrance) ??
+    (String(poi?.id) === selectedEntrance ? poi : null);
+  const activeCoords = activeEntrance?.location_geojson?.coordinates;
+  const activeLng = Array.isArray(activeCoords) ? Number(activeCoords[0]) : NaN;
+  const activeLat = Array.isArray(activeCoords) ? Number(activeCoords[1]) : NaN;
+
+  // Tell the map which entrance to highlight. Clearing on close is handled by the sheet's onDismiss.
+  useEffect(() => {
+    if (!onEntranceSelect) return;
+    onEntranceSelect(
+      Number.isFinite(activeLng) && Number.isFinite(activeLat) ? [activeLng, activeLat] : null,
+    );
+  }, [activeLng, activeLat, onEntranceSelect]);
 
   const openReviewsForCurrentEntrance = () => {
     const selectedEntranceData =
@@ -469,10 +489,38 @@ const POIContent = ({ poi, allPOIs, handleReviews, onRequestPreview, handleRepor
   );
 };
 
-const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPreview, handleReports }: POIBottomSheetProps) => {
+const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPreview, handleReports, onEntranceSelect }: POIBottomSheetProps) => {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
+
+  // Always read the newest props through a ref so the render function below never has to change.
+  const latest = useRef({ allPOIs, handleReviews, onRequestPreview, handleReports, onEntranceSelect });
+  latest.current = { allPOIs, handleReviews, onRequestPreview, handleReports, onEntranceSelect };
+
+  // IMPORTANT: BottomSheetModal renders a function child as a component (<Content data={data} />).
+  // An inline arrow function is a brand-new component type on every render, which makes React
+  // unmount and remount the whole sheet content (resetting its state and re-running its mount
+  // effects) every time a parent re-renders. Keeping the function identity stable prevents that.
+  const renderContent = useCallback(({ data }: { data?: POIData }) => {
+    if (!data?.poi) return null;
+    const p = latest.current;
+    return (
+      <POIContent
+        poi={data.poi}
+        allPOIs={p.allPOIs}
+        handleReviews={p.handleReviews}
+        onRequestPreview={p.onRequestPreview}
+        handleReports={p.handleReports}
+        onEntranceSelect={p.onEntranceSelect}
+      />
+    );
+  }, []);
+
+  // Remove the map highlight when the sheet closes
+  const handleDismiss = useCallback(() => {
+    latest.current.onEntranceSelect?.(null);
+  }, []);
 
   return (
     <BottomSheetModal<POIData>
@@ -483,19 +531,9 @@ const POIBottomSheet = React.memo(({ ref, allPOIs, handleReviews, onRequestPrevi
       snapPoints={["50%"]}
       handleIndicatorStyle={{ backgroundColor: isDark ? "#52525B" : colors.theme.majorgridline, width: 80 }}
       enableContentPanningGesture={false}
+      onDismiss={handleDismiss}
     >
-      {({ data }) => {
-        if (!data?.poi) return null;
-        return (
-          <POIContent
-            poi={data.poi}
-            allPOIs={allPOIs}
-            handleReviews={handleReviews}
-            onRequestPreview={onRequestPreview}
-            handleReports={handleReports}
-          />
-        );
-      }}
+      {renderContent}
     </BottomSheetModal>
   );
 });

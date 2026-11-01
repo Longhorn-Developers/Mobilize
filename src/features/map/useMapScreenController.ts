@@ -6,6 +6,7 @@ import type { Polygon } from "geojson";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { POIReviewData } from "~/src/features/components/POIBottomSheet";
+import { useEntranceFilters } from "~/src/features/map/hooks/useEntranceFilters";
 import { useMapBottomSheets } from "~/src/features/map/hooks/useMapBottomSheets";
 import {
   OVERLAY_CLOSE_ANIMATION_MS,
@@ -58,6 +59,7 @@ export function useMapScreenController({
   const navigation = useNavigationMode(avoidPolygons);
   const routePreview = useRoutePreview(avoidPolygons);
   const poiReport = usePOIReportMode(bottomTabBarHeight);
+  const entranceFilters = useEntranceFilters();
 
   const [poi, setPoi] = useState<POIReviewData>();
   const [reviewKey, setReviewKey] = useState(0);
@@ -139,8 +141,23 @@ export function useMapScreenController({
     search.action.clear();
     report.action.resetReport();
     poiReport.action.resetReport();
+    // Only the open/closed state — the selected filters are kept
+    entranceFilters.action.close();
     setPoi(undefined);
   };
+
+  // Opening the filter legend clears the stage (sheets and search) so the map stays visible while
+  // filtering. closeAllSheets also resets the legend, so open() has to come after it.
+  const { isOpen: isEntranceFilterOpen } = entranceFilters.state;
+  const { open: openEntranceFilters, close: closeEntranceFilters } = entranceFilters.action;
+  const toggleEntranceFilters = useCallback(() => {
+    if (isEntranceFilterOpen) {
+      closeEntranceFilters();
+      return;
+    }
+    closeAllSheets();
+    openEntranceFilters();
+  }, [closeAllSheets, isEntranceFilterOpen, openEntranceFilters, closeEntranceFilters]);
 
   const [mapDetailMode, setMapDetailMode] = useState<MapDetailMode>("detailed");
 
@@ -217,6 +234,8 @@ export function useMapScreenController({
     navigation,
     routePreview,
     poiReport,
+    entranceFilters,
+    toggleEntranceFilters,
     search,
     poi,
     reviewKey,

@@ -8,8 +8,9 @@ import Mapbox, {
   PointAnnotation,
 } from "@rnmapbox/maps";
 import { Stack } from "expo-router";
+import { MapPinIcon } from "phosphor-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Platform, View } from "react-native";
+import { Image, Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AvoidanceAreaBottomSheet from "~/src/features/components/AvoidanceAreaBottomSheet";
@@ -191,11 +192,15 @@ export default function Home() {
   }, [isNavigating]);
 
   const {
+    originCoords,
     destinationCoords,
     destinationName,
     profile,
     route,
+    stops,
   } = map.routePreview.state;
+  const routeStart = route?.coordinates[0] ?? originCoords;
+  const routeEnd = route?.coordinates[route.coordinates.length - 1] ?? destinationCoords;
   const closePreview = map.routePreview.action.closePreview;
   const routePreviewSheetRef = map.bottomSheet.ref.routePreviewSheet;
   const startNavigation = navigation.action.startNavigation;
@@ -359,7 +364,8 @@ export default function Home() {
             onSetOrigin={map.routePreview.action.setOrigin}
             onSetDestination={map.routePreview.action.setDestination}
             onAddStop={map.routePreview.action.addStop}
-            onRemoveStop={map.routePreview.action.removeStop}
+            onRemoveLocation={map.routePreview.action.removeLocation}
+            onMoveLocation={map.routePreview.action.moveLocation}
             onToggleDirectionsList={
               map.routePreview.action.toggleDirectionsList
             }
@@ -459,6 +465,45 @@ export default function Home() {
               style={{ width: 28, height: 28 }}
             />
           </PointAnnotation>
+        )}
+
+        {/* Route start, stops (A, B, C…) and destination while previewing a route */}
+        {map.routePreview.state.isOpen && destinationCoords && (
+          <>
+            <PointAnnotation key={`route-origin-${routeStart}`} id="route-origin" coordinate={routeStart}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "#BF5700" }} />
+            </PointAnnotation>
+            {stops.map((stop, i) => (
+              <PointAnnotation
+                key={`route-stop-${i}-${stop.coords}`}
+                id={`route-stop-${i}`}
+                coordinate={stop.coords}
+              >
+                <View
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    backgroundColor: "#BF5700",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#FFFFFF" }}>
+                    {String.fromCharCode(65 + i)}
+                  </Text>
+                </View>
+              </PointAnnotation>
+            ))}
+            <PointAnnotation
+              key={`route-destination-${routeEnd}`}
+              id="route-destination"
+              coordinate={routeEnd ?? destinationCoords}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <MapPinIcon size={32} color="#BF5700" weight="fill" />
+            </PointAnnotation>
+          </>
         )}
 
         {/* ── Icon images for POI SymbolLayer & User Navigation ──────────────────────────────── */}

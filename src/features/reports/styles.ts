@@ -56,6 +56,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyText: { fontSize: 14 },
+  stateTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  stateBody: {
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 32,
+  },
 });
 
 export default styles;

@@ -110,10 +110,11 @@ export function useAvoidanceAreaReports(id: string) {
 }
 
 // fetch the signed-in user's own reports -R.L.
-export function useMyReports() {
+export function useMyReports(enabled = true) {
   return useQuery({
     queryKey: queryKeys.myReports,
     queryFn: () => apiClient.getMyReports(),
+    enabled,
   });
 }
 

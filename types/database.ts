@@ -39,6 +39,11 @@ export type AvoidanceAreaWithProfile = AvoidanceAreaRaw & {
   profile_avatar_url: string | null;
 };
 
+// avoidance area plus whether it's active or history -R.L.
+export type MyReport = AvoidanceAreaRaw & {
+  status: "active" | "history";
+};
+
 // Legacy alias — prefer AvoidanceAreaWithProfile in new code.
 export type AvoidanceAreaDetailRaw = AvoidanceAreaWithProfile;
 

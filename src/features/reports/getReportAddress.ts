@@ -2,6 +2,7 @@
 /** This is kinda the most inaccurate way to do this, but since its a UT app, the addresses are always "prettttty" close to the wanted spot */
 import * as turf from "@turf/turf";
 
+import type { MyReport } from "~/types/database";
 import type { BuildingProperties } from "~/utils/buildingDatabase";
 import { buildingIndex } from "~/utils/buildingDatabase";
 
@@ -33,4 +34,9 @@ export function getReportAddress(boundaryGeojson: string | null | undefined): st
 
   const stateAndZip = [closest.State, closest.Zip].filter(Boolean).join(" ");
   return [closest.Address_Full, closest.City, stateAndZip].filter(Boolean).join(", ");
+}
+
+/** The nearest building's address, or the description if we can't find one, used under a report's name -R.L. */
+export function getReportSubtitle(report: MyReport): string {
+  return getReportAddress(report.boundary_geojson) ?? (report.description || "No description");
 }

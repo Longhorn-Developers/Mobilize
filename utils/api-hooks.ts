@@ -20,6 +20,7 @@ export const queryKeys = {
   constructionAreas: ["constructionAreas"] as const,
   avoidanceArea: (id: string) => ["avoidanceArea", id] as const,
   avoidanceAreaReports: (id: string) => ["avoidanceAreaReports", id] as const,
+  myReports: ["myReports"] as const,
   profile: (id: number) => ["profile", id] as const,
   myProfile: ["myProfile"] as const,
   review: (poi_id: number) => ["review", poi_id] as const,
@@ -105,6 +106,14 @@ export function useAvoidanceAreaReports(id: string) {
     queryKey: queryKeys.avoidanceAreaReports(id),
     queryFn: () => apiClient.getAvoidanceAreaReports(id),
     enabled: !!id,
+  });
+}
+
+// fetch the signed-in user's own reports -R.L.
+export function useMyReports() {
+  return useQuery({
+    queryKey: queryKeys.myReports,
+    queryFn: () => apiClient.getMyReports(),
   });
 }
 

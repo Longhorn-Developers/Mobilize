@@ -2,7 +2,7 @@
 import "~/global.css";
 
 import { Tabs } from "expo-router";
-import { MapPinIcon, UserIcon } from "phosphor-react-native";
+import { FlagIcon, MapPinIcon, UserIcon } from "phosphor-react-native";
 
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
@@ -32,6 +32,13 @@ export default function Layout() {
             <MapPinIcon size={size} color={color} />
           ),
         } as any}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: "Reports",
+          tabBarIcon: ({ color, size }) => <FlagIcon size={size} color={color} />,
+        }}
       />
       <Tabs.Screen
         name="profile"

@@ -1,6 +1,6 @@
 /** One report card, active ones get the cone icon and history ones get the warning triangle -R.L. */
 import { TrafficConeIcon, WarningIcon } from "phosphor-react-native";
-import { Text, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
 import styles from "~/src/features/reports/styles";
 import colors from "~/types/colors";
@@ -11,9 +11,13 @@ type ReportCardProps = {
   title: string;
   subtitle: string;
   variant: MyReport["status"];
+  // tapping anywhere on the card does this -R.L.
+  onPress?: () => void;
+  // if this is passed, the card shows an "Add detail" button -R.L.
+  onAddDetail?: () => void;
 };
 
-export function ReportCard({ title, subtitle, variant }: ReportCardProps) {
+export function ReportCard({ title, subtitle, variant, onPress, onAddDetail }: ReportCardProps) {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
 
@@ -25,7 +29,10 @@ export function ReportCard({ title, subtitle, variant }: ReportCardProps) {
     : "rgba(209, 0, 0, 0.12)";
 
   return (
-    <View
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
       style={[
         styles.card,
         {
@@ -55,6 +62,11 @@ export function ReportCard({ title, subtitle, variant }: ReportCardProps) {
           {subtitle}
         </Text>
       </View>
-    </View>
+      {onAddDetail && (
+        <TouchableOpacity style={styles.cardAddDetailButton} onPress={onAddDetail}>
+          <Text style={styles.cardAddDetailText}>Add detail</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
   );
 }

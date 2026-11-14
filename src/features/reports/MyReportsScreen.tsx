@@ -1,30 +1,32 @@
 /** My Reports: This screen shows off the reports the user has made! -R.L. */
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
+import { useRef } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import {
+  AddDetailSheet,
+  type AddDetailSheetData,
+} from "~/src/features/reports/components/AddDetailSheet";
 import { ReportCard } from "~/src/features/reports/components/ReportCard";
 import { ReportSection } from "~/src/features/reports/components/ReportSection";
 import { ReportsEmptyState } from "~/src/features/reports/components/ReportsEmptyState";
 import { ReportsErrorState } from "~/src/features/reports/components/ReportsErrorState";
 import { ReportsGatedState } from "~/src/features/reports/components/ReportsGatedState";
-import { getReportAddress } from "~/src/features/reports/getReportAddress";
+import { getReportSubtitle } from "~/src/features/reports/getReportAddress";
 import styles from "~/src/features/reports/styles";
 import colors from "~/types/colors";
-import type { MyReport } from "~/types/database";
 import { useMyReports } from "~/utils/api-hooks";
 import { useTheme } from "~/utils/ThemeContext";
 import { useAuth } from "~/utils/useAuth";
 import { useRefreshOnFocus } from "~/utils/useRefreshOnFocus";
-
-// the nearest building's address, or the description if we can't find one -R.L.
-const getSubtitle = (report: MyReport) =>
-  getReportAddress(report.boundary_geojson) ?? (report.description || "No description");
 
 export default function MyReportsScreen() {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === "dark";
   const { user } = useAuth();
+  const addDetailSheetRef = useRef<BottomSheetModal<AddDetailSheetData>>(null);
 
   // same rule as the map screen: only UT students can see reports -R.L.
   const canViewReports =
@@ -51,8 +53,13 @@ export default function MyReportsScreen() {
               <ReportCard
                 key={report.id}
                 title={report.name}
-                subtitle={getSubtitle(report)}
+                subtitle={getReportSubtitle(report)}
                 variant="active"
+                onPress={() => addDetailSheetRef.current?.present({ report })}
+                // a report with no description still needs its details filled in -R.L.
+                onAddDetail={
+                  report.description ? undefined : () => addDetailSheetRef.current?.present({ report })
+                }
               />
             ))}
           </ReportSection>
@@ -63,8 +70,9 @@ export default function MyReportsScreen() {
               <ReportCard
                 key={report.id}
                 title={report.name}
-                subtitle={getSubtitle(report)}
+                subtitle={getReportSubtitle(report)}
                 variant="history"
+                onPress={() => addDetailSheetRef.current?.present({ report })}
               />
             ))}
           </ReportSection>
@@ -89,6 +97,7 @@ export default function MyReportsScreen() {
         My Reports
       </Text>
       {renderContent()}
+      <AddDetailSheet ref={addDetailSheetRef} />
     </View>
   );
 }

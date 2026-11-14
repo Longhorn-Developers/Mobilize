@@ -42,6 +42,57 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cardSubtitle: { fontSize: 14 },
+  cardAddDetailButton: {
+    borderWidth: 1,
+    borderColor: "#BF5700",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cardAddDetailText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#BF5700",
+  },
+  sheetContent: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  textInput: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    textAlignVertical: "top",
+  },
+  photoTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  sheetActionButton: { flex: 1 },
   emptyContainer: {
     flex: 1,
     alignItems: "center",

@@ -8,6 +8,40 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 12,
   },
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 20,
+  },
+  section: { gap: 10 },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "600",
+  },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  cardIconTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardText: {
+    flex: 1,
+    gap: 2,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  cardSubtitle: { fontSize: 14 },
   emptyContainer: {
     flex: 1,
     alignItems: "center",

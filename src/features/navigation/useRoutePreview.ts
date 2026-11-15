@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Polygon } from "geojson";
 
 import * as MapConstants from "~/src/features/map/constants";
@@ -24,7 +24,10 @@ export interface RoutePreviewState {
   showDirectionsList: boolean;
 }
 
-export function useRoutePreview(avoidPolygons?: Polygon[]) {
+export function useRoutePreview(
+  avoidPolygons?: Polygon[],
+  currentLocation: [number, number] | null = null,
+) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [route, setRoute] = useState<ORSRoute | null>(null);
@@ -42,6 +45,8 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
   const abortRef = useRef<AbortController | null>(null);
   const avoidPolygonsRef = useRef(avoidPolygons);
   avoidPolygonsRef.current = avoidPolygons;
+  const locationLongitude = currentLocation?.[0];
+  const locationLatitude = currentLocation?.[1];
 
   const doFetch = useCallback(
     async (
@@ -79,6 +84,39 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
     [],
   );
 
+  useEffect(() => {
+    if (
+      originName !== "My Location" ||
+      locationLongitude === undefined ||
+      locationLatitude === undefined
+    ) {
+      return;
+    }
+
+    const updatedOrigin: [number, number] = [locationLongitude, locationLatitude];
+    if (
+      originCoords[0] === updatedOrigin[0] &&
+      originCoords[1] === updatedOrigin[1]
+    ) {
+      return;
+    }
+
+    setOriginCoords(updatedOrigin);
+    if (isOpen && destinationCoords) {
+      void doFetch(updatedOrigin, destinationCoords, profile, stops);
+    }
+  }, [
+    locationLongitude,
+    locationLatitude,
+    originName,
+    originCoords,
+    isOpen,
+    destinationCoords,
+    profile,
+    stops,
+    doFetch,
+  ]);
+
   const openPreview = useCallback(
     (coords: [number, number], name: string, entrance = "") => {
       setDestinationCoords(coords);
@@ -89,9 +127,11 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
       setRoute(null);
       setError(null);
       setIsOpen(true);
-      void doFetch(MapConstants.UT_TOWER, coords, profile, []);
+      const activeOrigin = currentLocation ?? originCoords;
+      setOriginCoords(activeOrigin);
+      void doFetch(activeOrigin, coords, profile, []);
     },
-    [profile, doFetch],
+    [currentLocation, originCoords, profile, doFetch],
   );
 
   const closePreview = useCallback(() => {
@@ -103,11 +143,11 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
     setDestinationCoords(null);
     setEntranceLabel("");
     setOriginName("My Location");
-    setOriginCoords(MapConstants.UT_TOWER);
+    setOriginCoords(currentLocation ?? MapConstants.UT_TOWER);
     setProfile("wheelchair");
     setStops([]);
     setShowDirectionsList(false);
-  }, []);
+  }, [currentLocation]);
 
   const changeProfile = useCallback(
     (p: RoutingProfile) => {

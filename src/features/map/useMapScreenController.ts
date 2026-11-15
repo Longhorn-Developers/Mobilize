@@ -29,6 +29,7 @@ export function useMapScreenController({
   avoidanceAreas,
   constructionAreas,
   entrances,
+  currentLocation,
 }: any) {
   const cameraRef = useRef<Camera>(null);
 
@@ -57,7 +58,7 @@ export function useMapScreenController({
   const bottomSheet = useMapBottomSheets();
   const report = useReportMode(bottomTabBarHeight);
   const navigation = useNavigationMode(avoidPolygons);
-  const routePreview = useRoutePreview(avoidPolygons);
+  const routePreview = useRoutePreview(avoidPolygons, currentLocation);
   const poiReport = usePOIReportMode(bottomTabBarHeight);
   const entranceFilters = useEntranceFilters();
 

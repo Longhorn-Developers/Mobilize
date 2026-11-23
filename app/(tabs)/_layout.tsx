@@ -2,14 +2,14 @@
 import "~/global.css";
 
 import { Tabs } from "expo-router";
-import { MapPinIcon, UserIcon } from "phosphor-react-native";
+import { HouseIcon, UserIcon } from "phosphor-react-native";
 
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
 
 export default function Layout() {
   const { colorScheme } = useTheme();
-
+  const sizeMultiplier = 1.2; // increase icon size for better visibility
   const isDark = colorScheme === "dark";
 
   return (
@@ -20,7 +20,10 @@ export default function Layout() {
         tabBarStyle: {
           backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
           borderTopColor: isDark ? "#3A3A3C" : "#E5E7EB",
+          height: 90,
+          paddingTop: 8,
         },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
         headerShown: false,
       }}
     >
@@ -29,7 +32,7 @@ export default function Layout() {
         options={{
           title: "Map",
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <MapPinIcon size={size} color={color} />
+            <HouseIcon size={size * sizeMultiplier} color={color} />
           ),
         } as any}
       />
@@ -37,7 +40,7 @@ export default function Layout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => <UserIcon size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <UserIcon size={size * sizeMultiplier} color={color} />,
         }}
       />
     </Tabs>

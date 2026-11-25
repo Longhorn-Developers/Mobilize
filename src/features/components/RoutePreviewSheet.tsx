@@ -1,11 +1,11 @@
 import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import {
   ArrowsDownUpIcon,
+  ListIcon,
   ArrowLeftIcon,
   MapPinIcon,
-  NavigationArrowIcon,
-  PlusIcon,
   XIcon,
+  TrashIcon,
   ArrowRightIcon,
 } from "phosphor-react-native";
 import React, { ForwardedRef, useCallback, useEffect, useRef, useState } from "react";
@@ -15,13 +15,18 @@ import {
   Image,
   Modal,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
+  ViewStyle,
 } from "react-native";
 
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -44,6 +49,39 @@ const PROFILE_ICONS: Partial<Record<RoutingProfile, ReturnType<typeof require>>>
   "foot-walking": require("../../../assets/map_icons/walk.png"),
 };
 
+// One location row (56pt) plus its 1pt divider
+const LOCATION_ROW_PITCH = 57;
+
+const MAX_STOPS = 10;
+
+interface DragRowProps {
+  index: number;
+  dragIndex: SharedValue<number>;
+  dragY: SharedValue<number>;
+  bg: string;
+  style?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}
+
+// A location row that follows the finger while its hamburger is being dragged
+function DragRow({ index, dragIndex, dragY, bg, style, children }: DragRowProps) {
+  const { colorScheme } = useTheme();
+  const dragStyle = useAnimatedStyle(() => {
+    const active = dragIndex.value === index;
+    return {
+      transform: [{ translateY: active ? dragY.value : 0 }],
+      zIndex: active ? 1 : 0,
+      backgroundColor: active ? bg : "transparent",
+      marginHorizontal: active ? -13 : 0,
+      paddingHorizontal: active ? 12 : 0,
+      borderRadius: 8,
+      borderWidth: active ? 1 : 0,
+      borderColor: colorScheme === "dark" ? "#FFFFFF" : "#000000",
+    };
+  });
+  return <Animated.View style={[style, dragStyle]}>{children}</Animated.View>;
+}
+
 type EditingField = "origin" | "destination" | "stop";
 
 interface RoutePreviewSheetProps {
@@ -55,7 +93,8 @@ interface RoutePreviewSheetProps {
   onSetOrigin: (coords: [number, number], name: string) => void;
   onSetDestination: (coords: [number, number], name: string) => void;
   onAddStop: (coords: [number, number], name: string) => void;
-  onRemoveStop: (index: number) => void;
+  onRemoveLocation: (index: number) => void;
+  onMoveLocation: (from: number, to: number) => void;
   onToggleDirectionsList: () => void;
   onDismiss: () => void;
 }
@@ -327,12 +366,13 @@ interface RouteCardProps {
   isLoading: boolean;
   error: string | null;
   profile: RoutingProfile;
+  stopCount: number;
   isDark: boolean;
   onPress: () => void;
   onGo: () => void;
 }
 
-function RouteCard({ route, isLoading, error, profile, isDark, onPress, onGo }: RouteCardProps) {
+function RouteCard({ route, isLoading, error, profile, stopCount, isDark, onPress, onGo }: RouteCardProps) {
   const textColor = isDark ? "#F9FAFB" : "#1A2024";
   const subColor = isDark ? "#9CA3AF" : "#64748B";
   const cardBg = isDark ? "#2C2C2E" : "#F3F4F6";
@@ -361,7 +401,8 @@ function RouteCard({ route, isLoading, error, profile, isDark, onPress, onGo }: 
                 {formatDuration(route.totalDurationSec)}
               </Text>
               <Text style={[styles.routeCardETA, { color: subColor }]}>
-                ETA {formatETA(route.totalDurationSec)}
+                {stopCount > 0 && `${stopCount} ${stopCount === 1 ? "stop" : "stops"} · `}
+                {formatETA(route.totalDurationSec)} ETA
               </Text>
               <Text style={[styles.routeCardDist, { color: subColor }]}>
                 {formatDistance(route.totalDistanceMi)}
@@ -407,13 +448,15 @@ const RoutePreviewSheet = React.memo(
     onSetOrigin,
     onSetDestination,
     onAddStop,
-    onRemoveStop,
+    onRemoveLocation,
+    onMoveLocation,
     onToggleDirectionsList,
     onDismiss,
   }: RoutePreviewSheetProps) => {
     const { colorScheme } = useTheme();
     const isDark = colorScheme === "dark";
     const bottomTabBarHeight = useBottomTabBarHeight();
+    const { height: windowHeight } = useWindowDimensions();
 
     const [editingField, setEditingField] = useState<EditingField | null>(null);
 
@@ -445,6 +488,30 @@ const RoutePreviewSheet = React.memo(
       showDirectionsList,
     } = previewState;
 
+    const dragIndex = useSharedValue(-1);
+    const dragY = useSharedValue(0);
+
+    const getDragGesture = (index: number) =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .onStart(() => {
+          dragIndex.value = index;
+        })
+        .onUpdate((e) => {
+          dragY.value = e.translationY;
+        })
+        .onEnd((e) => {
+          const to = Math.max(
+            0,
+            Math.min(stops.length + 1, index + Math.round(e.translationY / LOCATION_ROW_PITCH)),
+          );
+          onMoveLocation(index, to);
+        })
+        .onFinalize(() => {
+          dragIndex.value = -1;
+          dragY.value = 0;
+        });
+
     return (
       <>
         <BottomSheetModal
@@ -463,7 +530,7 @@ const RoutePreviewSheet = React.memo(
         >
           {() => (
             <BottomSheetScrollView
-              contentContainerStyle={styles.sheetContent}
+              contentContainerStyle={[styles.sheetContent, { paddingBottom: windowHeight * 0.53 }]}
               keyboardShouldPersistTaps="handled"
             >
               {/* Transport mode tabs */}
@@ -505,81 +572,120 @@ const RoutePreviewSheet = React.memo(
               <View style={[styles.divider, { backgroundColor: divider }]} />
 
               {/* Location rows */}
-              <View style={styles.locationsBlock}>
+              <View style={styles.locationsWrap}>
+              <View style={[styles.locationsBlock, { borderColor: divider }]}>
+                <View style={[styles.locationConnector, { borderColor: divider }]} />
                 {/* Origin */}
-                <View style={styles.locationRow}>
-                  <NavigationArrowIcon size={18} color="#BF5700" weight="fill" />
+                <DragRow index={0} dragIndex={dragIndex} dragY={dragY} bg={bg} style={styles.locationRow}>
+                  <View style={styles.locationDot} />
                   <TouchableOpacity
-                    style={styles.locationLabel}
+                    style={[styles.locationLabel, { minWidth: 36, minHeight: 44, justifyContent: "center" }]}
                     onPress={() => setEditingField("origin")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit my location"
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.locationText, { color: textColor }]} numberOfLines={1}>
+                    <Text style={[styles.locationText, { color: textColor, flexShrink: 1 }]} numberOfLines={1}>
                       {originName}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={onSwapOriginDest}
-                    style={styles.swapBtn}
-                    activeOpacity={0.7}
-                  >
-                    <ArrowsDownUpIcon size={20} color={subColor} weight="bold" />
-                  </TouchableOpacity>
-                </View>
 
-                <View style={[styles.locationDivider, { backgroundColor: divider }]} />
-
-                {/* Destination */}
-                <View style={styles.locationRow}>
-                  <MapPinIcon size={18} color="#1A7CD4" weight="fill" />
-                  <TouchableOpacity
-                    style={styles.locationLabel}
-                    onPress={() => setEditingField("destination")}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.locationText, { color: textColor }]} numberOfLines={1}>
-                      {destinationName || "Choose destination"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  {stops.length === 0 ? (
+                    <TouchableOpacity
+                      onPress={onSwapOriginDest}
+                      style={styles.swapBtn}
+                      activeOpacity={0.7}
+                    >
+                      <ArrowsDownUpIcon size={20} color={subColor} weight="bold" />
+                    </TouchableOpacity>
+                  ) : (
+                    <GestureDetector gesture={getDragGesture(0)}>
+                      <View style={styles.swapBtn}>
+                        <ListIcon size={22} color={textColor} />
+                      </View>
+                    </GestureDetector>
+                  )}
+                </DragRow>
 
                 {/* Additional stops */}
                 {stops.map((stop: RouteStop, i: number) => (
-                  <View key={i}>
+                  <React.Fragment key={i}>
                     <View style={[styles.locationDivider, { backgroundColor: divider }]} />
-                    <View style={styles.locationRow}>
-                      <MapPinIcon size={18} color={subColor} weight="fill" />
+                    <DragRow index={i + 1} dragIndex={dragIndex} dragY={dragY} bg={bg} style={styles.locationRow}>
+                      <View style={styles.locationDot}>
+                        <Text style={styles.locationDotText}>{String.fromCharCode(65 + i)}</Text>
+                      </View>
                       <Text
-                        style={[styles.locationText, { color: textColor, flex: 1, marginLeft: 10 }]}
+                        style={[styles.locationText, { color: textColor, flex: 1 }]}
                         numberOfLines={1}
                       >
                         {stop.name}
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => onRemoveStop(i)}
-                        style={styles.swapBtn}
-                        activeOpacity={0.7}
-                      >
-                        <XIcon size={18} color={subColor} weight="bold" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                      <GestureDetector gesture={getDragGesture(i + 1)}>
+                        <View style={styles.swapBtn}>
+                          <ListIcon size={22} color={textColor} />
+                        </View>
+                      </GestureDetector>
+                    </DragRow>
+                  </React.Fragment>
                 ))}
+
+                <View style={[styles.locationDivider, { backgroundColor: divider }]} />
+
+                {/* Destination */}
+                <DragRow
+                  index={stops.length + 1}
+                  dragIndex={dragIndex}
+                  dragY={dragY}
+                  bg={bg}
+                  style={styles.locationRow}
+                >
+                  <MapPinIcon size={18} color={textColor} />
+                  <TouchableOpacity
+                    style={[styles.locationLabel, { minWidth: 36, minHeight: 44, justifyContent: "center" }]}
+                    onPress={() => setEditingField("destination")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit target location"
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.locationText, { color: textColor, flexShrink: 1 }]} numberOfLines={1}>
+                      {destinationName || "Choose destination"}
+                    </Text>
+                  </TouchableOpacity>
+                  {stops.length > 0 && (
+                    <GestureDetector gesture={getDragGesture(stops.length + 1)}>
+                      <View style={styles.swapBtn}>
+                        <ListIcon size={22} color={textColor} />
+                      </View>
+                    </GestureDetector>
+                  )}
+                </DragRow>
+              </View>
+              {stops.length > 0 && (
+                <View style={styles.trashColumn}>
+                  {Array.from({ length: stops.length + 2 }, (_, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={styles.trashBtn}
+                      onPress={() => onRemoveLocation(i)}
+                      activeOpacity={0.7}
+                    >
+                      <TrashIcon size={24} color={textColor} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
               </View>
 
               {/* Add Stop */}
-              {stops.length === 0 && (
-                <TouchableOpacity
-                  style={styles.addStopBtn}
-                  onPress={() => setEditingField("stop")}
-                  activeOpacity={0.7}
-                >
-                  <PlusIcon size={16} color="#BF5700" weight="bold" />
-                  <Text style={styles.addStopText}>Add Stop</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={[styles.divider, { backgroundColor: divider }]} />
+              <TouchableOpacity
+                style={[styles.addStopBtn, stops.length >= MAX_STOPS && { opacity: 0.4 }]}
+                disabled={stops.length >= MAX_STOPS}
+                onPress={() => setEditingField("stop")}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.addStopText}>Add Stop</Text>
+              </TouchableOpacity>
 
               {/* Route card or directions list */}
               {showDirectionsList && route ? (
@@ -594,6 +700,7 @@ const RoutePreviewSheet = React.memo(
                   isLoading={isLoading}
                   error={error}
                   profile={profile}
+                  stopCount={stops.length}
                   isDark={isDark}
                   onPress={onToggleDirectionsList}
                   onGo={onGo}
@@ -652,16 +759,26 @@ const styles = StyleSheet.create({
   locationDivider: { height: 1, marginLeft: 28, marginRight: 0 },
 
   // Location rows
+  locationsWrap: { flexDirection: "row", gap: 8 },
+  trashColumn: { paddingTop: 1, gap: 1 },
+  trashBtn: { height: 56, justifyContent: "center" },
   locationsBlock: {
-    paddingVertical: 8,
+    flex: 1,
+    paddingVertical: 0,
     gap: 0,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    height: 56,
     gap: 10,
   },
+  locationConnector: { position: "absolute", left: 20, top: 37, bottom: 37, borderLeftWidth: 1, borderStyle: "dashed" },
+  locationDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: "#BF5700", alignItems: "center", justifyContent: "center" },
+  locationDotText: { fontFamily: "Inter", fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
   locationLabel: { flex: 1 },
   locationText: {
     fontFamily: "Inter",
@@ -672,15 +789,18 @@ const styles = StyleSheet.create({
 
   // Add stop
   addStopBtn: {
+    marginTop: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
     paddingVertical: 10,
-    paddingLeft: 4,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#BF5700",
+    borderRadius: 8,
   },
   addStopText: {
     fontFamily: "Inter",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: "#BF5700",
   },

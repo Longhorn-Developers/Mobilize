@@ -58,8 +58,8 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
       setIsLoading(true);
       setError(null);
 
-      // Route order: Origin → Destination → Stops (stops visited after destination)
-      const waypoints: [number, number][] = [origin, destination, ...activeStops.map((s) => s.coords)];
+      // Route order: Origin → Stops → Destination
+      const waypoints: [number, number][] = [origin, ...activeStops.map((s) => s.coords), destination];
 
       try {
         const result = await fetchRoute(waypoints, activeProfile, avoidPolygonsRef.current);
@@ -164,15 +164,48 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
     [destinationCoords, originCoords, profile, doFetch],
   );
 
-  const removeStop = useCallback(
-    (index: number) => {
-      setStops((prev) => {
-        const updated = prev.filter((_, i) => i !== index);
-        if (destinationCoords) void doFetch(originCoords, destinationCoords, profile, updated);
-        return updated;
-      });
+  const updateLocations = useCallback(
+    (locations: RouteStop[]) => {
+      const first = locations[0];
+      const last = locations[locations.length - 1];
+      const intermediate = locations.slice(1, -1);
+      setOriginCoords(first.coords);
+      setOriginName(first.name);
+      if (last.coords !== destinationCoords) setEntranceLabel("");
+      setDestinationCoords(last.coords);
+      setDestinationName(last.name);
+      setStops(intermediate);
+      void doFetch(first.coords, last.coords, profile, intermediate);
     },
-    [destinationCoords, originCoords, profile, doFetch],
+    [destinationCoords, profile, doFetch],
+  );
+
+  const moveLocation = useCallback(
+    (from: number, to: number) => {
+      if (!destinationCoords || from === to) return;
+      const locations: RouteStop[] = [
+        { coords: originCoords, name: originName },
+        ...stops,
+        { coords: destinationCoords, name: destinationName },
+      ];
+      const [moved] = locations.splice(from, 1);
+      locations.splice(to, 0, moved);
+      updateLocations(locations);
+    },
+    [originCoords, originName, stops, destinationCoords, destinationName, updateLocations],
+  );
+
+  const removeLocation = useCallback(
+    (index: number) => {
+      if (!destinationCoords || stops.length === 0) return;
+      const locations: RouteStop[] = [
+        { coords: originCoords, name: originName },
+        ...stops,
+        { coords: destinationCoords, name: destinationName },
+      ];
+      updateLocations(locations.filter((_, i) => i !== index));
+    },
+    [originCoords, originName, stops, destinationCoords, destinationName, updateLocations],
   );
 
   const toggleDirectionsList = useCallback(() => {
@@ -220,7 +253,8 @@ export function useRoutePreview(avoidPolygons?: Polygon[]) {
       setDestination,
       swapOriginDest,
       addStop,
-      removeStop,
+      removeLocation,
+      moveLocation,
       toggleDirectionsList,
     },
   };

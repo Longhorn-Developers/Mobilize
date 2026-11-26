@@ -1,8 +1,8 @@
-/** Tab bar layout for the main app — defines the Map and Profile tabs. Requires authenticated + onboarded user. */
+/** Tab bar layout for the main app — defines the Map, Reports and Profile tabs. Requires authenticated + onboarded user. */
 import "~/global.css";
 
 import { Tabs } from "expo-router";
-import { HouseIcon, UserIcon } from "phosphor-react-native";
+import { FlagIcon, HouseIcon, UserIcon } from "phosphor-react-native";
 
 import colors from "~/types/colors";
 import { useTheme } from "~/utils/ThemeContext";
@@ -35,6 +35,13 @@ export default function Layout() {
             <HouseIcon size={size * sizeMultiplier} color={color} />
           ),
         } as any}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: "Reports",
+          tabBarIcon: ({ color, size }) => <FlagIcon size={size * sizeMultiplier} color={color} />,
+        }}
       />
       <Tabs.Screen
         name="profile"

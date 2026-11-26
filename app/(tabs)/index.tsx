@@ -107,6 +107,14 @@ export default function Home() {
   const { poiGeoJSON, clusteredEntrancePOIs, entrances } = usePOIFeatures(POIs);
 
   const locationService = useLocationService();
+  const { geoLocation } = locationService.state;
+  const currentLocation = useMemo<[number, number] | null>(
+    () =>
+      geoLocation
+        ? [geoLocation.coords.longitude, geoLocation.coords.latitude]
+        : null,
+    [geoLocation],
+  );
 
   const map = useMapScreenController({
     isTabFocused,
@@ -114,6 +122,7 @@ export default function Home() {
     avoidanceAreas,
     constructionAreas,
     entrances,
+    currentLocation,
   });
   // The report button is hidden for non-students and while the POI report form is open
   const reportVisible = canReport && !map.poiReport.state.isPOIReportMode;

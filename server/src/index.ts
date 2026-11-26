@@ -629,6 +629,33 @@ app.post("/avoidance_areas", async (c) => {
   return c.json(result);
 });
 
+// how many days to be "active" -R.L.
+const HISTORY_AFTER_DAYS = 30;
+
+/** GET /me/reports gives all reports starting with the newest -R.L. */
+app.get("/me/reports", async (c) => {
+  const db = c.get("db");
+  const user = await requireStudent(c, db);
+  if (user instanceof Response) return user;
+
+  const areas = await db
+    .select()
+    .from(schema.avoidance_areas)
+    .where(eq(schema.avoidance_areas.user_id, user.id))
+    .orderBy(desc(schema.avoidance_areas.created_at))
+    .all();
+
+  // anything older than the cutoff is history -R.L.
+  const cutoff = Date.now() - HISTORY_AFTER_DAYS * 24 * 60 * 60 * 1000;
+
+  return c.json(
+    areas.map((area) => ({
+      ...area,
+      status: area.created_at.getTime() < cutoff ? "history" : "active",
+    })),
+  );
+});
+
 // ── Avoidance Area Reports ─────────────────────────────────────────────────────
 
 /** GET /avoidance_areas/:id/reports — returns all reports/comments for an avoidance area (no auth required). */

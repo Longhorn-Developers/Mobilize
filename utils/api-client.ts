@@ -8,6 +8,7 @@ import {
   AvoidanceAreaRaw,
   AvoidanceAreaDetailRaw,
   AvoidanceAreaReport,
+  MyReport,
   ReviewEntryRaw,
   ReviewEntry,
 } from "~/types/database";
@@ -321,6 +322,11 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  /** Returns the signed-in user's own reports, newest first. Requires student session token. -R.L. */
+  async getMyReports() {
+    return this.authRequest<MyReport[]>("/me/reports");
   }
 
   /** Create a new poi report. Requires student session token. */
